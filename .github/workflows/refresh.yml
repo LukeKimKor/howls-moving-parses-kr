@@ -20,6 +20,7 @@ jobs:
     # Both flags default to disabled. Enable only after the owner approves setup.
     if: github.event_name == 'workflow_dispatch' || vars.ENABLE_SCHEDULED_REFRESH == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,6 +38,18 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+      - name: Restore previous public snapshot cache
+        uses: actions/cache/restore@v4
+        with:
+          path: cache/last-snapshot.json
+          key: public-snapshot-v1-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: public-snapshot-v1-${{ github.ref_name }}-
+
+      - name: Bootstrap previous published data if no cache exists
+        run: pnpm tsx scripts/restore-snapshot.ts
+        env:
+          PREVIOUS_SITE_URL: https://${{ github.repository_owner }}.github.io${{ env.DEPLOY_BASE_PATH }}
+
       - name: Fetch data
         run: pnpm fetch:refresh
         env:
@@ -48,6 +61,12 @@ jobs:
 
       - name: Validate snapshot
         run: pnpm test:snapshot
+
+      - name: Save snapshot for the next refresh
+        uses: actions/cache/save@v4
+        with:
+          path: cache/last-snapshot.json
+          key: public-snapshot-v1-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Typecheck
         run: pnpm typecheck

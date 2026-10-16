@@ -5,6 +5,7 @@ dist
 !.env.example
 src/data/snapshot.json
 public/build-hash.json
+public/snapshot.json
 lighthouse-report.json
 cache/
 .playwright-mcp/

@@ -2,6 +2,11 @@ import type { Region } from "../lib/regions.js";
 
 /** The root snapshot produced by the build script and imported by App.tsx. */
 export interface Snapshot {
+	wclZones?: { raid: number; mythicPlus: number };
+	collectionSummary?: {
+		characters: CollectionCounts;
+		metaSpecs: CollectionCounts & { withData: number };
+	};
 	dataMode?: "full" | "raiderio-only";
 	region?: Region;
 	warnings?: string[];
@@ -9,6 +14,24 @@ export interface Snapshot {
 	buildHash: string; // must match dist/build-hash.json
 	characters: CharacterData[];
 	specs: Record<string, SpecMetaData>; // key: "elemental-shaman", "frost-death-knight", etc.
+}
+
+export interface CollectionStatus {
+	state: "ok" | "empty" | "partial" | "failed" | "skipped";
+	/** Logical queries after retries, not individual HTTP attempts. */
+	attemptedRequests: number;
+	failedRequests: number;
+	issues: string[];
+	lastSuccessAt?: string;
+	retainedAt?: string;
+}
+
+export interface CollectionCounts {
+	tracked: number;
+	complete: number;
+	partial: number;
+	failed: number;
+	skipped: number;
 }
 
 // ── Character ─────────────────────────────────────────────
@@ -44,6 +67,12 @@ export interface CharacterData {
  * corresponding API call failed; the UI must handle this gracefully.
  */
 export interface CharacterSpecData {
+	collection?: {
+		raiderio: CollectionStatus;
+		raid: CollectionStatus;
+		mythicPlus: CollectionStatus;
+		raidDates: CollectionStatus;
+	};
 	specSlug: string; // e.g. "elemental-shaman" — matches key in top-level specs map
 	specName: string; // e.g. "Elemental"
 	role: "main" | "offspec" | "tracked";
@@ -142,6 +171,7 @@ export interface SpecMetaData {
 
 /** Mythic+ meta for a spec: leaderboard and (deferred) builds/gear. */
 export interface MythicPlusMeta {
+	collection?: CollectionStatus;
 	leaderboard: MythicPlusLeaderboardEntry[];
 	metaBuilds: MetaBuild[];
 	metaGear: MetaGearData;
@@ -169,6 +199,7 @@ export interface MythicPlusLeaderboardEntry {
 
 /** Raid meta for a spec: leaderboard and (deferred) builds/gear. */
 export interface RaidMeta {
+	collection?: CollectionStatus;
 	leaderboard: RaidLeaderboardEntry[];
 	metaBuilds: MetaBuild[];
 	metaGear: MetaGearData;

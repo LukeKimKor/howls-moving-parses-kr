@@ -21,10 +21,14 @@ export function LogPerformancePanel({
 	data,
 	metric,
 	unavailableReason,
+	raidUnavailableReason,
+	mplusUnavailableReason,
 }: {
 	data: LogData | null;
 	metric: "dps" | "hps";
 	unavailableReason?: string;
+	raidUnavailableReason?: string;
+	mplusUnavailableReason?: string;
 }) {
 	const perfLabel = metric === "hps" ? "HPS" : "DPS";
 
@@ -68,7 +72,7 @@ export function LogPerformancePanel({
 				</div>
 
 				{filteredRaidParses.length === 0 ? (
-					<EmptyState message="No raid parses found." />
+					<EmptyState message={raidUnavailableReason ?? "No raid parses found."} />
 				) : (
 					<div style={{ overflowX: "auto" }}>
 						<DataTable>
@@ -95,7 +99,7 @@ export function LogPerformancePanel({
 
 				<h3>Mythic+</h3>
 				{data.recentDungeonLogs.length === 0 ? (
-					<EmptyState message="No recent dungeon logs found." />
+					<EmptyState message={mplusUnavailableReason ?? "No recent dungeon logs found."} />
 				) : (
 					<div style={{ overflowX: "auto" }}>
 						<DataTable>

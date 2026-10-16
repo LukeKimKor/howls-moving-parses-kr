@@ -1,12 +1,12 @@
 # KR Azshara dashboard
 
-This adaptation preserves the upstream GitHub Actions → static Vite build → `gh-pages` → GitHub Pages structure. It tracks the 13 KR Azshara characters in `characters.config.json`.
+This adaptation uses GitHub Actions → static Vite build → official Pages artifact deployment. It tracks the 13 KR Azshara characters in `characters.config.json`.
 
 ## Verified public data and limits
 
 All 13 character profiles returned real Raider.IO KR/Azshara data during local verification: overall M+ score, realm/region/world ranks, recent and dungeon-best runs, equipped gear, and current-spec talents. Scores, ranks and runs are character-wide. Gear is the currently equipped set, and talents are shown only for the matching current spec. Names remain NFC Hangul and URL components are encoded once; the canonical realm slug is `azshara`.
 
-Without WCL credentials, snapshots use `dataMode=raiderio-only`. Logs and spec meta are marked unqueried and remain empty. No sample logs or rankings are inserted. WCL character/spec query parameters and KR response filtering have mocked tests; actual WCL logs, current zones, healer HPS, KR meta samples and rate usage still require an authenticated run.
+Without WCL credentials, snapshots use `dataMode=raiderio-only`. Logs and spec meta are marked unqueried and remain empty. No sample logs or rankings are inserted. The owner's authenticated run #4 on 2026-10-16 retrieved raid zone 53 (10 encounters), M+ zone 55 (8 dungeons), M+ logs for all 13 characters, and raid logs for 10. Arms metadata and Demonology raid trinkets hit HTTP 429; those missing samples were not evidence of no records. The subsequent rate-limit fix requires one coordinated validation run before its live behavior can be considered verified.
 
 The upstream meta algorithm samples players with WCL logs, then enriches them with Raider.IO score and equipped trinkets. It is not the complete regional Raider.IO score ranking. Upstream meta talent builds, enchants and damage breakdown stubs remain deferred.
 
@@ -43,9 +43,19 @@ Repository variables:
 | `ENABLE_SCHEDULED_REFRESH` | `true` |
 | `DEPLOY_BASE_PATH` | Optional; defaults to `/repository-name/` |
 
-The flags are inert until set on the remote repository. The build job has `contents: read`; only the deploy job receives `contents: write`. Deployment uses the automatically provided `GITHUB_TOKEN` in the same repository. No personal access token, SSH deploy key, `pages: write`, or `id-token: write` is required for this branch-based publishing workflow. [Token permissions](https://docs.github.com/en/actions/tutorials/authenticate-with-github_token).
+The build job has `contents: read`. Only the deploy job receives `pages: write` and `id-token: write`, and it permits only `refs/heads/main`. It uses the built-in workflow token/OIDC; no personal access token or code-write permission is required. [Official Pages workflow](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 
-After the first deploy creates `gh-pages`, configure **Settings → Pages → Source: Deploy from a branch → gh-pages → /(root)**, then rerun if required. The action adds `.nojekyll`. This repository does not use `actions/deploy-pages` artifact publishing. [Pages setup](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site), [first deployment notes](https://github.com/peaceiris/actions-gh-pages#%EF%B8%8F-first-deployment-with-github_token).
+Set **Settings → Pages → Source: GitHub Actions** and explicitly permit `main` in the `github-pages` environment. Preserve other environment protection settings. Deployment uses `actions/upload-pages-artifact@v4` and `actions/deploy-pages@v4` directly.
+
+## WCL limits and partial results
+
+OAuth and GraphQL share a single queue with at least 1.5 seconds between HTTP starts. Each query gets at most five attempts. HTTP 429 uses 30/60/120/240-second exponential delays plus additive jitter; a longer `Retry-After` (seconds or HTTP date) always takes precedence. Transient server/network errors also back off. A long cooldown or exhausted 429 retries stops further WCL requests for that run rather than starting new retry batches. This is a conservative client policy, not a claim about WCL's permitted request rate. [Retry-After semantics](https://www.rfc-editor.org/rfc/rfc9110.html#name-retry-after).
+
+Each character source and each M+/raid meta section records `ok`, `empty`, `partial`, `failed`, or `skipped`, final query failure counts and timestamps. GraphQL partial errors count as failures even with HTTP 200. The site distinguishes failed/unqueried data from a successful empty response. CI counts tracked specs, complete/partial/failed lookups, and displayable data separately; retained data is not counted as a fresh success.
+
+Failed sections retain a previous nonempty sample, with its original timestamp. Successful empty responses clear old records. A snapshot cache carries these public data across runs; an uncached run first reads the site's public snapshot, falling back to literal-only extraction from older public JS bundles. No bundle code executes, and no credentials are needed for this restore. WCL data are retained only for matching zones (legacy snapshots without zone IDs are accepted for seven days). Previously incomplete meta samples are fetched first; this prioritizes the incomplete Arms/Demonology samples from run #4. `public/snapshot.json` contains the same public character/meta data already embedded in the app.
+
+After a rate-limit incident, coordinate one validation run after cooldown rather than launching repeated runs. Check Arms M+/raid and Demonology raid first, then all 13 characters and 14 tracked specs. An Actions run may deploy a partial snapshot successfully; the site warnings and Collection results summary are the data-completeness checks.
 
 The workflow runs tests, selects the appropriate data mode, validates the generated snapshot, checks TypeScript and lint, builds, and uploads the reviewed build before deployment. Manual runs also retain the upstream Lighthouse checks (performance 90, accessibility 95, best practices 100; SEO is excluded). Data refreshes change the build hash even without code commits; the service worker checks for updates on tab focus and every five minutes.
 

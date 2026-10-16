@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { CharactersConfig } from "../../scripts/config-validation.js";
-import type { Snapshot } from "../types/snapshot.js";
+import type { CollectionStatus, Snapshot } from "../types/snapshot.js";
 
 const snapshotPath = join(process.cwd(), "src/data/snapshot.json");
 const buildHashPath = join(process.cwd(), "dist/build-hash.json");
@@ -10,6 +10,35 @@ const buildHashPath = join(process.cwd(), "dist/build-hash.json");
 let snapshot: Record<string, unknown>;
 
 describe("snapshot.json schema validation", () => {
+	it("validates optional per-source collection outcomes and stale timestamps", () => {
+		const data = snapshot as unknown as Snapshot;
+		const statuses: Array<CollectionStatus | undefined> = [
+			...data.characters.flatMap((c) =>
+				Object.values(c.specs).flatMap((s) => Object.values(s.collection ?? {})),
+			),
+			...Object.values(data.specs).flatMap((s) => [s.mythicPlus.collection, s.raid.collection]),
+		];
+		for (const status of statuses) {
+			if (!status) continue;
+			expect(["ok", "empty", "partial", "failed", "skipped"]).toContain(status.state);
+			expect(status.failedRequests).toBeGreaterThanOrEqual(0);
+			expect(status.attemptedRequests).toBeGreaterThanOrEqual(status.failedRequests);
+			if (status.state === "ok" || status.state === "empty") expect(status.issues).toHaveLength(0);
+			if (status.state === "failed" || status.state === "partial")
+				expect(status.issues.length).toBeGreaterThan(0);
+			for (const at of [status.retainedAt, status.lastSuccessAt])
+				if (at) expect(new Date(at).toISOString()).toBe(at);
+		}
+	});
+	it("counts tracked results separately from displayable retained data", () => {
+		const summary = (snapshot as unknown as Snapshot).collectionSummary;
+		if (!summary) return; // Existing public-only snapshots predate collection status.
+		for (const counts of [summary.characters, summary.metaSpecs])
+			expect(counts.complete + counts.partial + counts.failed + counts.skipped).toBe(
+				counts.tracked,
+			);
+		expect(summary.metaSpecs.withData).toBeLessThanOrEqual(summary.metaSpecs.tracked);
+	});
 	it("matches configured character identities and all active specs", () => {
 		const config = JSON.parse(readFileSync("characters.config.json", "utf8")) as CharactersConfig;
 		const data = snapshot as unknown as Snapshot;

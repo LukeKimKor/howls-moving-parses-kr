@@ -64,6 +64,11 @@ export function CharactersSummaryPanel({
 								const score = mainSpec?.mythicPlus?.score;
 								const scoreColor = mainSpec?.mythicPlus?.scoreColor ?? "";
 								const bestRuns = mainSpec?.mythicPlus?.bestRuns ?? [];
+								const hasFailure = Object.values(char.specs).some((s) =>
+									Object.values(s.collection ?? {}).some(
+										(status) => status.state === "failed" || status.state === "partial",
+									),
+								);
 
 								const bestByDungeon = new Map<string, number>();
 								for (const run of bestRuns) {
@@ -76,6 +81,7 @@ export function CharactersSummaryPanel({
 											{char.name} ·{" "}
 											{char.mainSpecPending ? "주 전문화 미확정" : (mainSpec?.specName ?? "")} ·{" "}
 											{char.class}
+											{hasFailure && <small> · 일부 조회 실패</small>}
 										</DataTable.Cell>
 										<DataTable.Cell>
 											<span style={{ color: scoreColor }}>{score ?? "—"}</span>

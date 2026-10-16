@@ -13,6 +13,10 @@ import { MythicScorePanel } from "./components/panels/MythicScorePanel.js";
 import { RaidMetaGearPanel } from "./components/panels/RaidMetaGearPanel.js";
 import { RecentRunsPanel } from "./components/panels/RecentRunsPanel.js";
 import { TalentSnapshotPanel } from "./components/panels/TalentSnapshotPanel.js";
+import {
+	CollectionNotice,
+	collectionFailureMessage,
+} from "./components/primitives/CollectionNotice.js";
 import { AppStateProvider, useAppState } from "./contexts/AppStateContext.js";
 import { ALL_SPECS } from "./data/specs.js";
 import { formatDateUtc } from "./lib/format.js";
@@ -172,11 +176,18 @@ function AppInner({ onSelectCharacter }: { onSelectCharacter: (name: string) => 
 							unavailableReason={
 								snapshot.dataMode === "raiderio-only"
 									? "WCL 인증 전: 레이드·쐐기 로그를 아직 조회하지 않았습니다."
-									: undefined
+									: (collectionFailureMessage(specData?.collection?.raid) ??
+										collectionFailureMessage(specData?.collection?.mythicPlus))
 							}
+							raidUnavailableReason={collectionFailureMessage(specData?.collection?.raid)}
+							mplusUnavailableReason={collectionFailureMessage(specData?.collection?.mythicPlus)}
 							data={specData?.logs ?? null}
 							metric={specDef?.role === "healer" ? "hps" : "dps"}
 						/>
+						<CollectionNotice label="Raider.IO 캐릭터" status={specData?.collection?.raiderio} />
+						<CollectionNotice label="레이드 로그" status={specData?.collection?.raid} />
+						<CollectionNotice label="쐐기 로그" status={specData?.collection?.mythicPlus} />
+						<CollectionNotice label="레이드 로그 날짜" status={specData?.collection?.raidDates} />
 						<GearSnapshotPanel data={specData?.gear ?? null} />
 						<TalentSnapshotPanel data={specData?.talents ?? null} />
 					</section>
@@ -187,8 +198,11 @@ function AppInner({ onSelectCharacter }: { onSelectCharacter: (name: string) => 
 						<SpecSelect />
 						<p className="meta-source-note">
 							{metaData?.sourceNote ??
-								"전문화 메타는 WCL 인증 후 수집됩니다. 추적 중인 전문화만 수집합니다."}
+								(snapshot.dataMode === "raiderio-only"
+									? "전문화 메타는 WCL 인증 후 수집됩니다."
+									: "이 전문화는 추적 설정에 포함되지 않아 메타를 조회하지 않았습니다.")}
 						</p>
+						<CollectionNotice label="쐐기 메타" status={metaData?.mythicPlus.collection} />
 						<MythicPlusLeaderboardPanel
 							leaderboard={metaData?.mythicPlus.leaderboard ?? []}
 							metric={metaDef?.role === "healer" ? "hps" : "dps"}
@@ -202,6 +216,7 @@ function AppInner({ onSelectCharacter }: { onSelectCharacter: (name: string) => 
 							trinkets={metaData?.raid.metaGear.trinkets ?? []}
 							region={snapshot.region ?? character.region}
 						/>
+						<CollectionNotice label="레이드 장신구 메타" status={metaData?.raid.collection} />
 					</section>
 				</div>
 			</main>

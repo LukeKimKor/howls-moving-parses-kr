@@ -188,8 +188,8 @@ The workflow in `.github/workflows/refresh.yml` is prepared for on-demand runs. 
 2. Fetches live data from Raider.IO and WarcraftLogs
 3. Validates the generated `snapshot.json`
 4. Builds the static site
-5. Runs Lighthouse CI (95 Performance, 100 Accessibility/Best Practices/SEO)
-6. Saves a build artifact; deploys to the `gh-pages` branch only when explicitly enabled
+5. Runs Lighthouse CI (90 Performance, 95 Accessibility, 100 Best Practices; SEO excluded)
+6. Uploads the official Pages artifact and deploys from main when explicitly enabled (`pages: write` and `id-token: write`, no code-write permission)
 
 ### Required GitHub Secrets
 
@@ -205,13 +205,15 @@ The hint env vars let you pin the current tier without a code change when a new 
 ### GitHub Pages Setup
 
 1. In your repo settings, go to **Pages**
-2. Set source to **Deploy from a branch**, branch `gh-pages`, folder `/`
+2. Set source to **GitHub Actions**; explicitly allow `main` in the `github-pages` environment
 3. Set `DEPLOY_BASE_PATH` to `/your-repository/` (or `/` for a root/custom-domain site). The same path is used by Vite, the service worker, and Lighthouse. The workflow defaults to the repository name.
 4. After approval, enable the refresh and deployment flags. The UTC schedule is 04:00, 10:00, 16:00 and 22:00 (KST 13:00, 19:00, 01:00 and 07:00).
 
 ## Rate Limits
 
-Only active tracked specs fetch meta. HTTP concurrency is bounded to six requests. With 13 characters and 14 active specs, actual WCL point usage must be measured after approved authentication; the original one-character estimate is not a verified budget for this configuration.
+Only active tracked specs fetch meta. WCL uses one queue with at least 1.5 seconds between starts, up to five attempts, exponential backoff with jitter, and server `Retry-After` precedence. Exhausted HTTP 429 retries stop remaining WCL requests for that run. Raider.IO retains its separate six-request bound. No limit-bypass mechanism is used.
+
+The site distinguishes successful empty records from failed, partial and unqueried data. Failed sections retain previously published data with its original timestamp; successful empty queries clear old data. The workflow restores a public snapshot cache, bootstrapping from the published site if needed. Incomplete meta samples are retried first. CI reports tracked spec count, complete/partial/failed results and displayable data separately. See [KR deployment notes](KR_DEPLOYMENT.md#wcl-limits-and-partial-results) for recovery and validation details.
 
 ## Out of Scope (v1)
 
