@@ -1,0 +1,17 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+src/data/snapshot.json
+public/build-hash.json
+lighthouse-report.json
+cache/
+.playwright-mcp/
+.claude/
+.tools/
+verification/*-response.json
+verification/public-endpoint-*.txt
+verification/raw/
+/verification/
+/KR_SETUP.md
