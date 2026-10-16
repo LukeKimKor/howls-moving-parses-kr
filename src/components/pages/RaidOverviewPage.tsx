@@ -1,12 +1,8 @@
 import { useEffect, useState } from "react";
 import { ALL_SPECS } from "../../data/specs.js";
-import { formatClearTime, formatDateUtc, formatNumber } from "../../lib/format.js";
-import {
-	RAID_METRIC_LABELS,
-	SPEC_LABELS,
-	raidEncounters,
-	raidSection,
-} from "../../lib/raid-overview.js";
+import { formatClearTime, formatNumber } from "../../lib/format.js";
+import { RAID_METRIC_LABELS, raidEncounters, raidSection } from "../../lib/raid-overview.js";
+import { kstTime, nextScheduledAt, raidLastSuccess } from "../../lib/refresh-time.js";
 import { characterProfileUrl } from "../../lib/regions.js";
 import type {
 	CharacterData,
@@ -18,6 +14,8 @@ import type {
 import { NewBuildBanner } from "../chrome/NewBuildBanner.js";
 import { CollectionNotice } from "../primitives/CollectionNotice.js";
 import { RaidPercent as PercentBadge } from "../primitives/RaidPercent.js";
+import { CLASS_COLORS, SpecIcon } from "../primitives/SpecIcon.js";
+import { RaidSummaryTable } from "./RaidSummaryTable.js";
 
 const amount = (value: number | null) =>
 	value === null ? "—" : value.toLocaleString("en-GB", { maximumFractionDigits: 1 });
@@ -49,11 +47,13 @@ function RaidTable({
 	if (snapshot.raid?.id) url.searchParams.set("zone", String(snapshot.raid.id));
 	return (
 		<section
-			className="raid-metric-panel"
+			className={`raid-metric-panel raid-${data.difficulty.toLowerCase()}`}
 			aria-label={`${character.name} ${spec.specName} ${data.difficulty} ${RAID_METRIC_LABELS[data.metric]}`}
 		>
 			<div className="raid-metric-title">
-				<h4>{RAID_METRIC_LABELS[data.metric]}</h4>
+				<h4>
+					{data.difficulty === "Heroic" ? "영웅" : "신화"} · {RAID_METRIC_LABELS[data.metric]}
+				</h4>
 				<a href={url.href} target="_blank" rel="noopener noreferrer">
 					WCL 원본 ↗
 				</a>
@@ -86,22 +86,26 @@ function RaidTable({
 					</strong>
 				</div>
 			</div>
-			{data.summary.allStars.length > 0 && (
-				<div className="raid-all-stars">
-					{data.summary.allStars.map((star) => (
-						<span key={`${star.spec}-${star.partition}-${star.points}-${star.rank}`}>
-							{SPEC_LABELS[star.spec] ?? star.spec} All Star Points{" "}
-							<strong>{points(star.points)}</strong> · Rank{" "}
-							{star.rank === null ? "—" : formatNumber(star.rank)}
-							{data.summary.allStars.length > 1 &&
-								star.partition !== null &&
-								star.partition !== undefined &&
-								` · 파티션 ${star.partition}`}
-						</span>
-					))}
-				</div>
-			)}
-			<CollectionNotice label={RAID_METRIC_LABELS[data.metric]} status={data.collection} />
+			<div className="raid-stars-slot">
+				{data.summary.allStars.length > 0 && (
+					<div className="raid-all-stars">
+						{data.summary.allStars.map((star) => (
+							<span key={`${star.spec}-${star.partition}-${star.points}-${star.rank}`}>
+								<SpecIcon className={character.class} specName={star.spec} /> All Star Points{" "}
+								<strong>{points(star.points)}</strong> · Rank{" "}
+								{star.rank === null ? "—" : formatNumber(star.rank)}
+								{data.summary.allStars.length > 1 &&
+									star.partition !== null &&
+									star.partition !== undefined &&
+									` · 파티션 ${star.partition}`}
+							</span>
+						))}
+					</div>
+				)}
+			</div>
+			<div className="raid-status-slot">
+				<CollectionNotice label={RAID_METRIC_LABELS[data.metric]} status={data.collection} />
+			</div>
 			<section
 				className="raid-table-scroll"
 				// biome-ignore lint/a11y/noNoninteractiveTabindex: This overflow region must receive keyboard focus for horizontal scrolling.
@@ -156,7 +160,7 @@ function RaidTable({
 													◆
 												</span>
 											)}
-											{row.bossName}
+											<span className="raid-boss-name">{row.bossName}</span>
 										</a>
 										{row.state === "unavailable" && (
 											<small>
@@ -175,9 +179,7 @@ function RaidTable({
 											<>
 												<PercentBadge value={row.bestPercent} />
 												{row.specName && (
-													<small className="raid-spec-label">
-														{SPEC_LABELS[row.specName] ?? row.specName}
-													</small>
+													<SpecIcon className={character.class} specName={row.specName} />
 												)}
 											</>
 										)}
@@ -212,6 +214,15 @@ export function RaidOverviewPage({
 	onOpenCharacter,
 }: { snapshot: Snapshot; onOpenCharacter: (character: CharacterData) => void }) {
 	const encounters = raidEncounters(snapshot);
+	const [now, setNow] = useState(Date.now);
+	useEffect(() => {
+		const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+		return () => window.clearInterval(timer);
+	}, []);
+	const lastSuccess = raidLastSuccess(snapshot);
+	const nextRun = snapshot.refreshSchedule?.enabled
+		? nextScheduledAt(snapshot.refreshSchedule.utcHours, now)
+		: undefined;
 	const [newBuild, setNewBuild] = useState(false);
 	useEffect(() => {
 		if (!("serviceWorker" in navigator)) return;
@@ -232,7 +243,25 @@ export function RaidOverviewPage({
 						영웅 &amp; 신화
 					</p>
 				</div>
-				<small>수집 시각 {formatDateUtc(snapshot.generatedAt, "kr")}</small>
+				<div className="raid-refresh-info">
+					<small>
+						레이드 최근 수집 성공 {lastSuccess ? `${kstTime(lastSuccess)} KST` : "미확인"}
+					</small>
+					<small>최근 실행 {kstTime(snapshot.generatedAt)} KST</small>
+					<small>
+						{snapshot.refreshSchedule?.enabled
+							? `자동 갱신 하루 ${snapshot.refreshSchedule.utcHours.length}회 · ${snapshot.refreshSchedule.utcHours.map((h) => `${String((h + 9) % 24).padStart(2, "0")}:00`).join(" / ")} KST`
+							: "자동 갱신 일정 확인 대기"}
+					</small>
+					<small>
+						다음 실행 예정 {nextRun ? `${kstTime(nextRun)} KST` : "미확인"} · 완료 시각은 수집
+						상황에 따라 달라집니다.
+					</small>
+					{snapshot.refreshRuntime?.nextEligibleAt && (
+						<small>WCL 재시도 가능 {kstTime(snapshot.refreshRuntime.nextEligibleAt)} KST</small>
+					)}
+					<small>레이드 캐시 4시간 · 상세 12시간 · 메타/영역 정보 24시간</small>
+				</div>
 			</header>
 			<NewBuildBanner
 				visible={newBuild}
@@ -252,11 +281,16 @@ export function RaidOverviewPage({
 			)}
 			<nav className="raid-character-nav" aria-label="캐릭터 성적 바로가기">
 				{snapshot.characters.map((character, index) => (
-					<a key={character.name} href={`#raid-character-${index}`}>
+					<a
+						key={character.name}
+						href={`#raid-character-${index}`}
+						style={{ color: CLASS_COLORS[character.class] }}
+					>
 						{character.name}
 					</a>
 				))}
 			</nav>
+			<RaidSummaryTable snapshot={snapshot} />
 			<p className="raid-reading-note">
 				등록된 전문화 · 현재 WCL 기본 파티션 기준입니다. Best %와 Med는 WCL 순위 백분위이며 Highest
 				DPS/HPS는 초당 수치입니다. 요약 백분위는 WCL 응답을 그대로 표시합니다. *Kills Logged는
@@ -272,10 +306,13 @@ export function RaidOverviewPage({
 				>
 					<header className="raid-character-header">
 						<div>
-							<h2 id={`raid-character-title-${index}`}>{character.name}</h2>
-							<span>
-								{character.realm} · {character.class}
-							</span>
+							<h2
+								id={`raid-character-title-${index}`}
+								style={{ color: CLASS_COLORS[character.class] }}
+							>
+								{character.name}
+							</h2>
+							<span>{character.realm}</span>
 							{character.mainSpecPending && <small>주 전문화 미확정 · 파멸 / 포식 동시 추적</small>}
 						</div>
 						<button type="button" onClick={() => onOpenCharacter(character)}>
@@ -290,34 +327,36 @@ export function RaidOverviewPage({
 						return (
 							<div className="raid-spec-section" key={slug}>
 								<h3>
-									{SPEC_LABELS[spec.specName] ?? spec.specName}{" "}
+									<SpecIcon className={character.class} specName={spec.specName} />{" "}
 									<small>{healer ? "Healing" : "Damage · Damage to Bosses"}</small>
 								</h3>
-								<div className="raid-difficulty-grid">
-									{(["Heroic", "Mythic"] as const).map((difficulty) => (
-										<div className="raid-difficulty-column" key={difficulty}>
-											<h3 className="raid-difficulty-title">
-												{difficulty === "Heroic" ? "영웅" : "신화"}{" "}
-												<small>{difficulty.toUpperCase()}</small>
-											</h3>
-											{metrics.map((metric) => (
-												<RaidTable
-													key={metric}
-													data={raidSection(
-														spec,
-														metric,
-														difficulty,
-														encounters,
-														snapshot.generatedAt,
-													)}
-													character={character}
-													spec={spec}
-													snapshot={snapshot}
-												/>
-											))}
-										</div>
-									))}
-								</div>
+								{metrics.map((metric) => (
+									<div className="raid-difficulty-grid" key={metric}>
+										{(["Heroic", "Mythic"] as const).map((difficulty) => (
+											<div className="raid-difficulty-column" key={difficulty}>
+												<h3 className="raid-difficulty-title">
+													{difficulty === "Heroic" ? "영웅" : "신화"}{" "}
+													<small>{difficulty.toUpperCase()}</small>
+												</h3>
+												{
+													<RaidTable
+														key={metric}
+														data={raidSection(
+															spec,
+															metric,
+															difficulty,
+															encounters,
+															snapshot.generatedAt,
+														)}
+														character={character}
+														spec={spec}
+														snapshot={snapshot}
+													/>
+												}
+											</div>
+										))}
+									</div>
+								))}
 							</div>
 						);
 					})}

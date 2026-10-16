@@ -16,6 +16,22 @@ export function recordIssue(issue: string): void {
 	if (status && !status.issues.includes(issue)) status.issues.push(issue);
 }
 
+export function recordDeferral(issue: string, until?: number): void {
+	const status = scope.getStore();
+	if (!status) return;
+	status.deferred = true;
+	status.deferredUntil = until ? new Date(until).toISOString() : undefined;
+	recordIssue(issue);
+}
+
+export function recordCached(at: number): void {
+	const status = scope.getStore();
+	if (!status) return;
+	status.cacheHits = (status.cacheHits ?? 0) + 1;
+	const iso = new Date(at).toISOString();
+	if (!status.retainedAt || iso < status.retainedAt) status.retainedAt = iso;
+}
+
 export async function collect<T>(
 	fn: () => Promise<T>,
 	hasData: (data: T) => boolean,
@@ -37,14 +53,23 @@ export async function collect<T>(
 			recordIssue("조회 처리 실패");
 		}
 		const populated = hasData(data);
-		status.state = status.issues.length
-			? populated || status.attemptedRequests > status.failedRequests
-				? "partial"
-				: "failed"
-			: populated
-				? "ok"
-				: "empty";
-		if (!status.issues.length) status.lastSuccessAt = new Date().toISOString();
+		status.state =
+			status.deferred ||
+			(!!status.cacheHits && status.attemptedRequests === 0 && !status.issues.length)
+				? "skipped"
+				: status.issues.length
+					? populated || status.attemptedRequests > status.failedRequests
+						? "partial"
+						: "failed"
+					: populated
+						? "ok"
+						: "empty";
+		if (
+			!status.issues.length &&
+			!status.deferred &&
+			(!status.cacheHits || status.attemptedRequests > 0)
+		)
+			status.lastSuccessAt = status.retainedAt ?? new Date().toISOString();
 		return { data, status };
 	});
 }
@@ -57,6 +82,8 @@ export function combineCollectionStatuses(statuses: CollectionStatus[]): Collect
 	const issues = [...new Set(statuses.flatMap((s) => s.issues))];
 	const failedAny = statuses.some(failed);
 	return {
+		deferred: statuses.some((s) => s.deferred),
+		deferredUntil: statuses.find((s) => s.deferredUntil)?.deferredUntil,
 		state: statuses.every((s) => s.state === "skipped")
 			? "skipped"
 			: failedAny
@@ -102,7 +129,11 @@ export function retain<T>(
 	previousAt: string | undefined,
 	hasData: (value: T) => boolean,
 ): T {
-	if (failed(status) && previous !== undefined && hasData(previous)) {
+	if (
+		(failed(status) || status.deferred || status.cacheHits) &&
+		previous !== undefined &&
+		hasData(previous)
+	) {
 		status.retainedAt = previousStatus?.retainedAt ?? previousStatus?.lastSuccessAt ?? previousAt;
 		// Keep the complete previous section; do not mix populations/usage denominators from two runs.
 		return previous;

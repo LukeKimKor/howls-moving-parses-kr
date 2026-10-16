@@ -5,6 +5,7 @@ import {
 	mapRaidDifficulty,
 	verifyRaidMetricSchema,
 } from "../raid-performance.js";
+import { WclDeferredError } from "../wcl-runtime.js";
 
 // Synthetic API fixtures, never published or written to the live snapshot.
 const encounters = [
@@ -40,7 +41,60 @@ const raw = {
 const identity = { name: "Synthetic 캐릭터", realm: "azshara", region: "kr" };
 const status = { state: "ok" as const, attemptedRequests: 1, failedRequests: 0, issues: [] };
 
+const previousSuccessAt = "2026-10-16T20:00:00.000Z";
+async function previousRaidPerformance() {
+	const query: RaidQuery = async () =>
+		({
+			characterData: { character: { dps4: raw, dps5: raw, bossdps4: raw, bossdps5: raw } },
+		}) as never;
+	const previous = await fetchRaidPerformance(query, identity, 53, "Arcane", false, encounters, [
+		"dps",
+		"bossdps",
+	]);
+	for (const metric of Object.values(previous))
+		for (const difficulty of Object.values(metric))
+			difficulty.collection.lastSuccessAt = previousSuccessAt;
+	return previous;
+}
+
 describe("raid metrics and difficulty collection", () => {
+	it("keeps completed Damage when later Boss Damage is deferred, then reuses fresh selections", async () => {
+		let calls = 0;
+		const query: RaidQuery = async () => {
+			calls++;
+			if (calls === 2) throw new WclDeferredError("budget deferred", Date.now() + 60_000);
+			return { characterData: { character: { dps4: raw, dps5: raw } } } as never;
+		};
+		const first = await fetchRaidPerformance(query, identity, 53, "Arcane", false, encounters, [
+			"dps",
+			"bossdps",
+		]);
+		expect(first.dps?.Heroic.collection.state).toBe("ok");
+		expect(first.bossdps?.Heroic.collection.deferred).toBe(true);
+		expect(first.dps?.Heroic.rows[0]?.bestAmount).toBe(123456.7);
+		const retry = vi.fn(async () => ({
+			characterData: { character: { bossdps4: raw, bossdps5: raw } },
+		}));
+		const second = await fetchRaidPerformance(
+			retry as RaidQuery,
+			identity,
+			53,
+			"Arcane",
+			false,
+			encounters,
+			["dps", "bossdps"],
+			first,
+			undefined,
+			true,
+			4 * 60 * 60_000,
+		);
+		expect(retry).toHaveBeenCalledTimes(1);
+		expect(retry.mock.calls[0]).toBeDefined();
+		expect(second.dps?.Heroic.collection.retainedAt).toBe(
+			first.dps?.Heroic.collection.lastSuccessAt,
+		);
+		expect(second.bossdps?.Heroic.collection.state).toBe("ok");
+	});
 	it("keeps percentiles, DPS, median, kills, duration and All Stars in distinct fields", () => {
 		const result = mapRaidDifficulty(raw, "dps", "Heroic", encounters, status);
 		expect(result.rows[0]).toMatchObject({
@@ -71,7 +125,7 @@ describe("raid metrics and difficulty collection", () => {
 		expect(result.summary.killsLogged).toBeNull();
 		expect(result.summary.medianPerformanceAverage).toBeNull();
 	});
-	it("batches all four DPS selections into one KR/spec-scoped HTTP query", async () => {
+	it("bounds each KR/spec-scoped HTTP query to one metric and two difficulties", async () => {
 		const query = vi.fn(async (_query: string, _variables?: Record<string, unknown>) => ({
 			characterData: {
 				character: {
@@ -91,8 +145,9 @@ describe("raid metrics and difficulty collection", () => {
 			encounters,
 			["dps", "bossdps", "hps"],
 		);
-		expect(query).toHaveBeenCalledTimes(1);
-		expect(query.mock.calls[0]?.[0]).toContain("metric: bossdps");
+		expect(query).toHaveBeenCalledTimes(2);
+		expect(query.mock.calls[0]?.[0]).not.toContain("metric: bossdps");
+		expect(query.mock.calls[1]?.[0]).toContain("metric: bossdps");
 		expect(query.mock.calls[0]?.[1]).toMatchObject({
 			region: "KR",
 			realm: "azshara",
@@ -182,5 +237,113 @@ describe("raid metrics and difficulty collection", () => {
 		expect(
 			(await verifyRaidMetricSchema(vi.fn().mockRejectedValue(new Error("WCL HTTP 403")))).state,
 		).toBe("unavailable");
+	});
+	it.each([
+		{ label: "characterData parent", path: ["characterData"] },
+		{ label: "character parent", path: ["characterData", "character"] },
+		{ label: "root", path: [] },
+	])("preserves every affected cached panel for a $label GraphQL error", async ({ path }) => {
+		const previous = await previousRaidPerformance();
+		const fresh = { ...raw, rankings: raw.rankings.map((r) => ({ ...r, bestAmount: 999999 })) };
+		const query: RaidQuery = async (_query, _variables, onErrors) => {
+			onErrors?.([{ message: "Synthetic parent error", path }]);
+			return {
+				characterData: {
+					character: { dps4: fresh, dps5: fresh, bossdps4: fresh, bossdps5: fresh },
+				},
+			} as never;
+		};
+		const result = await fetchRaidPerformance(
+			query,
+			identity,
+			53,
+			"Arcane",
+			false,
+			encounters,
+			["dps", "bossdps"],
+			previous,
+		);
+		for (const metric of Object.values(result))
+			for (const section of Object.values(metric)) {
+				expect(section.collection.state).toBe("partial");
+				expect(section.collection.failedRequests).toBe(1);
+				expect(section.collection.lastSuccessAt).toBeUndefined();
+				expect(section.collection.retainedAt).toBe(previousSuccessAt);
+				expect(section.rows[0]?.bestAmount).toBe(123456.7);
+			}
+	});
+	it.each([
+		{ label: "null character", data: { characterData: { character: null } } },
+		{ label: "null characterData", data: { characterData: null } },
+	])(
+		"does not classify a $label response without errors as successful empty records",
+		async ({ data }) => {
+			const previous = await previousRaidPerformance();
+			const query: RaidQuery = async () => data as never;
+			const result = await fetchRaidPerformance(
+				query,
+				identity,
+				53,
+				"Arcane",
+				false,
+				encounters,
+				["dps", "bossdps"],
+				previous,
+			);
+			for (const metric of Object.values(result))
+				for (const section of Object.values(metric)) {
+					expect(section.collection.state).toBe("failed");
+					expect(section.collection.failedRequests).toBe(1);
+					expect(section.collection.lastSuccessAt).toBeUndefined();
+					expect(section.collection.retainedAt).toBe(previousSuccessAt);
+					expect(section.rows[0]?.bestAmount).toBe(123456.7);
+				}
+		},
+	);
+	it("retains only the missing alias when its zone response is null without errors", async () => {
+		const previous = await previousRaidPerformance();
+		const query: RaidQuery = async () =>
+			({
+				characterData: { character: { dps4: raw, dps5: raw, bossdps4: raw, bossdps5: null } },
+			}) as never;
+		const result = await fetchRaidPerformance(
+			query,
+			identity,
+			53,
+			"Arcane",
+			false,
+			encounters,
+			["dps", "bossdps"],
+			previous,
+		);
+		expect(result.dps?.Heroic.collection.state).toBe("ok");
+		expect(result.bossdps?.Mythic.collection.state).toBe("failed");
+		expect(result.bossdps?.Mythic.collection.retainedAt).toBe(previousSuccessAt);
+		expect(result.bossdps?.Mythic.rows[0]?.bestAmount).toBe(123456.7);
+	});
+	it("still accepts a valid empty rankings array and clears stale records", async () => {
+		const previous = await previousRaidPerformance();
+		const empty = { rankings: [] };
+		const query: RaidQuery = async () =>
+			({
+				characterData: {
+					character: { dps4: empty, dps5: empty, bossdps4: empty, bossdps5: empty },
+				},
+			}) as never;
+		const result = await fetchRaidPerformance(
+			query,
+			identity,
+			53,
+			"Arcane",
+			false,
+			encounters,
+			["dps", "bossdps"],
+			previous,
+		);
+		expect(result.dps?.Heroic.collection.state).toBe("empty");
+		expect(result.dps?.Heroic.collection.failedRequests).toBe(0);
+		expect(result.dps?.Heroic.collection.lastSuccessAt).toBeTruthy();
+		expect(result.dps?.Heroic.collection.retainedAt).toBeUndefined();
+		expect(result.dps?.Heroic.rows[0]?.bestAmount).toBeNull();
 	});
 });

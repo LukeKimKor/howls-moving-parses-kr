@@ -2,6 +2,22 @@ import type { Region } from "../lib/regions.js";
 
 /** The root snapshot produced by the build script and imported by App.tsx. */
 export interface Snapshot {
+	refreshSchedule?: { utcHours: number[]; enabled: boolean };
+	mythicPlusZone?: { id: number; name: string; encounters: Array<{ id: number; name: string }> };
+	wclMetadataAt?: string;
+	refreshRuntime?: {
+		httpAttempts: number;
+		retries: number;
+		http429: number;
+		deferredReason?: string;
+		nextEligibleAt?: number;
+		budget?: {
+			limitPerHour: number;
+			pointsSpentThisHour: number;
+			pointsResetIn: number;
+			observedAt: number;
+		};
+	};
 	raid?: {
 		id: number;
 		name: string;
@@ -28,6 +44,9 @@ export interface Snapshot {
 }
 
 export interface CollectionStatus {
+	cacheHits?: number;
+	deferred?: boolean;
+	deferredUntil?: string;
 	state: "ok" | "empty" | "partial" | "failed" | "skipped";
 	/** Logical queries after retries, not individual HTTP attempts. */
 	attemptedRequests: number;

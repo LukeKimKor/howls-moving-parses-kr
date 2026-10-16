@@ -29,6 +29,8 @@ import {
 	combineCollectionStatuses,
 	countCollections,
 	failed,
+	recordCached,
+	recordDeferral,
 	recordIssue,
 	recordRequest,
 	retain,
@@ -40,10 +42,23 @@ import {
 } from "./config-validation.js";
 import {
 	type GraphqlError,
+	deferredRaidPerformance,
+	failedRaidPerformance,
 	fetchRaidPerformance,
 	verifyRaidMetricSchema,
 } from "./raid-performance.js";
 import { toRealmSlug } from "./realm-slug.js";
+import { readRefreshSchedule } from "./refresh-policy.js";
+import { freshStatus, runCharacterBatches } from "./refresh-scheduler.js";
+import { wclQueryCache } from "./wcl-query-cache.js";
+import {
+	WCL_POLICY,
+	WclDeferredError,
+	type WclRuntimeState,
+	snapshotCooldown,
+	wclRuntime,
+	withPointBudget,
+} from "./wcl-runtime.js";
 import { wclTransport } from "./wcl-transport.js";
 
 const WCL_TOKEN_URL = "https://www.warcraftlogs.com/oauth/token";
@@ -273,21 +288,61 @@ async function wclQuery<T = Record<string, unknown>>(
 	variables?: Record<string, unknown>,
 	onErrors?: (errors: GraphqlError[]) => void,
 ): Promise<T> {
+	if (wclRuntime.active) {
+		const cached = wclQueryCache.get(query, variables, wclRuntime.stage);
+		if (cached) {
+			wclRuntime.telemetry.cacheHits++;
+			recordCached(cached.at);
+			return cached.data as T;
+		}
+	}
 	let recorded = false;
 	try {
-		const res = await wclTransport.request(WCL_API_URL, {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${token}`,
-				"Content-Type": "application/json",
+		const weight = Math.max(
+			1,
+			(query.match(/(?:zoneRankings|encounterRankings)\s*\(/g) ?? []).length,
+		);
+		const stage = wclRuntime.stage;
+		const res = await wclTransport.request(
+			WCL_API_URL,
+			{
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${token}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					query: wclRuntime.active ? withPointBudget(query) : query,
+					variables,
+				}),
 			},
-			body: JSON.stringify({ query, variables }),
-		});
+			wclRuntime.active
+				? {
+						beforeSend: () => {
+							wclRuntime.setStage(stage);
+							wclRuntime.beforeQuery(weight);
+						},
+						afterResponse: async (response) => {
+							try {
+								const body = (await response.json()) as { data?: { collectorBudget?: unknown } };
+								wclRuntime.observeBudget(body.data?.collectorBudget);
+							} catch {
+								wclRuntime.observeBudget(undefined);
+							}
+						},
+					}
+				: undefined,
+		);
 
 		const json = (await res.json()) as {
 			data?: T;
 			errors?: GraphqlError[];
 		};
+		// Telemetry-only field errors do not invalidate otherwise valid character data.
+		if (json.errors?.some((error) => error.path?.[0] === "collectorBudget")) {
+			json.errors = json.errors.filter((error) => error.path?.[0] !== "collectorBudget");
+			console.warn("::warning::WCL point telemetry unavailable; no numeric budget assumed");
+		}
 
 		if (json.errors && json.errors.length > 0) {
 			onErrors?.(json.errors);
@@ -298,9 +353,16 @@ async function wclQuery<T = Record<string, unknown>>(
 			}
 		}
 		if (!json.data) throw new Error("WCL GraphQL returned no data");
+		if (wclRuntime.active && !json.errors?.length)
+			wclQueryCache.put(query, variables, stage, json.data as Record<string, unknown>);
 		if (!recorded) recordRequest();
 		return json.data as T;
 	} catch (err) {
+		if (err instanceof WclDeferredError) {
+			if (err.attempted && !recorded) recordRequest(true, err.message);
+			recordDeferral(err.message, err.retryAt);
+			throw err;
+		}
 		if (!recorded) recordRequest(true, err instanceof Error ? err.message : "WCL 조회 실패");
 		throw err;
 	}
@@ -1604,6 +1666,8 @@ export async function fetchCharacter(
 	previous?: CharacterData,
 	previousAt?: string,
 	supportedRaidMetrics: Array<"dps" | "bossdps" | "hps"> = ["dps", "hps"],
+	reuseRaid = false,
+	reuseWclDetails = false,
 ): Promise<CharacterData> {
 	const activeSpecs = char.specs.filter((s) => s.role !== "inactive");
 	const mainSpec =
@@ -1634,7 +1698,7 @@ export async function fetchCharacter(
 					),
 				(data) => data.size > 0,
 				new Map<string, string>(),
-				!!token,
+				!!token && !reuseWclDetails,
 			);
 
 			const [rio, raidPerformance, mplus] = await Promise.all([
@@ -1651,18 +1715,20 @@ export async function fetchCharacter(
 					(data) => data.mplus !== null,
 					{ mplus: null, gear: null, talents: null },
 				),
-				fetchRaidPerformance(
-					(query, variables, onErrors) => wclQuery(token, query, variables, onErrors),
-					{ name: char.name, realm: realmSlug, region: char.region },
-					raidZoneId,
-					specEntry.spec,
-					specDef.role === "healer",
-					raidEncounters,
-					supportedRaidMetrics,
-					old?.raidPerformance,
-					previousAt,
-					!!token,
-				),
+				reuseRaid && old?.raidPerformance
+					? Promise.resolve(old.raidPerformance)
+					: fetchRaidPerformance(
+							(query, variables, onErrors) => wclQuery(token, query, variables, onErrors),
+							{ name: char.name, realm: realmSlug, region: char.region },
+							raidZoneId,
+							specEntry.spec,
+							specDef.role === "healer",
+							raidEncounters,
+							supportedRaidMetrics,
+							old?.raidPerformance,
+							previousAt,
+							!!token,
+						),
 				collect(
 					() =>
 						fetchWclMplusRankings(
@@ -1676,7 +1742,7 @@ export async function fetchCharacter(
 						),
 					(data) => (data?.rankings ?? []).some((r) => r.rankPercent !== null && r.bestAmount > 0),
 					null,
-					!!token,
+					!!token && !reuseWclDetails,
 				),
 			]);
 			const rioData = retain(
@@ -1689,6 +1755,31 @@ export async function fetchCharacter(
 				previousAt,
 				(d) => d.mplus !== null,
 			);
+			if (reuseWclDetails && old) {
+				mplus.status.deferred = !freshStatus(old.collection?.mythicPlus, WCL_POLICY.detailTtlMs);
+				mplus.status.cacheHits = 1;
+				mplus.status.issues = [
+					mplus.status.deferred
+						? "상세 로그 갱신 보류 · 캐시 보존"
+						: "12시간 상세 로그 캐시 재사용",
+				];
+				mplus.status.retainedAt =
+					old.collection?.mythicPlus.retainedAt ??
+					old.collection?.mythicPlus.lastSuccessAt ??
+					previousAt;
+				dates.status.deferred = !freshStatus(old.collection?.raidDates, WCL_POLICY.detailTtlMs);
+				dates.status.cacheHits = 1;
+				dates.status.issues = [
+					dates.status.deferred
+						? "로그 날짜 갱신 보류 · 캐시 보존"
+						: "12시간 로그 날짜 캐시 재사용",
+				];
+				if (wclRuntime.active) wclRuntime.telemetry.cacheHits += 2;
+				dates.status.retainedAt =
+					old.collection?.raidDates.retainedAt ??
+					old.collection?.raidDates.lastSuccessAt ??
+					previousAt;
+			}
 			const primaryRaid = raidPerformance[metric];
 			const raids = {
 				status: combineCollectionStatuses(
@@ -1734,7 +1825,7 @@ export async function fetchCharacter(
 				previousAt,
 				(d) => d.length > 0,
 			);
-			if (failed(dates.status)) {
+			if (failed(dates.status) || dates.status.deferred || dates.status.cacheHits) {
 				for (const parse of raidParses) {
 					const oldParse = old?.logs?.raidParses.find(
 						(p) =>
@@ -1814,23 +1905,36 @@ export async function fetchCharacter(
 			if (result?.status === "rejected") {
 				console.error(`  Failed to fetch spec ${specEntry.spec} for ${char.name}:`, result.reason);
 			}
+			const old = previous?.specs[specDef.specSlug];
 			specsMap[specDef.specSlug] = {
+				...old,
+				raidPerformance: failedRaidPerformance(
+					specDef.role === "healer",
+					raidEncounters,
+					old?.raidPerformance,
+					previousAt,
+				),
 				collection: Object.fromEntries(
-					["raiderio", "raid", "mythicPlus", "raidDates"].map((key) => [
+					(["raiderio", "raid", "mythicPlus", "raidDates"] as const).map((key) => [
 						key,
 						{
 							state: "failed",
 							attemptedRequests: 0,
 							failedRequests: 0,
 							issues: ["캐릭터 전문화 조회 실패"],
+							retainedAt: old
+								? (old.collection?.[key]?.retainedAt ??
+									old.collection?.[key]?.lastSuccessAt ??
+									previousAt)
+								: undefined,
 						},
 					]),
 				) as NonNullable<CharacterSpecData["collection"]>,
 				specSlug: specDef.specSlug,
 				specName: specDef.specName,
 				role: specEntry.role as "main" | "offspec" | "tracked",
-				mythicPlus: null,
-				logs: null,
+				mythicPlus: old?.mythicPlus ?? null,
+				logs: old?.logs ?? null,
 			};
 		}
 	}
@@ -1953,338 +2057,631 @@ export async function fetchSpecMeta(
 
 // ── Entry point ─────────────────────────────────────────────
 
+export function characterShell(char: CharacterConfig, old?: CharacterData): CharacterData {
+	const active = char.specs.filter((s) => s.role !== "inactive");
+	const main = active.find((s) => s.role === "main") ?? active[0];
+	const definitions = active.map((s) => ({
+		...s,
+		definition: ALL_SPECS.find((d) => d.specName === s.spec && d.className === char.class),
+	}));
+	const mainSlug = definitions.find((s) => s.spec === main?.spec)?.definition?.specSlug ?? "";
+	const specOrder = definitions
+		.map((s) => s.definition?.specSlug ?? "")
+		.filter(Boolean)
+		.sort((a, b) => Number(b === mainSlug) - Number(a === mainSlug));
+	return {
+		name: char.name,
+		realm: char.realm,
+		region: char.region,
+		realmSlug: char.realmSlug ?? toRealmSlug(char.realm),
+		class: char.class,
+		mainSpecPending: char.mainSpecPending,
+		mainSpecSlug: mainSlug,
+		specOrder,
+		isDefault: char.default,
+		thumbnailUrl: old?.thumbnailUrl ?? null,
+		specs: Object.fromEntries(
+			definitions
+				.filter((s) => s.definition)
+				.map((s) => {
+					const slug = s.definition?.specSlug ?? "";
+					return [
+						slug,
+						{
+							...old?.specs[slug],
+							specSlug: slug,
+							specName: s.spec,
+							role: s.role as "main" | "offspec" | "tracked",
+							mythicPlus: old?.specs[slug]?.mythicPlus ?? null,
+							logs: old?.specs[slug]?.logs ?? null,
+						},
+					];
+				}),
+		),
+	};
+}
+
+function characterKey(char: CharacterData) {
+	return `${char.region}/${char.realmSlug ?? toRealmSlug(char.realm)}/${char.name}`;
+}
+function allRaidStatuses(char: CharacterData) {
+	return Object.values(char.specs).flatMap((s) =>
+		Object.values(s.raidPerformance ?? {}).flatMap((m) =>
+			Object.values(m).map((d) => d.collection),
+		),
+	);
+}
+function coreFresh(char: CharacterData) {
+	const expected = Object.values(char.specs).reduce(
+		(n, s) => n + (ALL_SPECS.find((d) => d.specSlug === s.specSlug)?.role === "healer" ? 2 : 4),
+		0,
+	);
+	const statuses = allRaidStatuses(char);
+	return (
+		statuses.length === expected && statuses.every((s) => freshStatus(s, WCL_POLICY.coreTtlMs))
+	);
+}
+function detailsFresh(char: CharacterData) {
+	return Object.values(char.specs).every(
+		(s) =>
+			freshStatus(s.collection?.mythicPlus, WCL_POLICY.detailTtlMs) &&
+			freshStatus(s.collection?.raidDates, WCL_POLICY.detailTtlMs),
+	);
+}
+function metaFresh(spec: SpecMetaData | undefined) {
+	return (
+		!!spec &&
+		freshStatus(spec.mythicPlus.collection, WCL_POLICY.metaTtlMs) &&
+		freshStatus(spec.raid.collection, WCL_POLICY.metaTtlMs)
+	);
+}
+
+export function deferCharacterRaid(
+	char: CharacterData,
+	encounters: Array<{ id: number; name: string }>,
+	at: string | undefined,
+	reason: string,
+): CharacterData {
+	return {
+		...char,
+		specs: Object.fromEntries(
+			Object.entries(char.specs).map(([slug, spec]) => {
+				const healer = ALL_SPECS.find((d) => d.specSlug === slug)?.role === "healer";
+				const raidPerformance = deferredRaidPerformance(
+					healer,
+					encounters,
+					spec.raidPerformance,
+					at,
+					reason,
+				);
+				const raid = combineCollectionStatuses(
+					Object.values(raidPerformance[healer ? "hps" : "dps"] ?? {}).map((d) => d.collection),
+				);
+				if (!raid.retainedAt && spec.logs?.raidParses.length)
+					raid.retainedAt =
+						spec.collection?.raid.retainedAt ?? spec.collection?.raid.lastSuccessAt ?? at;
+				const skipped = {
+					state: "skipped" as const,
+					attemptedRequests: 0,
+					failedRequests: 0,
+					issues: [],
+				};
+				return [
+					slug,
+					{
+						...spec,
+						raidPerformance,
+						collection: {
+							raiderio: spec.collection?.raiderio ?? skipped,
+							mythicPlus: spec.collection?.mythicPlus ?? skipped,
+							raidDates: spec.collection?.raidDates ?? skipped,
+							raid,
+						},
+					},
+				];
+			}),
+		),
+	};
+}
+
+export async function fetchCharacterRaid(
+	char: CharacterData,
+	token: string,
+	zoneId: number,
+	encounters: Array<{ id: number; name: string }>,
+	supported: Array<"dps" | "bossdps" | "hps">,
+	previousAt?: string,
+	force = false,
+): Promise<CharacterData> {
+	const result = { ...char, specs: { ...char.specs } };
+	for (const slug of char.specOrder) {
+		const old = char.specs[slug];
+		if (!old) continue;
+		const healer = ALL_SPECS.find((s) => s.specSlug === slug)?.role === "healer";
+		let raidPerformance: NonNullable<CharacterSpecData["raidPerformance"]>;
+		try {
+			raidPerformance = await fetchRaidPerformance(
+				(query, variables, onErrors) => wclQuery(token, query, variables, onErrors),
+				{ name: char.name, realm: char.realmSlug ?? toRealmSlug(char.realm), region: char.region },
+				zoneId,
+				old.specName,
+				healer,
+				encounters,
+				supported,
+				old.raidPerformance,
+				previousAt,
+				true,
+				force ? 0 : WCL_POLICY.coreTtlMs,
+			);
+		} catch {
+			raidPerformance = failedRaidPerformance(healer, encounters, old.raidPerformance, previousAt);
+		}
+		const primary = raidPerformance[healer ? "hps" : "dps"];
+		const raid = combineCollectionStatuses(Object.values(primary ?? {}).map((d) => d.collection));
+		const fresh: RaidParse[] = Object.values(primary ?? {}).flatMap((d) =>
+			d.rows
+				.filter((r) => r.bestPercent !== null)
+				.map((r) => ({
+					bossName: r.bossName,
+					difficulty: d.difficulty,
+					bestPercent: r.bestPercent ?? 0,
+					ilvlAdjustedPercent: r.bestPercent ?? 0,
+					bestAmount: r.bestAmount ?? 0,
+					rankLabel: rankLabel(r.bestPercent ?? 0),
+					date:
+						old.logs?.raidParses.find(
+							(p) =>
+								p.bossName === r.bossName &&
+								p.difficulty === d.difficulty &&
+								p.bestAmount === r.bestAmount,
+						)?.date ?? "",
+				})),
+		);
+		const raidParses = retain(
+			fresh,
+			raid,
+			old.logs?.raidParses,
+			old.collection?.raid,
+			previousAt,
+			(d) => d.length > 0,
+		);
+		const dungeonLogs = old.logs?.recentDungeonLogs ?? [];
+		const skipped = {
+			state: "skipped" as const,
+			attemptedRequests: 0,
+			failedRequests: 0,
+			issues: [],
+		};
+		result.specs[slug] = {
+			...old,
+			raidPerformance,
+			collection: {
+				raiderio: old.collection?.raiderio ?? skipped,
+				mythicPlus: old.collection?.mythicPlus ?? skipped,
+				raidDates: old.collection?.raidDates ?? skipped,
+				raid,
+			},
+			logs:
+				raidParses.length || dungeonLogs.length
+					? {
+							raidParses,
+							recentDungeonLogs: dungeonLogs,
+							latestLogDamageBreakdown: old.logs?.latestLogDamageBreakdown ?? [],
+						}
+					: null,
+		};
+	}
+	return result;
+}
+
 export async function main(): Promise<void> {
 	const rioOnly = process.argv.includes("--raiderio-only");
-	const refreshMeta = !rioOnly && !process.argv.includes("--characters-only");
-	const charactersConfig = loadConfig();
-	validateConfig(charactersConfig);
+	const cacheOnly = process.argv.includes("--cache-only");
+	const metaOnly = process.argv.includes("--meta-only");
+	const force = process.argv.includes("--force-refresh");
+	const refreshMeta =
+		!rioOnly && !cacheOnly && (metaOnly || !process.argv.includes("--characters-only"));
+	const config = loadConfig();
+	validateConfig(config);
 	let previous: Snapshot | undefined;
 	try {
 		previous = JSON.parse(readFileSync("cache/last-snapshot.json", "utf8")) as Snapshot;
 	} catch {
-		/* First run: no prior snapshot available. */
+		/* First run. */
 	}
-
-	const region = charactersConfig.characters[0]?.region ?? "kr";
-	const wclToken = rioOnly ? "" : await getWclToken();
-	const raidMetricSchema = rioOnly
-		? undefined
-		: await verifyRaidMetricSchema((query, variables, onErrors) =>
-				wclQuery(wclToken, query, variables, onErrors),
-			);
-	const [raidZoneId, mplusZoneId] = rioOnly
-		? [0, 0]
-		: await Promise.all([getCurrentRaidZoneId(wclToken), getCurrentMplusZoneId(wclToken)]);
-	const [mplusEncounters, raidEncounters] = rioOnly
-		? [[], []]
-		: await Promise.all([
-				getRaidEncounters(wclToken, mplusZoneId),
-				getRaidEncounters(wclToken, raidZoneId),
-			]);
-	const previousWcl =
-		previous?.region === region &&
-		previous.dataMode === "full" &&
-		((!previous.wclZones && Date.now() - Date.parse(previous.generatedAt) < 7 * 24 * 60 * 60_000) ||
-			(previous.wclZones?.raid === raidZoneId && previous.wclZones.mythicPlus === mplusZoneId))
-			? previous
-			: undefined;
-
-	console.log(`✓ Using M+ zone ${mplusZoneId} with ${mplusEncounters.length} dungeons`);
-	console.log(
-		`✓ Using raid zone ${raidZoneId} with ${raidEncounters.length} encounters (for trinket meta)`,
-	);
-
-	// Discover the current season slug from the default character's RIO profile.
-	// season=current on the cutoffs endpoint returns 500 (RIO bug), so we need the slug.
-	const defaultChar =
-		(charactersConfig.characters as CharacterConfig[]).find((c) => c.default) ??
-		(charactersConfig.characters as CharacterConfig[])[0];
-	const seasonSlug = defaultChar
-		? await fetchCurrentRioSeasonSlug(
-				defaultChar.name,
-				defaultChar.realmSlug ?? toRealmSlug(defaultChar.realm),
-				defaultChar.region,
-			)
-		: null;
-	if (seasonSlug) console.log(`✓ RIO season slug: ${seasonSlug}`);
-
-	const [rioTiers, titleCutoff] = await Promise.all([
-		fetchRioScoreTiers(),
-		fetchRioTitleCutoff(seasonSlug, region),
-	]);
-
-	// Log first response of each query type as a sanity check (per implementation note)
-	console.log("✓ First WCL zone query response logged above — sanity-check zone names");
-
-	// Load persistent date cache (avoids re-fetching raid log dates each build)
-	const parseDatesCache: Record<string, string> = {}; // Re-query best-log dates; old bests can change.
-	const previousCharacter = (c: CharacterConfig) => {
-		if (!previousWcl && wclToken) return undefined;
-		return previous?.characters.find(
-			(p) =>
-				p.name === c.name &&
-				p.region === c.region &&
-				(p.realmSlug ?? toRealmSlug(p.realm)) === (c.realmSlug ?? toRealmSlug(c.realm)),
+	if (cacheOnly && !previous)
+		throw new Error("Cache-only build requires a previous snapshot; no live API requested");
+	let state: WclRuntimeState = {};
+	try {
+		const stored = JSON.parse(readFileSync("cache/wcl-runtime.json", "utf8")) as WclRuntimeState;
+		state = {
+			cooldownUntil: Number.isFinite(stored.cooldownUntil) ? stored.cooldownUntil : undefined,
+			cooldownReason: typeof stored.cooldownReason === "string" ? stored.cooldownReason : undefined,
+			nextCharacterKey:
+				typeof stored.nextCharacterKey === "string" ? stored.nextCharacterKey : undefined,
+			maxQueryCost: stored.maxQueryCost,
+			maxCostPerSelection: Number.isFinite(stored.maxCostPerSelection)
+				? stored.maxCostPerSelection
+				: undefined,
+		};
+	} catch {
+		/* No runtime checkpoint yet. */
+	}
+	const inheritedCooldown = snapshotCooldown(previous);
+	if (inheritedCooldown && inheritedCooldown > (state.cooldownUntil ?? 0)) {
+		state.cooldownUntil = inheritedCooldown;
+		state.cooldownReason = "이전 실행의 서버 Retry-After · 다음 실행으로 이월";
+	}
+	const saveRuntime = () => {
+		mkdirSync("cache", { recursive: true });
+		writeFileSync("cache/wcl-runtime.json", JSON.stringify(wclRuntime.state));
+	};
+	wclRuntime.activate(state, saveRuntime);
+	const saveQueryCache = () => {
+		mkdirSync("cache", { recursive: true });
+		writeFileSync("cache/wcl-query-cache.json", JSON.stringify(wclQueryCache.entries));
+	};
+	try {
+		wclQueryCache.activate(
+			JSON.parse(readFileSync("cache/wcl-query-cache.json", "utf8")),
+			saveQueryCache,
 		);
-	};
-
-	const characterData = await Promise.all(
-		(charactersConfig.characters as CharacterConfig[]).map((c) =>
-			fetchCharacter(
-				c,
-				wclToken,
-				raidZoneId,
-				mplusZoneId,
-				rioTiers,
-				titleCutoff,
-				raidEncounters,
-				parseDatesCache,
-				previousCharacter(c),
-				previous?.generatedAt,
-				raidMetricSchema?.state === "verified" ? raidMetricSchema.supported : ["dps", "hps"],
-			),
-		),
-	);
-
-	// Persist updated cache for next run
-	saveDatesCache(parseDatesCache);
-
-	console.log(`✓ Fetched data for ${characterData.length} character(s)`);
-	if (!characterData.some((c) => Object.values(c.specs).some((s) => s.mythicPlus))) {
-		throw new Error("No Raider.IO character data retrieved; existing snapshot preserved");
+	} catch {
+		wclQueryCache.activate({}, saveQueryCache);
 	}
-
-	// Only fetch M+ and raid meta for specs that are active (main or offspec) in the
-	// config. All 39 specs still appear in the snapshot — untracked ones get empty
-	// defaults. This avoids 39 × (8 M+ + 9 raid) = 663 WCL queries per build.
-	const trackedSpecSlugs = new Set<string>(
-		(charactersConfig.characters as CharacterConfig[]).flatMap((c) =>
-			c.specs
-				.filter((s) => s.role !== "inactive")
-				.map((s) => {
-					const def = ALL_SPECS.find((d) => d.specName === s.spec && d.className === c.class);
-					return def?.specSlug ?? "";
-				})
-				.filter(Boolean),
-		),
-	);
-
-	console.log(
-		`✓ ${refreshMeta ? "Fetching" : "Retaining previous"} meta for ${trackedSpecSlugs.size} tracked spec(s): ${[...trackedSpecSlugs].join(", ")}`,
-	);
-
-	const limit = pLimit(1);
-	// Recover incomplete previous samples first (including pre-status snapshots).
-	const priority = (spec: SpecDefinition) => {
-		const old = previousWcl?.specs[spec.specSlug];
-		if (failed(old?.mythicPlus.collection) || failed(old?.raid.collection)) return 0;
-		if (old && (!old.mythicPlus.leaderboard.length || !old.raid.metaGear.trinkets.length)) return 1;
-		return 2;
-	};
-	const specEntries = await Promise.all(
-		[...ALL_SPECS]
-			.sort((a, b) => priority(a) - priority(b))
-			.map((spec) => {
-				if (rioOnly || !trackedSpecSlugs.has(spec.specSlug)) {
-					return Promise.resolve(emptySpecMeta(spec));
-				}
-				if (!refreshMeta) {
-					const old = previousWcl?.specs[spec.specSlug] ?? emptySpecMeta(spec);
-					const skipped = {
-						state: "skipped" as const,
-						attemptedRequests: 0,
-						failedRequests: 0,
-						issues: ["이번 갱신은 캐릭터 성적만 수집 · 메타는 별도 갱신"],
-						retainedAt: previousWcl?.generatedAt,
-					};
-					return Promise.resolve({
-						...old,
-						mythicPlus: {
-							...old.mythicPlus,
-							collection: {
-								...skipped,
-								issues: [
-									...skipped.issues,
-									...(old.mythicPlus.collection?.issues ?? [])
-										.filter((issue) => issue !== skipped.issues[0])
-										.map((issue) =>
-											issue.startsWith("이전 조회:") ? issue : `이전 조회: ${issue}`,
-										),
-								],
-								retainedAt:
-									old.mythicPlus.collection?.retainedAt ??
-									old.mythicPlus.collection?.lastSuccessAt ??
-									skipped.retainedAt,
-							},
-						},
-						raid: {
-							...old.raid,
-							collection: {
-								...skipped,
-								issues: [
-									...skipped.issues,
-									...(old.raid.collection?.issues ?? [])
-										.filter((issue) => issue !== skipped.issues[0])
-										.map((issue) =>
-											issue.startsWith("이전 조회:") ? issue : `이전 조회: ${issue}`,
-										),
-								],
-								retainedAt:
-									old.raid.collection?.retainedAt ??
-									old.raid.collection?.lastSuccessAt ??
-									skipped.retainedAt,
-							},
-						},
-					});
-				}
-				return limit(() =>
-					fetchSpecMeta(
-						spec,
-						wclToken,
-						mplusEncounters,
-						raidEncounters,
-						region,
-						previousWcl?.specs[spec.specSlug],
-						previousWcl?.generatedAt,
+	wclQueryCache.bypass = force;
+	const region = config.characters[0]?.region ?? "kr";
+	const tracked = new Set(
+		config.characters
+			.flatMap((c) =>
+				c.specs
+					.filter((s) => s.role !== "inactive")
+					.map(
+						(s) =>
+							ALL_SPECS.find((d) => d.className === c.class && d.specName === s.spec)?.specSlug ??
+							"",
 					),
-				);
-			}),
+			)
+			.filter(Boolean),
 	);
-	const specs = Object.fromEntries(specEntries.map((s) => [s.specSlug, s]));
-
-	const trackedMeta = Object.values(specs).filter((s) => trackedSpecSlugs.has(s.specSlug));
-	const metaCounts = countCollections(
-		trackedMeta.map((s) => [s.mythicPlus.collection, s.raid.collection]),
-	);
-	const metaWithData = trackedMeta.filter(
-		(s) => s.mythicPlus.leaderboard.length || s.raid.metaGear.trinkets.length,
-	).length;
-	const characterCounts = countCollections(
-		characterData.map((c) =>
-			Object.values(c.specs).flatMap((s) => [
-				...Object.values(s.collection ?? {}),
-				...Object.values(s.raidPerformance ?? {}).flatMap((m) =>
-					Object.values(m).map((d) => d.collection),
-				),
-			]),
-		),
-	);
-	const raidTableCounts = countCollections(
-		characterData.flatMap((c) =>
-			Object.values(c.specs).flatMap((s) =>
-				Object.values(s.raidPerformance ?? {}).flatMap((m) =>
-					Object.values(m).map((d) => [d.collection]),
-				),
+	const compatible = previous?.region === region ? previous : undefined;
+	let raid = compatible?.raid;
+	let mythicPlusZone = compatible?.mythicPlusZone;
+	let raidMetricSchema = compatible?.raidMetricSchema;
+	let metadataAt = compatible?.wclMetadataAt;
+	let raidZoneId = compatible?.wclZones?.raid ?? raid?.id ?? 0;
+	let mplusZoneId = compatible?.wclZones?.mythicPlus ?? mythicPlusZone?.id ?? 0;
+	let initial = config.characters.map((c) =>
+		characterShell(
+			c,
+			compatible?.characters.find(
+				(old) =>
+					old.name === c.name &&
+					old.region === c.region &&
+					(old.realmSlug ?? toRealmSlug(old.realm)) === (c.realmSlug ?? toRealmSlug(c.realm)),
 			),
 		),
 	);
-	console.log(
-		`✓ Raid tables: ${raidTableCounts.tracked} tracked; ${raidTableCounts.complete} complete, ${raidTableCounts.partial} partial, ${raidTableCounts.failed} failed, ${raidTableCounts.skipped} skipped`,
-	);
-	const failedCharacterNames = characterData
-		.filter((c) =>
-			Object.values(c.specs).some((s) =>
-				[
+	const needsCore = !metaOnly && (force || initial.some((c) => !coreFresh(c)));
+	const needsDetails = !metaOnly && (force || initial.some((c) => !detailsFresh(c)));
+	const needsMeta =
+		refreshMeta && [...tracked].some((slug) => force || !metaFresh(compatible?.specs[slug]));
+	let token = "";
+	if (!rioOnly && !cacheOnly && (needsCore || needsDetails || needsMeta)) {
+		try {
+			wclRuntime.assertCooldown();
+			token = await getWclToken();
+			if (
+				!raidMetricSchema ||
+				force ||
+				Date.now() - Date.parse(raidMetricSchema.checkedAt) >= WCL_POLICY.metadataTtlMs
+			)
+				raidMetricSchema = await verifyRaidMetricSchema((query, vars, onErrors) =>
+					wclQuery(token, query, vars, onErrors),
+				);
+			if (
+				!raid ||
+				!mythicPlusZone ||
+				!metadataAt ||
+				force ||
+				Date.now() - Date.parse(metadataAt) >= WCL_POLICY.metadataTtlMs
+			) {
+				const nextRaid = await getCurrentRaidZoneId(token);
+				const nextMplus = await getCurrentMplusZoneId(token);
+				const raidEncounters = await getRaidEncounters(token, nextRaid);
+				const dungeonEncounters = await getRaidEncounters(token, nextMplus);
+				raidZoneId = nextRaid;
+				mplusZoneId = nextMplus;
+				raid = {
+					id: raidZoneId,
+					name: zoneNames.get(raidZoneId) ?? `Raid ${raidZoneId}`,
+					encounters: raidEncounters,
+				};
+				mythicPlusZone = {
+					id: mplusZoneId,
+					name: zoneNames.get(mplusZoneId) ?? `Mythic+ ${mplusZoneId}`,
+					encounters: dungeonEncounters,
+				};
+				metadataAt = new Date().toISOString();
+			}
+			// Meta-only/cache-hit character runs obtain the budget alongside a normal zone identity read, never by re-fetching character tables.
+			if (!wclRuntime.currentBudget() && raidZoneId)
+				await wclQuery(
+					token,
+					`query RefreshZoneBudget { worldData { zone(id: ${raidZoneId}) { id } } }`,
+				);
+		} catch (error) {
+			const reason = error instanceof Error ? error.message : "WCL 초기화 조회 실패";
+			wclRuntime.defer(reason, error instanceof WclDeferredError ? error.retryAt : undefined);
+			token = "";
+		}
+	}
+	const zonesMatch =
+		compatible?.dataMode === "full" &&
+		((!compatible.wclZones &&
+			Date.now() - Date.parse(compatible.generatedAt) < 7 * 24 * 60 * 60_000) ||
+			(compatible.wclZones?.raid === raidZoneId &&
+				compatible.wclZones?.mythicPlus === mplusZoneId));
+	if (!zonesMatch && !cacheOnly && !rioOnly)
+		initial = initial.map((c) => ({
+			...c,
+			specs: Object.fromEntries(
+				Object.entries(c.specs).map(([slug, s]) => [
+					slug,
+					{ ...s, logs: null, raidPerformance: undefined, collection: undefined },
+				]),
+			),
+		}));
+	if (rioOnly)
+		initial = initial.map((c) => ({
+			...c,
+			specs: Object.fromEntries(
+				Object.entries(c.specs).map(([slug, s]) => [
+					slug,
+					{ ...s, logs: null, raidPerformance: undefined, collection: undefined },
+				]),
+			),
+		}));
+	const encounters = raid?.encounters ?? [];
+	const snapshot: Snapshot = {
+		generatedAt: cacheOnly
+			? (previous?.generatedAt ?? new Date().toISOString())
+			: new Date().toISOString(),
+		buildHash: getBuildHash(),
+		dataMode: rioOnly ? "raiderio-only" : (compatible?.dataMode ?? "full"),
+		region,
+		raid,
+		mythicPlusZone,
+		wclMetadataAt: metadataAt,
+		raidMetricSchema,
+		wclZones:
+			raidZoneId && mplusZoneId
+				? { raid: raidZoneId, mythicPlus: mplusZoneId }
+				: compatible?.wclZones,
+		characters: initial,
+		specs: Object.fromEntries(
+			[...tracked].map((slug) => {
+				const definition = ALL_SPECS.find((s) => s.specSlug === slug);
+				if (!definition) throw new Error("Unknown tracked spec");
+				return [
+					slug,
+					zonesMatch || cacheOnly
+						? (compatible?.specs[slug] ?? emptySpecMeta(definition))
+						: emptySpecMeta(definition),
+				];
+			}),
+		),
+	};
+	const useful = () =>
+		!!previous ||
+		snapshot.characters.some((c) =>
+			Object.values(c.specs).some(
+				(s) =>
+					s.mythicPlus ||
+					s.logs ||
+					Object.values(s.raidPerformance ?? {}).some((m) =>
+						Object.values(m).some((d) => d.rows.some((r) => r.state === "recorded")),
+					),
+			),
+		);
+	const checkpoint = (characters?: CharacterData[]) => {
+		if (characters) snapshot.characters = characters;
+		const charactersCount = countCollections(
+			snapshot.characters.map((c) =>
+				Object.values(c.specs).flatMap((s) => [
 					...Object.values(s.collection ?? {}),
 					...Object.values(s.raidPerformance ?? {}).flatMap((m) =>
 						Object.values(m).map((d) => d.collection),
 					),
-				].some(failed),
+				]),
 			),
-		)
-		.map((c) => c.name);
-	if (failedCharacterNames.length)
-		console.warn(`::warning::Character collection incomplete: ${failedCharacterNames.join(", ")}`);
-	console.log(
-		`✓ Characters: ${characterCounts.complete}/${characterCounts.tracked} complete, ${characterCounts.partial} partial, ${characterCounts.failed} failed`,
-	);
-	console.log(
-		`✓ Meta: ${trackedSpecSlugs.size} tracked; ${metaCounts.complete} complete, ${metaCounts.partial} partial, ${metaCounts.failed} failed, ${metaCounts.skipped} skipped; ${metaWithData} with displayable data (including retained data)`,
-	);
-	for (const spec of trackedMeta) {
-		if (failed(spec.mythicPlus.collection) || failed(spec.raid.collection))
-			console.warn(
-				`::warning::${spec.specSlug}: M+ ${spec.mythicPlus.collection?.state}; raid ${spec.raid.collection?.state}`,
-			);
-	}
-
-	// Log final rate limit status
-	try {
-		if (!wclToken) throw new Error("WCL skipped in raiderio-only mode");
-		const rl = await wclQuery<{
-			rateLimitData: { pointsSpentThisHour: number; pointsResetIn: number };
-		}>(wclToken, "{ rateLimitData { pointsSpentThisHour pointsResetIn } }");
-		console.log(
-			`✓ WCL rate limit: ${rl.rateLimitData.pointsSpentThisHour} points spent; reset in ${rl.rateLimitData.pointsResetIn}s`,
 		);
-	} catch {
-		// non-fatal
-	}
-
-	// Strip specs with no data (untracked) to reduce snapshot size.
-	// The right-panel dropdown still shows all 39 specs via ALL_SPECS; missing
-	// entries simply render the empty state.
-	const populatedSpecs = Object.fromEntries(
-		Object.entries(specs)
-			.filter(([slug]) => trackedSpecSlugs.has(slug))
-			.map(([slug, spec]) => [slug, { ...spec, region }]),
-	);
-
-	const buildHash = getBuildHash();
-	const snapshot: Snapshot = {
-		raid: rioOnly
-			? previous?.raid
-			: {
-					id: raidZoneId,
-					name: zoneNames.get(raidZoneId) ?? `Raid ${raidZoneId}`,
-					encounters: raidEncounters,
-				},
-		raidMetricSchema,
-		wclZones: rioOnly ? undefined : { raid: raidZoneId, mythicPlus: mplusZoneId },
-		collectionSummary: {
-			characters: characterCounts,
-			raidTables: raidTableCounts,
-			metaSpecs: { ...metaCounts, withData: metaWithData },
-		},
-		dataMode: rioOnly ? "raiderio-only" : "full",
-		region,
-		warnings: rioOnly
-			? [
-					"실제 Raider.IO 공개 데이터입니다. WCL 인증 전이므로 레이드·쐐기 로그와 전문화 메타는 조회하지 않았습니다.",
-				]
-			: characterCounts.partial || characterCounts.failed || metaCounts.partial || metaCounts.failed
-				? [
-						`일부 데이터 수집 실패: 캐릭터 ${characterCounts.partial + characterCounts.failed}/${characterCounts.tracked}, 전문화 메타 ${metaCounts.partial + metaCounts.failed}/${metaCounts.tracked}. 각 항목의 조회 상태를 확인하세요. 기록 없음과 조회 실패는 별도로 표시됩니다.`,
-					]
-				: [],
-		generatedAt: new Date().toISOString(),
-		buildHash,
-		characters: characterData,
-		specs: populatedSpecs,
+		const raidTables = countCollections(
+			snapshot.characters.flatMap((c) => allRaidStatuses(c).map((s) => [s])),
+		);
+		const meta = countCollections(
+			Object.values(snapshot.specs).map((s) => [s.mythicPlus.collection, s.raid.collection]),
+		);
+		snapshot.collectionSummary = {
+			characters: charactersCount,
+			raidTables,
+			metaSpecs: {
+				...meta,
+				withData: Object.values(snapshot.specs).filter(
+					(s) => s.mythicPlus.leaderboard.length || s.raid.metaGear.trinkets.length,
+				).length,
+			},
+		};
+		snapshot.refreshRuntime = wclRuntime.summary;
+		snapshot.refreshSchedule = readRefreshSchedule();
+		snapshot.warnings = rioOnly
+			? ["실제 Raider.IO 공개 데이터입니다. WCL은 미조회 상태입니다."]
+			: [];
+		if (charactersCount.partial || charactersCount.failed || meta.partial || meta.failed)
+			snapshot.warnings.push(
+				`일부 항목 수집 실패: 캐릭터 ${charactersCount.partial + charactersCount.failed}/${charactersCount.tracked}, 메타 ${meta.partial + meta.failed}/${meta.tracked}. 이전 데이터 시각과 각 조회 상태를 확인하세요.`,
+			);
+		if (wclRuntime.summary.deferredReason)
+			snapshot.warnings.push(
+				`갱신 보류: ${wclRuntime.summary.deferredReason}${wclRuntime.state.cooldownUntil ? ` · 재시도 가능 시각 ${new Date(wclRuntime.state.cooldownUntil).toISOString()}` : ""}. 완료된 성적과 캐시는 보존했습니다.`,
+			);
+		saveRuntime();
+		if (!useful()) return;
+		mkdirSync("cache", { recursive: true });
+		mkdirSync("public", { recursive: true });
+		mkdirSync("src/data", { recursive: true });
+		writeFileSync("cache/last-snapshot.json", JSON.stringify(snapshot));
+		writeFileSync("src/data/snapshot.json", JSON.stringify(snapshot, null, 2));
+		writeFileSync("public/snapshot.json", JSON.stringify(snapshot));
+		writeFileSync("public/build-hash.json", JSON.stringify({ hash: snapshot.buildHash }));
 	};
-
-	writeFileSync("src/data/snapshot.json", JSON.stringify(snapshot, null, 2));
-	writeFileSync("public/build-hash.json", JSON.stringify({ hash: buildHash }));
-	mkdirSync("cache", { recursive: true });
-	writeFileSync("cache/last-snapshot.json", JSON.stringify(snapshot));
-	// Public data already embedded in the app; enables a credential-free first cache bootstrap.
-	writeFileSync("public/snapshot.json", JSON.stringify(snapshot));
-	if (process.env.GITHUB_STEP_SUMMARY) {
+	checkpoint();
+	if (!cacheOnly && !rioOnly && !metaOnly) {
+		wclRuntime.setStage("raid");
+		if (token && raidZoneId && encounters.length)
+			snapshot.characters = await runCharacterBatches({
+				items: snapshot.characters,
+				key: characterKey,
+				fresh: (c) => !force && coreFresh(c),
+				refresh: (c) =>
+					fetchCharacterRaid(
+						c,
+						token,
+						raidZoneId,
+						encounters,
+						raidMetricSchema?.state === "verified" ? raidMetricSchema.supported : ["dps", "hps"],
+						compatible?.generatedAt,
+						force,
+					),
+				defer: (c, reason) => deferCharacterRaid(c, encounters, compatible?.generatedAt, reason),
+				checkpoint,
+				runtime: wclRuntime,
+			});
+		else
+			snapshot.characters = snapshot.characters.map((c) =>
+				!force && coreFresh(c)
+					? c
+					: deferCharacterRaid(
+							c,
+							encounters,
+							compatible?.generatedAt,
+							wclRuntime.summary.deferredReason ?? "WCL 미조회 · 캐시 보존",
+						),
+			);
+		checkpoint();
+	}
+	if (!cacheOnly && !metaOnly) {
+		wclRuntime.setStage("detail");
+		const first = config.characters.find((c) => c.default) ?? config.characters[0];
+		const season = first
+			? await fetchCurrentRioSeasonSlug(
+					first.name,
+					first.realmSlug ?? toRealmSlug(first.realm),
+					first.region,
+				)
+			: null;
+		const [tiers, cutoff] = await Promise.all([
+			fetchRioScoreTiers(),
+			fetchRioTitleCutoff(season, region),
+		]);
+		const dates = loadDatesCache();
+		for (let i = 0; i < snapshot.characters.length; i++) {
+			const old = snapshot.characters[i];
+			const c = config.characters[i];
+			if (!old || !c) continue;
+			let reuseDetails = !force && detailsFresh(old);
+			try {
+				if (!token) reuseDetails = true;
+				else if (!reuseDetails) wclRuntime.beforeQuery();
+			} catch {
+				reuseDetails = true;
+			}
+			snapshot.characters[i] = await fetchCharacter(
+				c,
+				token,
+				raidZoneId,
+				mplusZoneId,
+				tiers,
+				cutoff,
+				encounters,
+				dates,
+				old,
+				compatible?.generatedAt,
+				raidMetricSchema?.supported ?? ["dps", "hps"],
+				true,
+				reuseDetails,
+			);
+			checkpoint();
+		}
+		saveDatesCache(dates);
+	}
+	if (!cacheOnly && refreshMeta) {
+		wclRuntime.setStage("meta");
+		const definitions = ALL_SPECS.filter((s) => tracked.has(s.specSlug)).sort(
+			(a, b) =>
+				Number(metaFresh(snapshot.specs[a.specSlug])) -
+				Number(metaFresh(snapshot.specs[b.specSlug])),
+		);
+		for (const spec of definitions) {
+			const old = snapshot.specs[spec.specSlug] ?? emptySpecMeta(spec);
+			let reason: string | undefined =
+				!force && metaFresh(old) ? "24시간 전문화 메타 캐시 재사용" : undefined;
+			try {
+				if (!reason) {
+					if (!token || !mythicPlusZone || !raid)
+						throw new WclDeferredError("메타 조회 보류 · 인증/영역/예산 확인 대기");
+					wclRuntime.beforeQuery();
+				}
+			} catch (error) {
+				reason = error instanceof Error ? error.message : "메타 조회 보류";
+			}
+			if (reason) {
+				const skipped = (
+					previousStatus: import("../src/types/snapshot.js").CollectionStatus | undefined,
+				) => ({
+					state: "skipped" as const,
+					deferred: !metaFresh(old),
+					attemptedRequests: 0,
+					failedRequests: 0,
+					retainedAt:
+						previousStatus?.retainedAt ?? previousStatus?.lastSuccessAt ?? compatible?.generatedAt,
+					issues: [
+						reason ?? "메타 캐시 재사용",
+						...(previousStatus?.issues ?? []).filter(
+							(s) => s.includes("HTTP") || s.includes("GraphQL"),
+						),
+					],
+				});
+				snapshot.specs[spec.specSlug] = {
+					...old,
+					mythicPlus: { ...old.mythicPlus, collection: skipped(old.mythicPlus.collection) },
+					raid: { ...old.raid, collection: skipped(old.raid.collection) },
+				};
+			} else
+				snapshot.specs[spec.specSlug] = await fetchSpecMeta(
+					spec,
+					token,
+					mythicPlusZone?.encounters ?? [],
+					encounters,
+					region,
+					old,
+					compatible?.generatedAt,
+				);
+			checkpoint();
+		}
+	}
+	checkpoint();
+	if (!useful()) throw new Error("No verified data available; no synthetic snapshot published");
+	console.log(`✓ Collection summary: ${JSON.stringify(snapshot.collectionSummary)}`);
+	console.log(
+		`✓ Runtime budget/HTTP telemetry (no credentials): ${JSON.stringify(wclRuntime.summary)}`,
+	);
+	if (process.env.GITHUB_STEP_SUMMARY)
 		writeFileSync(
 			process.env.GITHUB_STEP_SUMMARY,
-			`## Collection results\n\nCharacters: ${characterCounts.complete}/${characterCounts.tracked} complete, ${characterCounts.partial} partial, ${characterCounts.failed} failed.\n\nIncomplete characters: ${failedCharacterNames.join(", ") || "none"}.\n\nMeta: ${metaCounts.tracked} tracked, ${metaCounts.complete} complete, ${metaCounts.partial} partial, ${metaCounts.failed} failed, ${metaCounts.skipped} skipped; ${metaWithData} with displayable data (may include retained sections).\n\n${trackedMeta
-				.filter((s) => failed(s.mythicPlus.collection) || failed(s.raid.collection))
-				.map(
-					(s) =>
-						`- ${s.specSlug}: M+ ${s.mythicPlus.collection?.state}, raid ${s.raid.collection?.state}`,
-				)
-				.join("\n")}\n`,
+			`## Collection results\n\n\`\`\`json\n${JSON.stringify({ collection: snapshot.collectionSummary, runtime: wclRuntime.summary }, null, 2)}\n\`\`\`\n\nPoint allowance is taken only from valid API responses. The 20% reserve and cache TTLs are application policies.\n`,
 		);
-	}
-
-	console.log(
-		`✓ snapshot.json written — ${characterData.length} characters, ${Object.keys(populatedSpecs).length}/${trackedSpecSlugs.size} tracked specs`,
-	);
+	wclRuntime.active = false;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

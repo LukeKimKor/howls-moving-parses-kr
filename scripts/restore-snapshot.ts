@@ -64,7 +64,14 @@ export function extractPublishedSnapshot(source: string): Snapshot {
 }
 
 export async function restoreSnapshot(): Promise<void> {
-	if (existsSync("cache/last-snapshot.json")) return;
+	let cached: Snapshot | undefined;
+	if (existsSync("cache/last-snapshot.json")) {
+		try {
+			cached = JSON.parse(readFileSync("cache/last-snapshot.json", "utf8")) as Snapshot;
+		} catch {
+			/* Read published fallback. */
+		}
+	}
 	const address = process.env.PREVIOUS_SITE_URL;
 	if (!address) return;
 	const base = new URL(address);
@@ -106,6 +113,7 @@ export async function restoreSnapshot(): Promise<void> {
 		)
 			throw new Error("Published snapshot identity/shape mismatch");
 		mkdirSync("cache", { recursive: true });
+		if (cached && Date.parse(cached.generatedAt) >= Date.parse(snapshot.generatedAt)) return;
 		writeFileSync("cache/last-snapshot.json", JSON.stringify(snapshot));
 		console.log(`✓ Previous public snapshot restored (${snapshot.generatedAt})`);
 	} catch (err) {

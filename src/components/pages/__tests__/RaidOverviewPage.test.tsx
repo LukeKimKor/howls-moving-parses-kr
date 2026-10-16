@@ -61,6 +61,11 @@ describe("all-character raid overview", () => {
 		expect(document.querySelectorAll(".raid-metric-panel")).toHaveLength(52);
 		expect(screen.getAllByRole("columnheader", { name: "Highest HPS" })).toHaveLength(4);
 		expect(document.querySelectorAll(".raid-spec-section")).toHaveLength(14);
+		expect(document.querySelectorAll(".raid-roster-summary tbody tr")).toHaveLength(13);
+		expect(screen.queryByText("Mage")).not.toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: "앙귀태", level: 2 })).toHaveStyle({
+			color: "#c77df4",
+		});
 		expect(screen.getByText(/주 전문화 미확정/)).toBeInTheDocument();
 	});
 	it("marks unqueried new metrics and keeps historical DPS separate from Boss Damage", () => {
@@ -177,6 +182,9 @@ describe("all-character raid overview", () => {
 		expect(within(panel).getByText(/이전 데이터 표시/)).toBeInTheDocument();
 		expect(within(panel).getByText("2:05")).toBeInTheDocument();
 		expect(within(panel).getAllByText("89.0%")[0]).toHaveClass("wcl-purple");
+		const summary = screen.getByRole("region", { name: "전체 캐릭터 성적 요약" });
+		expect(within(summary).getAllByText("89.0%")).toHaveLength(2);
+		expect(within(summary).queryByText("12,345")).not.toBeInTheDocument();
 	});
 	it("opens the existing detailed dashboard for the chosen character", () => {
 		const data = fixture();

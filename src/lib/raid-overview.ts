@@ -63,7 +63,9 @@ export function raidSection(
 		current &&
 		(current.rows.some((r) => r.state === "recorded") ||
 			!legacy.length ||
-			(current.collection.state !== "failed" && current.collection.state !== "partial"))
+			(current.collection.state !== "failed" &&
+				current.collection.state !== "partial" &&
+				!current.collection.deferred))
 	)
 		return current;
 	return {

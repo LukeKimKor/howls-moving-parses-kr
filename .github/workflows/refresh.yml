@@ -6,6 +6,16 @@ on:
     - cron: '0 10,16,22 * * *'
   workflow_dispatch:
     inputs:
+      mode:
+        description: 'characters / meta only / all / cache-only UI build (no provider API calls)'
+        type: choice
+        options: [characters, meta, all, cache]
+        default: characters
+        required: true
+      force_refresh:
+        description: 'Ignore application cache TTL; server cooldown and point budget still apply'
+        type: boolean
+        default: false
       refresh_meta:
         description: 'Also refresh regional spec meta (characters are always refreshed)'
         required: true
@@ -48,11 +58,15 @@ jobs:
       - name: Restore previous public snapshot cache
         uses: actions/cache/restore@v4
         with:
-          path: cache/last-snapshot.json
+          path: |
+            cache/last-snapshot.json
+            cache/wcl-runtime.json
+            cache/wcl-query-cache.json
+            cache/parse-dates.json
           key: public-snapshot-v1-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: public-snapshot-v1-${{ github.ref_name }}-
 
-      - name: Bootstrap previous published data if no cache exists
+      - name: Restore newest previous published data
         run: pnpm tsx scripts/restore-snapshot.ts
         env:
           PREVIOUS_SITE_URL: https://${{ github.repository_owner }}.github.io${{ env.DEPLOY_BASE_PATH }}
@@ -60,6 +74,9 @@ jobs:
       - name: Fetch data
         run: pnpm fetch:refresh
         env:
+          REFRESH_SCOPE: ${{ inputs.mode || (github.event.schedule == '0 4 * * *' && 'all') || 'characters' }}
+          FORCE_REFRESH: ${{ inputs.force_refresh }}
+          SCHEDULED_REFRESH_ENABLED: ${{ vars.ENABLE_SCHEDULED_REFRESH }}
           REFRESH_META: ${{ (github.event_name == 'workflow_dispatch' && inputs.refresh_meta) || github.event.schedule == '0 4 * * *' }}
           WCL_CLIENT_ID: ${{ secrets.WCL_CLIENT_ID }}
           WCL_CLIENT_SECRET: ${{ secrets.WCL_CLIENT_SECRET }}
@@ -71,9 +88,14 @@ jobs:
         run: pnpm test:snapshot
 
       - name: Save snapshot for the next refresh
+        if: always()
         uses: actions/cache/save@v4
         with:
-          path: cache/last-snapshot.json
+          path: |
+            cache/last-snapshot.json
+            cache/wcl-runtime.json
+            cache/wcl-query-cache.json
+            cache/parse-dates.json
           key: public-snapshot-v1-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Typecheck

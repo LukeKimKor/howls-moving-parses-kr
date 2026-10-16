@@ -41,15 +41,17 @@ describe("WCL queue and server cooldown", () => {
 		]);
 		expect(s.starts.map((t) => t - (s.starts[0] ?? 0))).toEqual([0, 1500, 3000]);
 	});
-	it("holds every queued request behind Retry-After and exponential backoff", async () => {
+	it("defers all queued requests immediately on server Retry-After", async () => {
 		const s = setup([
 			new Response(null, { status: 429, headers: { "Retry-After": "120" } }),
 			new Response(null, { status: 429 }),
 			new Response("ok"),
 			new Response("next"),
 		]);
-		await Promise.all([s.transport.request("a"), s.transport.request("b")]);
-		expect(s.starts.map((t) => t - (s.starts[0] ?? 0))).toEqual([0, 120_000, 180_000, 181_500]);
+		const results = await Promise.allSettled([s.transport.request("a"), s.transport.request("b")]);
+		expect(results.every((r) => r.status === "rejected")).toBe(true);
+		expect(s.request).toHaveBeenCalledTimes(1);
+		expect(s.waits).toEqual([]);
 	});
 	it("stops the run after exhausted 429 retries instead of retrying every queued query", async () => {
 		const s = setup(Array.from({ length: 5 }, () => new Response(null, { status: 429 })));
@@ -59,13 +61,13 @@ describe("WCL queue and server cooldown", () => {
 			s.transport.request("c"),
 		]);
 		expect(results.every((r) => r.status === "rejected")).toBe(true);
-		expect(s.request).toHaveBeenCalledTimes(5);
-		expect(s.waits).toEqual([30_000, 60_000, 120_000, 240_000]);
+		expect(s.request).toHaveBeenCalledTimes(1);
+		expect(s.waits).toEqual([]);
 	});
 	it("does not shorten a long server cooldown or block CI indefinitely", async () => {
 		const s = setup([new Response(null, { status: 429, headers: { "Retry-After": "3600" } })]);
 		await expect(s.transport.request("a")).rejects.toThrow("2026-10-17T00:00:00.000Z");
-		await expect(s.transport.request("b")).rejects.toThrow("remaining requests skipped");
+		await expect(s.transport.request("b")).rejects.toThrow("remaining requests deferred");
 		expect(s.request).toHaveBeenCalledTimes(1);
 		expect(s.waits).toEqual([]);
 	});

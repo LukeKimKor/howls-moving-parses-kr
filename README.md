@@ -211,7 +211,7 @@ The hint env vars let you pin the current tier without a code change when a new 
 
 ## Rate Limits
 
-Only active tracked specs fetch meta. WCL uses one queue with at least 1.5 seconds between starts, up to five attempts, exponential backoff with jitter, and server `Retry-After` precedence. Exhausted HTTP 429 retries stop remaining WCL requests for that run. Raider.IO retains its separate six-request bound. No limit-bypass mechanism is used.
+Only active tracked specs fetch meta. WCL core raid collection runs one character at a time before details and meta. Normal GraphQL operations include all three `rateLimitData` fields; budget admission uses valid actual values with a 20% application reserve. A 429 immediately persists the server cooldown and defers later requests. Short transient errors use bounded exponential retries. Raider.IO retains its separate six-request bound. See the [refresh policy](docs/refresh-policy.md) for cache TTLs, checkpoints, telemetry, and manual `characters` / `meta` / `all` / `cache` modes.
 
 The site distinguishes successful empty records from failed, partial and unqueried data. Failed sections retain previously published data with its original timestamp; successful empty queries clear old data. The workflow restores a public snapshot cache, bootstrapping from the published site if needed. Incomplete meta samples are retried first. CI reports tracked spec count, complete/partial/failed results and displayable data separately. See [KR deployment notes](KR_DEPLOYMENT.md#wcl-limits-and-partial-results) for recovery and validation details.
 
