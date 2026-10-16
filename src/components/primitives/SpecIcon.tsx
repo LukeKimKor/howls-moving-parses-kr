@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ALL_SPECS } from "../../data/specs.js";
 import { SPEC_LABELS } from "../../lib/raid-overview.js";
 
 export const CLASS_COLORS: Record<string, string> = {
@@ -19,25 +20,34 @@ export const CLASS_COLORS: Record<string, string> = {
 	Paladin: "#f58cba",
 };
 export function specIconUrl(className: string, specName: string) {
-	return `https://assets.rpglogs.com/img/warcraft/specs/${className.replaceAll(" ", "")}-${specName.replaceAll(" ", "")}.jpg`;
+	const compact = (name: string) => (typeof name === "string" ? name.replaceAll(" ", "") : "");
+	const spec = ALL_SPECS.find(
+		(entry) =>
+			compact(entry.className) === compact(className) &&
+			compact(entry.specName) === compact(specName),
+	);
+	if (!spec) return undefined;
+	// Public WCL integrations use /icons/{Class}-{Spec}.jpg; the previous /specs/ root was incorrect.
+	return `https://assets.rpglogs.com/img/warcraft/icons/${spec.className}-${compact(spec.specName)}.jpg`;
 }
 export function SpecIcon({ className, specName }: { className: string; specName: string }) {
-	const [failed, setFailed] = useState(false);
-	const label = SPEC_LABELS[specName] ?? specName;
+	const [failedSource, setFailedSource] = useState<string>();
+	const source = specIconUrl(className, specName);
+	const label = SPEC_LABELS[specName] ?? (source ? specName : "전문화 미확인");
 	return (
 		<span className="spec-icon-slot" title={label}>
-			{failed ? (
+			{!source || failedSource === source ? (
 				<span role="img" aria-label={label} className="spec-icon-fallback">
 					◆
 				</span>
 			) : (
 				<img
-					src={specIconUrl(className, specName)}
+					src={source}
 					alt={label}
 					width={22}
 					height={22}
 					loading="lazy"
-					onError={() => setFailed(true)}
+					onError={() => setFailedSource(source)}
 				/>
 			)}
 		</span>
