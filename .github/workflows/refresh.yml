@@ -109,29 +109,25 @@ jobs:
           path: lighthouse-report-*.json
           retention-days: 30
 
-      - name: Save reviewed build
-        uses: actions/upload-artifact@v4
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
         with:
-          name: dashboard-build
+          name: github-pages
           path: dist/
 
   deploy:
     needs: build-and-deploy
-    if: vars.ENABLE_PUBLIC_DEPLOY == 'true'
+    if: vars.ENABLE_PUBLIC_DEPLOY == 'true' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-    environment: github-pages
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: dashboard-build
-          path: dist/
-
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        id: deployment
+        uses: actions/deploy-pages@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
-          publish_branch: gh-pages
-          enable_jekyll: false
+          artifact_name: github-pages
