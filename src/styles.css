@@ -706,3 +706,325 @@ fieldset.difficulty-toggle button[aria-pressed="true"] {
 	display: block;
 	overflow-wrap: anywhere;
 }
+
+/* The raid overview follows the supplied WCL reference; detail panels keep their existing theme. */
+.raid-overview {
+	color-scheme: dark;
+	background: #101113;
+	color: #e4e5e7;
+	max-width: 1920px;
+	margin: 0 auto;
+	padding: 1.5rem 1rem 3rem;
+	font-size: 0.83rem;
+	--pico-color: #e4e5e7;
+	--pico-muted-color: #aeb3bc;
+	--pico-primary: #95bdf5;
+}
+.raid-overview h1 {
+	color: #f4f5f7;
+	font-size: 1.8rem;
+	margin: 0.2rem 0 0.5rem;
+}
+.raid-overview h2 {
+	color: #f4f5f7;
+	font-size: 1.35rem;
+	margin: 0;
+}
+.raid-overview h3 {
+	color: #d9dce3;
+	font-size: 1rem;
+	margin: 0.7rem 0;
+}
+.raid-overview h4 {
+	color: #e9eaee;
+	font-size: 0.95rem;
+	margin: 0;
+}
+.raid-overview small {
+	font-size: 0.75rem;
+}
+.raid-overview-header,
+.raid-character-header,
+.raid-metric-title {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 1rem;
+}
+.raid-overview-header {
+	margin-bottom: 1.2rem;
+	align-items: flex-start;
+}
+.raid-overview-header p {
+	margin-bottom: 0;
+	color: #b5bac5;
+}
+.raid-overview .raid-eyebrow {
+	color: #a5b9d8;
+	font-size: 0.7rem;
+	letter-spacing: 0.14em;
+}
+.raid-character-nav {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	padding: 0.8rem 0;
+	margin-bottom: 0.5rem;
+}
+.raid-character-nav a {
+	padding: 0.3rem 0.65rem;
+	border: 1px solid #3c424c;
+	border-radius: 0.25rem;
+	background: #1c2027;
+	color: #dce5f3;
+	text-decoration: none;
+}
+.raid-reading-note,
+.raid-schema-notice {
+	color: #b8bec9;
+	font-size: 0.75rem;
+	line-height: 1.7;
+}
+.raid-schema-notice {
+	border-left: 3px solid #b69b5c;
+	padding: 0.5rem 0.8rem;
+	background: #252117;
+}
+.raid-character-section {
+	border: 1px solid #3a3e46;
+	border-radius: 0.4rem;
+	margin: 1.5rem 0;
+	padding: 1rem;
+	background: #15171b;
+	scroll-margin-top: 1rem;
+	content-visibility: auto;
+	contain-intrinsic-size: auto 1150px;
+}
+.raid-character-header {
+	border-bottom: 1px solid #383d47;
+	padding-bottom: 0.85rem;
+}
+.raid-character-header span,
+.raid-character-header small {
+	display: block;
+	color: #b7bdc8;
+}
+.raid-character-header button,
+.overview-return button {
+	font-size: 0.75rem;
+	padding: 0.45rem 0.7rem;
+	margin: 0;
+	white-space: nowrap;
+}
+.raid-spec-section > h3 {
+	color: #c3d4ed;
+}
+.raid-spec-section > h3 small {
+	font-weight: 400;
+	color: #b3b8c3;
+	margin-left: 0.4rem;
+}
+.raid-difficulty-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 1.1rem;
+}
+.raid-difficulty-column {
+	min-width: 0;
+}
+.raid-difficulty-title {
+	background: #2b2f37;
+	padding: 0.6rem 0.8rem;
+	border-left: 3px solid #a3a9b6;
+}
+.raid-difficulty-title small {
+	color: #b5bdc9;
+	font-weight: 400;
+	margin-left: 0.45rem;
+	letter-spacing: 0.12em;
+}
+.raid-metric-panel {
+	margin-bottom: 1rem;
+	border: 1px solid #383d46;
+	background: #121417;
+}
+.raid-metric-title {
+	background: #22262d;
+	padding: 0.65rem 0.75rem;
+}
+.raid-metric-title a {
+	font-size: 0.7rem;
+	color: #a9c8f7;
+}
+.raid-summary-stats {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 0.4rem;
+	padding: 0.8rem;
+}
+.raid-summary-stats > div {
+	display: flex;
+	flex-direction: column;
+	gap: 0.2rem;
+}
+.raid-summary-stats > div > span {
+	color: #b7bdc7;
+	font-size: 0.68rem;
+}
+.raid-summary-stats strong {
+	font-size: 1.3rem;
+	color: #f0f1f4;
+}
+.raid-all-stars {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem 1rem;
+	padding: 0 0.8rem 0.7rem;
+	color: #c9cdd6;
+	font-size: 0.72rem;
+}
+.raid-metric-panel .collection-notice {
+	margin: 0 0.8rem 0.6rem;
+	padding: 0.4rem 0.6rem;
+	font-size: 0.72rem;
+	background: #202126;
+	color: #d2d6df;
+}
+.raid-table-scroll {
+	overflow-x: auto;
+	max-width: 100%;
+}
+.raid-performance-table {
+	width: 100%;
+	min-width: 620px;
+	border-collapse: collapse;
+	font-size: 0.72rem;
+	margin: 0;
+}
+.raid-performance-table th,
+.raid-performance-table td {
+	border: 1px solid #343841;
+	padding: 0.45rem 0.35rem;
+	color: #d3d6dd;
+	background: transparent;
+	text-align: right;
+	white-space: nowrap;
+}
+.raid-performance-table thead th {
+	background: #292d34;
+	color: #ced2db;
+	text-align: center;
+	font-weight: 600;
+	padding: 0.35rem;
+}
+.raid-performance-table tbody tr:nth-child(even) {
+	background: #1b1e23;
+}
+.raid-performance-table tbody th {
+	text-align: left;
+	font-weight: 400;
+	white-space: normal;
+	min-width: 160px;
+}
+.raid-performance-table tbody th a {
+	display: flex;
+	gap: 0.35rem;
+	align-items: center;
+	color: #e3e6ed;
+	text-decoration: none;
+}
+.raid-performance-table tbody th small {
+	display: block;
+	color: #b9bec7;
+	margin-top: 0.15rem;
+}
+.raid-spec-label {
+	display: block;
+	color: #c0c7d2;
+	font-size: 0.6rem;
+}
+.raid-boss-marker {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 25px;
+	height: 25px;
+	color: #b4a68f;
+	background: #302b24;
+	border: 1px solid #615440;
+	border-radius: 2px;
+	font-size: 0.65rem;
+}
+.raid-performance-table .raid-row-no-kills th a,
+.raid-performance-table .raid-row-no-kills td {
+	color: #a4a8b0;
+}
+.raid-performance-table .raid-row-unavailable th {
+	border-left: 2px solid #85744b;
+}
+.raid-no-bosses {
+	padding: 1rem;
+	color: #b8bec8;
+}
+.raid-overview-footer {
+	padding: 1rem 0;
+	color: #aeb4bf;
+	text-align: center;
+	font-size: 0.75rem;
+}
+
+.raid-percent {
+	font-variant-numeric: tabular-nums;
+	font-weight: 650;
+}
+.wcl-gold {
+	color: #e5cc80;
+}
+.wcl-pink {
+	color: #ff80bd;
+}
+.wcl-orange {
+	color: #ff9d32;
+}
+.wcl-purple {
+	color: #c47aff;
+}
+.wcl-blue {
+	color: #4db8ff;
+}
+.wcl-green {
+	color: #1eff00;
+}
+.wcl-grey {
+	color: #b3b3b3;
+}
+.overview-return {
+	max-width: 1296px;
+	margin: 0 auto;
+	padding: 1rem 1rem 0;
+}
+@media (min-width: 1280px) {
+	.raid-difficulty-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+@media (max-width: 600px) {
+	.raid-overview {
+		padding: 1rem 0.6rem;
+	}
+	.raid-overview h1 {
+		font-size: 1.35rem;
+	}
+	.raid-overview-header,
+	.raid-character-header {
+		align-items: flex-start;
+		flex-direction: column;
+		gap: 0.6rem;
+	}
+	.raid-character-section {
+		padding: 0.6rem;
+	}
+	.raid-character-nav a {
+		font-size: 0.72rem;
+	}
+}

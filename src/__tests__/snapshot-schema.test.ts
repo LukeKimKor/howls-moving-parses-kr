@@ -17,6 +17,13 @@ describe("snapshot.json schema validation", () => {
 				Object.values(c.specs).flatMap((s) => Object.values(s.collection ?? {})),
 			),
 			...Object.values(data.specs).flatMap((s) => [s.mythicPlus.collection, s.raid.collection]),
+			...data.characters.flatMap((c) =>
+				Object.values(c.specs).flatMap((s) =>
+					Object.values(s.raidPerformance ?? {}).flatMap((m) =>
+						Object.values(m).map((d) => d.collection),
+					),
+				),
+			),
 		];
 		for (const status of statuses) {
 			if (!status) continue;
@@ -30,10 +37,35 @@ describe("snapshot.json schema validation", () => {
 				if (at) expect(new Date(at).toISOString()).toBe(at);
 		}
 	});
+	it("keeps raid metrics/difficulties separate and never invents no-kill statistics", () => {
+		const data = snapshot as unknown as Snapshot;
+		for (const c of data.characters)
+			for (const s of Object.values(c.specs)) {
+				for (const [metric, difficulties] of Object.entries(s.raidPerformance ?? {})) {
+					expect(["dps", "bossdps", "hps"]).toContain(metric);
+					for (const [difficulty, section] of Object.entries(difficulties)) {
+						expect(section.metric).toBe(metric);
+						expect(section.difficulty).toBe(difficulty);
+						for (const row of section.rows)
+							if (row.state === "no-kills") {
+								expect(row.kills).toBe(0);
+								expect(row.bestPercent).toBeNull();
+								expect(row.bestAmount).toBeNull();
+							}
+						if (metric === "bossdps" && section.collection.state === "ok")
+							expect(data.raidMetricSchema?.supported).toContain("bossdps");
+					}
+				}
+			}
+	});
 	it("counts tracked results separately from displayable retained data", () => {
 		const summary = (snapshot as unknown as Snapshot).collectionSummary;
 		if (!summary) return; // Existing public-only snapshots predate collection status.
-		for (const counts of [summary.characters, summary.metaSpecs])
+		for (const counts of [
+			summary.characters,
+			summary.metaSpecs,
+			...(summary.raidTables ? [summary.raidTables] : []),
+		])
 			expect(counts.complete + counts.partial + counts.failed + counts.skipped).toBe(
 				counts.tracked,
 			);

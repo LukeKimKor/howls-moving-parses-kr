@@ -53,6 +53,27 @@ export function failed(status?: CollectionStatus): boolean {
 	return status?.state === "partial" || status?.state === "failed";
 }
 
+export function combineCollectionStatuses(statuses: CollectionStatus[]): CollectionStatus {
+	const issues = [...new Set(statuses.flatMap((s) => s.issues))];
+	const failedAny = statuses.some(failed);
+	return {
+		state: statuses.every((s) => s.state === "skipped")
+			? "skipped"
+			: failedAny
+				? statuses.some((s) => s.state === "ok" || s.state === "empty" || s.state === "partial")
+					? "partial"
+					: "failed"
+				: statuses.some((s) => s.state === "ok")
+					? "ok"
+					: "empty",
+		attemptedRequests: statuses.reduce((n, s) => n + s.attemptedRequests, 0),
+		failedRequests: statuses.reduce((n, s) => n + s.failedRequests, 0),
+		issues,
+		retainedAt: statuses.find((s) => s.retainedAt)?.retainedAt,
+		lastSuccessAt: !failedAny ? statuses.find((s) => s.lastSuccessAt)?.lastSuccessAt : undefined,
+	};
+}
+
 export function countCollections(
 	groups: Array<Array<CollectionStatus | undefined>>,
 ): CollectionCounts {

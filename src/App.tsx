@@ -4,6 +4,7 @@ import { CharacterSpecToggle } from "./components/chrome/CharacterSpecToggle.js"
 import { NewBuildBanner } from "./components/chrome/NewBuildBanner.js";
 import { SpecSelect } from "./components/chrome/SpecSelect.js";
 import { LandingPage } from "./components/pages/LandingPage.js";
+import { RaidOverviewPage } from "./components/pages/RaidOverviewPage.js";
 import { CharactersSummaryPanel } from "./components/panels/CharactersSummaryPanel.js";
 import { GearSnapshotPanel } from "./components/panels/GearSnapshotPanel.js";
 import { LogPerformancePanel } from "./components/panels/LogPerformancePanel.js";
@@ -235,9 +236,22 @@ function AppInner({ onSelectCharacter }: { onSelectCharacter: (name: string) => 
 
 /** Root application component. Imports snapshot.json and provides context. */
 export default function App() {
+	const [view, setView] = useState<"overview" | "detail">("overview");
 	const [storedChar, setStoredChar] = useState<CharacterData | null>(() =>
 		getStoredCharacter(snapshot.characters),
 	);
+	if (view === "overview")
+		return (
+			<RaidOverviewPage
+				snapshot={snapshot}
+				onOpenCharacter={(character) => {
+					saveCharacter(character.name);
+					setStoredChar(character);
+					setView("detail");
+					window.scrollTo(0, 0);
+				}}
+			/>
+		);
 
 	if (storedChar === null) {
 		return (
@@ -257,6 +271,17 @@ export default function App() {
 			defaultCharacterMainSpecSlug={storedChar.mainSpecSlug}
 			defaultMetaSpecSlug={storedChar.mainSpecSlug}
 		>
+			<div className="overview-return">
+				<button
+					type="button"
+					onClick={() => {
+						setView("overview");
+						window.scrollTo(0, 0);
+					}}
+				>
+					← 전체 캐릭터 레이드 성적
+				</button>
+			</div>
 			<AppInner onSelectCharacter={saveCharacter} />
 		</AppStateProvider>
 	);

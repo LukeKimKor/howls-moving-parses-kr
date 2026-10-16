@@ -26,6 +26,7 @@ import type {
 } from "../src/types/snapshot.js";
 import {
 	collect,
+	combineCollectionStatuses,
 	countCollections,
 	failed,
 	recordIssue,
@@ -37,12 +38,18 @@ import {
 	type CharactersConfig,
 	validateConfig,
 } from "./config-validation.js";
+import {
+	type GraphqlError,
+	fetchRaidPerformance,
+	verifyRaidMetricSchema,
+} from "./raid-performance.js";
 import { toRealmSlug } from "./realm-slug.js";
 import { wclTransport } from "./wcl-transport.js";
 
 const WCL_TOKEN_URL = "https://www.warcraftlogs.com/oauth/token";
 const WCL_API_URL = "https://www.warcraftlogs.com/api/v2/client";
 const RIO_BASE_URL = "https://raider.io/api/v1";
+const zoneNames = new Map<number, string>();
 const requestLimit = pLimit(6);
 function httpFetch(url: string, init?: RequestInit): Promise<Response> {
 	return requestLimit(() => fetch(url, { ...init, signal: AbortSignal.timeout(30_000) }));
@@ -264,6 +271,7 @@ async function wclQuery<T = Record<string, unknown>>(
 	token: string,
 	query: string,
 	variables?: Record<string, unknown>,
+	onErrors?: (errors: GraphqlError[]) => void,
 ): Promise<T> {
 	let recorded = false;
 	try {
@@ -278,10 +286,11 @@ async function wclQuery<T = Record<string, unknown>>(
 
 		const json = (await res.json()) as {
 			data?: T;
-			errors?: Array<{ message: string; path?: string[] }>;
+			errors?: GraphqlError[];
 		};
 
 		if (json.errors && json.errors.length > 0) {
+			onErrors?.(json.errors);
 			recordRequest(true, "WCL GraphQL 부분 응답 오류");
 			recorded = true;
 			if (!json.data) {
@@ -412,12 +421,13 @@ async function getRaidEncounters(
 	zoneId: number,
 ): Promise<Array<{ id: number; name: string }>> {
 	const data = await wclQuery<{
-		worldData: { zone: { encounters: Array<{ id: number; name: string }> } };
+		worldData: { zone: { name: string; encounters: Array<{ id: number; name: string }> } };
 	}>(
 		token,
 		`query GetZoneEncounters($zoneId: Int!) {
       worldData {
         zone(id: $zoneId) {
+          name
           encounters { id name }
         }
       }
@@ -426,6 +436,7 @@ async function getRaidEncounters(
 	);
 
 	const encounters = data.worldData.zone.encounters;
+	zoneNames.set(zoneId, data.worldData.zone.name);
 	if (!encounters || encounters.length === 0) {
 		throw new Error(`No encounters found for zone ${zoneId}`);
 	}
@@ -1592,6 +1603,7 @@ export async function fetchCharacter(
 	parseDatesCache: Record<string, string>,
 	previous?: CharacterData,
 	previousAt?: string,
+	supportedRaidMetrics: Array<"dps" | "bossdps" | "hps"> = ["dps", "hps"],
 ): Promise<CharacterData> {
 	const activeSpecs = char.specs.filter((s) => s.role !== "inactive");
 	const mainSpec =
@@ -1625,7 +1637,7 @@ export async function fetchCharacter(
 				!!token,
 			);
 
-			const [rio, raids, mplus] = await Promise.all([
+			const [rio, raidPerformance, mplus] = await Promise.all([
 				collect(
 					() =>
 						fetchRioProfile(
@@ -1639,35 +1651,16 @@ export async function fetchCharacter(
 					(data) => data.mplus !== null,
 					{ mplus: null, gear: null, talents: null },
 				),
-				collect(
-					() =>
-						Promise.all([
-							fetchWclRaidRankings(
-								char.name,
-								realmSlug,
-								char.region,
-								raidZoneId,
-								5,
-								metric,
-								token,
-								specEntry.spec,
-							),
-							fetchWclRaidRankings(
-								char.name,
-								realmSlug,
-								char.region,
-								raidZoneId,
-								4,
-								metric,
-								token,
-								specEntry.spec,
-							),
-						]),
-					(data) =>
-						data.some((d) =>
-							(d?.rankings ?? []).some((r) => r.rankPercent !== null && r.bestAmount > 0),
-						),
-					[null, null] as Array<ZoneRankingsRaw | null>,
+				fetchRaidPerformance(
+					(query, variables, onErrors) => wclQuery(token, query, variables, onErrors),
+					{ name: char.name, realm: realmSlug, region: char.region },
+					raidZoneId,
+					specEntry.spec,
+					specDef.role === "healer",
+					raidEncounters,
+					supportedRaidMetrics,
+					old?.raidPerformance,
+					previousAt,
 					!!token,
 				),
 				collect(
@@ -1696,21 +1689,31 @@ export async function fetchCharacter(
 				previousAt,
 				(d) => d.mplus !== null,
 			);
-			const [mythicRankings, heroicRankings] = raids.data;
+			const primaryRaid = raidPerformance[metric];
+			const raids = {
+				status: combineCollectionStatuses(
+					primaryRaid ? Object.values(primaryRaid).map((d) => d.collection) : [],
+				),
+			};
 			const mplusRankings = mplus.data;
 			const parseDates = dates.data;
 
-			const damageBreakdown = await fetchDamageBreakdownIfPossible(
-				char.name,
-				mythicRankings ?? null,
-				heroicRankings ?? null,
-				token,
-			);
-
-			const freshRaidParses: RaidParse[] = [
-				...(mythicRankings ? mapRaidParses(mythicRankings, "Mythic", parseDates) : []),
-				...(heroicRankings ? mapRaidParses(heroicRankings, "Heroic", parseDates) : []),
-			];
+			const damageBreakdown: DamageSource[] = []; // Upstream damage breakdown remains deferred.
+			const freshRaidParses: RaidParse[] = primaryRaid
+				? Object.values(primaryRaid).flatMap((d) =>
+						d.rows
+							.filter((r) => r.bestPercent !== null)
+							.map((r) => ({
+								bossName: r.bossName,
+								difficulty: d.difficulty,
+								bestPercent: r.bestPercent ?? 0,
+								ilvlAdjustedPercent: r.bestPercent ?? 0,
+								rankLabel: rankLabel(r.bestPercent ?? 0),
+								bestAmount: r.bestAmount ?? 0,
+								date: parseDates.get(`${r.encounterId}-${d.difficulty === "Mythic" ? 5 : 4}`) ?? "",
+							})),
+					)
+				: [];
 
 			const freshDungeonLogs: DungeonLog[] = mplusRankings
 				? mapDungeonLogs(mplusRankings, specEntry.spec, rioData.mplus?.bestRuns ?? [])
@@ -1756,6 +1759,7 @@ export async function fetchCharacter(
 			};
 
 			const specData: CharacterSpecData = {
+				raidPerformance,
 				collection: {
 					raiderio: rio.status,
 					raid: raids.status,
@@ -1951,6 +1955,7 @@ export async function fetchSpecMeta(
 
 export async function main(): Promise<void> {
 	const rioOnly = process.argv.includes("--raiderio-only");
+	const refreshMeta = !rioOnly && !process.argv.includes("--characters-only");
 	const charactersConfig = loadConfig();
 	validateConfig(charactersConfig);
 	let previous: Snapshot | undefined;
@@ -1962,6 +1967,11 @@ export async function main(): Promise<void> {
 
 	const region = charactersConfig.characters[0]?.region ?? "kr";
 	const wclToken = rioOnly ? "" : await getWclToken();
+	const raidMetricSchema = rioOnly
+		? undefined
+		: await verifyRaidMetricSchema((query, variables, onErrors) =>
+				wclQuery(wclToken, query, variables, onErrors),
+			);
 	const [raidZoneId, mplusZoneId] = rioOnly
 		? [0, 0]
 		: await Promise.all([getCurrentRaidZoneId(wclToken), getCurrentMplusZoneId(wclToken)]);
@@ -2031,6 +2041,7 @@ export async function main(): Promise<void> {
 				parseDatesCache,
 				previousCharacter(c),
 				previous?.generatedAt,
+				raidMetricSchema?.state === "verified" ? raidMetricSchema.supported : ["dps", "hps"],
 			),
 		),
 	);
@@ -2059,7 +2070,7 @@ export async function main(): Promise<void> {
 	);
 
 	console.log(
-		`✓ Fetching meta for ${trackedSpecSlugs.size} tracked spec(s): ${[...trackedSpecSlugs].join(", ")}`,
+		`✓ ${refreshMeta ? "Fetching" : "Retaining previous"} meta for ${trackedSpecSlugs.size} tracked spec(s): ${[...trackedSpecSlugs].join(", ")}`,
 	);
 
 	const limit = pLimit(1);
@@ -2076,6 +2087,55 @@ export async function main(): Promise<void> {
 			.map((spec) => {
 				if (rioOnly || !trackedSpecSlugs.has(spec.specSlug)) {
 					return Promise.resolve(emptySpecMeta(spec));
+				}
+				if (!refreshMeta) {
+					const old = previousWcl?.specs[spec.specSlug] ?? emptySpecMeta(spec);
+					const skipped = {
+						state: "skipped" as const,
+						attemptedRequests: 0,
+						failedRequests: 0,
+						issues: ["이번 갱신은 캐릭터 성적만 수집 · 메타는 별도 갱신"],
+						retainedAt: previousWcl?.generatedAt,
+					};
+					return Promise.resolve({
+						...old,
+						mythicPlus: {
+							...old.mythicPlus,
+							collection: {
+								...skipped,
+								issues: [
+									...skipped.issues,
+									...(old.mythicPlus.collection?.issues ?? [])
+										.filter((issue) => issue !== skipped.issues[0])
+										.map((issue) =>
+											issue.startsWith("이전 조회:") ? issue : `이전 조회: ${issue}`,
+										),
+								],
+								retainedAt:
+									old.mythicPlus.collection?.retainedAt ??
+									old.mythicPlus.collection?.lastSuccessAt ??
+									skipped.retainedAt,
+							},
+						},
+						raid: {
+							...old.raid,
+							collection: {
+								...skipped,
+								issues: [
+									...skipped.issues,
+									...(old.raid.collection?.issues ?? [])
+										.filter((issue) => issue !== skipped.issues[0])
+										.map((issue) =>
+											issue.startsWith("이전 조회:") ? issue : `이전 조회: ${issue}`,
+										),
+								],
+								retainedAt:
+									old.raid.collection?.retainedAt ??
+									old.raid.collection?.lastSuccessAt ??
+									skipped.retainedAt,
+							},
+						},
+					});
 				}
 				return limit(() =>
 					fetchSpecMeta(
@@ -2101,12 +2161,36 @@ export async function main(): Promise<void> {
 	).length;
 	const characterCounts = countCollections(
 		characterData.map((c) =>
-			Object.values(c.specs).flatMap((s) => Object.values(s.collection ?? {})),
+			Object.values(c.specs).flatMap((s) => [
+				...Object.values(s.collection ?? {}),
+				...Object.values(s.raidPerformance ?? {}).flatMap((m) =>
+					Object.values(m).map((d) => d.collection),
+				),
+			]),
 		),
+	);
+	const raidTableCounts = countCollections(
+		characterData.flatMap((c) =>
+			Object.values(c.specs).flatMap((s) =>
+				Object.values(s.raidPerformance ?? {}).flatMap((m) =>
+					Object.values(m).map((d) => [d.collection]),
+				),
+			),
+		),
+	);
+	console.log(
+		`✓ Raid tables: ${raidTableCounts.tracked} tracked; ${raidTableCounts.complete} complete, ${raidTableCounts.partial} partial, ${raidTableCounts.failed} failed, ${raidTableCounts.skipped} skipped`,
 	);
 	const failedCharacterNames = characterData
 		.filter((c) =>
-			Object.values(c.specs).some((s) => Object.values(s.collection ?? {}).some(failed)),
+			Object.values(c.specs).some((s) =>
+				[
+					...Object.values(s.collection ?? {}),
+					...Object.values(s.raidPerformance ?? {}).flatMap((m) =>
+						Object.values(m).map((d) => d.collection),
+					),
+				].some(failed),
+			),
 		)
 		.map((c) => c.name);
 	if (failedCharacterNames.length)
@@ -2148,9 +2232,18 @@ export async function main(): Promise<void> {
 
 	const buildHash = getBuildHash();
 	const snapshot: Snapshot = {
+		raid: rioOnly
+			? previous?.raid
+			: {
+					id: raidZoneId,
+					name: zoneNames.get(raidZoneId) ?? `Raid ${raidZoneId}`,
+					encounters: raidEncounters,
+				},
+		raidMetricSchema,
 		wclZones: rioOnly ? undefined : { raid: raidZoneId, mythicPlus: mplusZoneId },
 		collectionSummary: {
 			characters: characterCounts,
+			raidTables: raidTableCounts,
 			metaSpecs: { ...metaCounts, withData: metaWithData },
 		},
 		dataMode: rioOnly ? "raiderio-only" : "full",

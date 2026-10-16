@@ -2,8 +2,15 @@ name: Refresh Data & Deploy
 
 on:
   schedule:
-    - cron: '0 4,10,16,22 * * *'
+    - cron: '0 4 * * *'
+    - cron: '0 10,16,22 * * *'
   workflow_dispatch:
+    inputs:
+      refresh_meta:
+        description: 'Also refresh regional spec meta (characters are always refreshed)'
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -53,6 +60,7 @@ jobs:
       - name: Fetch data
         run: pnpm fetch:refresh
         env:
+          REFRESH_META: ${{ (github.event_name == 'workflow_dispatch' && inputs.refresh_meta) || github.event.schedule == '0 4 * * *' }}
           WCL_CLIENT_ID: ${{ secrets.WCL_CLIENT_ID }}
           WCL_CLIENT_SECRET: ${{ secrets.WCL_CLIENT_SECRET }}
           WCL_CURRENT_RAID_ZONE_ID: ${{ secrets.WCL_CURRENT_RAID_ZONE_ID }}

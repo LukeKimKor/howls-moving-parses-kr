@@ -12,6 +12,18 @@ The upstream meta algorithm samples players with WCL logs, then enriches them wi
 
 앙귀태 has Havoc and Devourer both marked `tracked`, with `mainSpecPending=true`. The first displayed spec is only an initial navigation fallback. Neither a main nor an offspec has been chosen. After the user decides, remove the pending flag and use `main`/`offspec` roles.
 
+## All-character raid overview
+
+The default page now lists every registered character's Heroic and Mythic raid results. DPS specs have separate Damage (`dps`) and Damage to Bosses (`bossdps`) sections; Preservation Evoker and Holy Paladin have Healing (`hps`). Both DH specs remain within one character section. The existing score/runs/gear/talents/meta dashboard is available through each character's detail button.
+
+The overview uses registered specs and WCL's default partition, rather than claiming to reproduce the screenshot's All Specs/All patch filters. Summary percentiles come directly from WCL; Kills Logged is explicitly labelled as a sum of per-boss kills. Best %, Med, DPS/HPS, All Stars points and rank are separate fields. Missing values remain dashes. Only an explicit API `totalKills=0` creates an un-killed row. Historical snapshots supply only their observed Best % and DPS/HPS; newly requested fields remain unqueried. Boss artwork is optional and falls back to a neutral marker, with spec names shown as text.
+
+WCL's web documentation is blocked by Cloudflare in both execution environments. The authenticated Actions run makes one normal `__type(name: "CharacterPageRankingMetricType")` query, logging only the supported metric names. The new `bossdps` selection is sent only when the enum confirms it. A denied/unavailable schema remains an explicit unqueried state; no alternative access path is used. The already established dps/hps collectors continue safely. No credentials are written or logged.
+
+The two difficulties and requested metrics are batched into one HTTP query per tracked spec (14 for this configuration, down from 28 separate raid queries), with per-alias error states. Query complexity/point usage can still grow with added metrics and must be measured during the coordinated live validation. Existing single-queue spacing, server cooldowns and run-wide 429 stop remain in effect.
+
+Character refreshes remain four times daily. Regional meta is refreshed separately at UTC 04:00 daily, or by checking **refresh_meta** in a manual run; other runs retain the previous meta and show its timestamp. For the first combined validation after 22:35 UTC, check **refresh_meta=true** once to verify both the new raid view and the earlier Arms/Demonology recovery. Do not launch a separate schema or duplicate data run.
+
 ## Run locally
 
 Use Node.js 22+ and pnpm 9.15.0.

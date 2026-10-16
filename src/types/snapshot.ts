@@ -2,9 +2,20 @@ import type { Region } from "../lib/regions.js";
 
 /** The root snapshot produced by the build script and imported by App.tsx. */
 export interface Snapshot {
+	raid?: {
+		id: number;
+		name: string;
+		encounters: Array<{ id: number; name: string; imageUrl?: string }>;
+	};
+	raidMetricSchema?: {
+		state: "verified" | "unavailable";
+		supported: RaidMetric[];
+		checkedAt: string;
+	};
 	wclZones?: { raid: number; mythicPlus: number };
 	collectionSummary?: {
 		characters: CollectionCounts;
+		raidTables?: CollectionCounts;
 		metaSpecs: CollectionCounts & { withData: number };
 	};
 	dataMode?: "full" | "raiderio-only";
@@ -67,6 +78,7 @@ export interface CharacterData {
  * corresponding API call failed; the UI must handle this gracefully.
  */
 export interface CharacterSpecData {
+	raidPerformance?: Partial<Record<RaidMetric, Record<RaidDifficulty, RaidDifficultyData>>>;
 	collection?: {
 		raiderio: CollectionStatus;
 		raid: CollectionStatus;
@@ -80,6 +92,43 @@ export interface CharacterSpecData {
 	talents?: TalentData | null;
 	mythicPlus: MythicPlusData | null;
 	logs: LogData | null;
+}
+
+export type RaidMetric = "dps" | "bossdps" | "hps";
+export type RaidDifficulty = "Heroic" | "Mythic";
+
+export interface RaidDifficultyData {
+	metric: RaidMetric;
+	difficulty: RaidDifficulty;
+	collection: CollectionStatus;
+	partition: number | null;
+	summary: {
+		bestPerformanceAverage: number | null;
+		medianPerformanceAverage: number | null;
+		/** Sum of API per-boss totalKills, explicitly labelled as calculated. */
+		killsLogged: number | null;
+		allStars: Array<{
+			spec: string;
+			partition?: number | null;
+			points: number | null;
+			rank: number | null;
+		}>;
+	};
+	rows: RaidPerformanceRow[];
+}
+
+export interface RaidPerformanceRow {
+	encounterId: number;
+	bossName: string;
+	state: "recorded" | "no-kills" | "unavailable";
+	specName: string | null;
+	bestPercent: number | null;
+	bestAmount: number | null;
+	kills: number | null;
+	fastestKillMs: number | null;
+	medianPercent: number | null;
+	allStarPoints: number | null;
+	allStarRank: number | null;
 }
 
 /** Mythic+ performance data for a single character spec. */

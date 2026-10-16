@@ -2,6 +2,7 @@
 export {};
 const hasId = Boolean(process.env.WCL_CLIENT_ID);
 const hasSecret = Boolean(process.env.WCL_CLIENT_SECRET);
+if (process.env.REFRESH_META === "false") process.argv.push("--characters-only");
 
 if (hasId !== hasSecret) {
 	throw new Error("WCL configuration is incomplete. Configure both repository Secrets or neither.");
