@@ -244,6 +244,7 @@ export default function App() {
 		return (
 			<RaidOverviewPage
 				snapshot={snapshot}
+				initialCharacterName={storedChar?.name}
 				onOpenCharacter={(character) => {
 					saveCharacter(character.name);
 					setStoredChar(character);

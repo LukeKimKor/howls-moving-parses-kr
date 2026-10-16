@@ -15,6 +15,7 @@ import { NewBuildBanner } from "../chrome/NewBuildBanner.js";
 import { CollectionNotice } from "../primitives/CollectionNotice.js";
 import { RaidPercent as PercentBadge } from "../primitives/RaidPercent.js";
 import { CLASS_COLORS, SpecIcon } from "../primitives/SpecIcon.js";
+import { MobileRaidOverview } from "./MobileRaidOverview.js";
 import { RaidSummaryTable } from "./RaidSummaryTable.js";
 
 const amount = (value: number | null) =>
@@ -212,8 +213,21 @@ function RaidTable({
 export function RaidOverviewPage({
 	snapshot,
 	onOpenCharacter,
-}: { snapshot: Snapshot; onOpenCharacter: (character: CharacterData) => void }) {
+	initialCharacterName,
+}: {
+	snapshot: Snapshot;
+	onOpenCharacter: (character: CharacterData) => void;
+	initialCharacterName?: string;
+}) {
 	const encounters = raidEncounters(snapshot);
+	const [mobile, setMobile] = useState(() => window.matchMedia("(max-width: 767px)").matches);
+	useEffect(() => {
+		const media = window.matchMedia("(max-width: 767px)");
+		const update = () => setMobile(media.matches);
+		media.addEventListener("change", update);
+		update();
+		return () => media.removeEventListener("change", update);
+	}, []);
 	const [now, setNow] = useState(Date.now);
 	useEffect(() => {
 		const timer = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -243,125 +257,151 @@ export function RaidOverviewPage({
 						영웅 &amp; 신화
 					</p>
 				</div>
-				<div className="raid-refresh-info">
-					<small>
-						레이드 최근 수집 성공 {lastSuccess ? `${kstTime(lastSuccess)} KST` : "미확인"}
-					</small>
-					<small>최근 실행 {kstTime(snapshot.generatedAt)} KST</small>
-					<small>
-						{snapshot.refreshSchedule?.enabled
-							? `자동 갱신 하루 ${snapshot.refreshSchedule.utcHours.length}회 · ${snapshot.refreshSchedule.utcHours.map((h) => `${String((h + 9) % 24).padStart(2, "0")}:00`).join(" / ")} KST`
-							: "자동 갱신 일정 확인 대기"}
-					</small>
-					<small>
-						다음 실행 예정 {nextRun ? `${kstTime(nextRun)} KST` : "미확인"} · 완료 시각은 수집
-						상황에 따라 달라집니다.
-					</small>
-					{snapshot.refreshRuntime?.nextEligibleAt && (
-						<small>WCL 재시도 가능 {kstTime(snapshot.refreshRuntime.nextEligibleAt)} KST</small>
-					)}
-					<small>레이드 캐시 4시간 · 상세 12시간 · 메타/영역 정보 24시간</small>
-				</div>
+				<details className="raid-refresh-details" open={!mobile}>
+					<summary>수집 시각 · 갱신 일정</summary>
+					<div className="raid-refresh-info">
+						<small>
+							레이드 최근 수집 성공 {lastSuccess ? `${kstTime(lastSuccess)} KST` : "미확인"}
+						</small>
+						<small>최근 실행 {kstTime(snapshot.generatedAt)} KST</small>
+						<small>
+							{snapshot.refreshSchedule?.enabled
+								? `자동 갱신 하루 ${snapshot.refreshSchedule.utcHours.length}회 · ${snapshot.refreshSchedule.utcHours.map((h) => `${String((h + 9) % 24).padStart(2, "0")}:00`).join(" / ")} KST`
+								: "자동 갱신 일정 확인 대기"}
+						</small>
+						<small>
+							다음 실행 예정 {nextRun ? `${kstTime(nextRun)} KST` : "미확인"} · 완료 시각은 수집
+							상황에 따라 달라집니다.
+						</small>
+						{snapshot.refreshRuntime?.nextEligibleAt && (
+							<small>WCL 재시도 가능 {kstTime(snapshot.refreshRuntime.nextEligibleAt)} KST</small>
+						)}
+						<small>레이드 캐시 4시간 · 상세 12시간 · 메타/영역 정보 24시간</small>
+					</div>
+				</details>
 			</header>
 			<NewBuildBanner
 				visible={newBuild}
 				onRefresh={() => window.location.reload()}
 				onDismiss={() => setNewBuild(false)}
 			/>
-			{snapshot.warnings?.map((warning) => (
-				<output className="data-notice" key={warning}>
-					{warning}
-				</output>
-			))}
+			{mobile && !!snapshot.warnings?.length ? (
+				<details className="mobile-data-notices">
+					<summary>수집 알림 {snapshot.warnings.length}개</summary>
+					{snapshot.warnings.map((warning) => (
+						<output className="data-notice" key={warning}>
+							{warning}
+						</output>
+					))}
+				</details>
+			) : (
+				snapshot.warnings?.map((warning) => (
+					<output className="data-notice" key={warning}>
+						{warning}
+					</output>
+				))
+			)}
 			{!snapshot.raidMetricSchema?.supported.includes("bossdps") && (
 				<p className="raid-schema-notice">
 					Damage to Bosses의 공식 스키마 지원 확인 대기 · 새 수집은 미조회로 표시하며, 이전 데이터가
 					있으면 시각과 함께 보존합니다.
 				</p>
 			)}
-			<nav className="raid-character-nav" aria-label="캐릭터 성적 바로가기">
-				{snapshot.characters.map((character, index) => (
-					<a
-						key={character.name}
-						href={`#raid-character-${index}`}
-						style={{ color: CLASS_COLORS[character.class] }}
-					>
-						{character.name}
-					</a>
-				))}
-			</nav>
-			<RaidSummaryTable snapshot={snapshot} />
-			<p className="raid-reading-note">
-				등록된 전문화 · 현재 WCL 기본 파티션 기준입니다. Best %와 Med는 WCL 순위 백분위이며 Highest
-				DPS/HPS는 초당 수치입니다. 요약 백분위는 WCL 응답을 그대로 표시합니다. *Kills Logged는
-				보스별 Kills의 합계입니다. —는 값이 제공되지 않았음을 뜻하며, 미처치는 Kills 0으로
-				구분합니다.
-			</p>
-			{snapshot.characters.map((character, index) => (
-				<section
-					id={`raid-character-${index}`}
-					key={character.name}
-					className="raid-character-section"
-					aria-labelledby={`raid-character-title-${index}`}
-				>
-					<header className="raid-character-header">
-						<div>
-							<h2
-								id={`raid-character-title-${index}`}
+			{mobile ? (
+				<MobileRaidOverview
+					snapshot={snapshot}
+					onOpenCharacter={onOpenCharacter}
+					initialCharacterName={initialCharacterName}
+				/>
+			) : (
+				<>
+					<nav className="raid-character-nav" aria-label="캐릭터 성적 바로가기">
+						{snapshot.characters.map((character, index) => (
+							<a
+								key={character.name}
+								href={`#raid-character-${index}`}
 								style={{ color: CLASS_COLORS[character.class] }}
 							>
 								{character.name}
-							</h2>
-							<span>{character.realm}</span>
-							{character.mainSpecPending && <small>주 전문화 미확정 · 파멸 / 포식 동시 추적</small>}
-						</div>
-						<button type="button" onClick={() => onOpenCharacter(character)}>
-							쐐기·장비·특성·메타 상세 ↗
-						</button>
-					</header>
-					{character.specOrder.map((slug) => {
-						const spec = character.specs[slug];
-						if (!spec) return null;
-						const healer = ALL_SPECS.find((s) => s.specSlug === slug)?.role === "healer";
-						const metrics: RaidMetric[] = healer ? ["hps"] : ["dps", "bossdps"];
-						return (
-							<div className="raid-spec-section" key={slug}>
-								<h3>
-									<SpecIcon className={character.class} specName={spec.specName} />{" "}
-									<small>{healer ? "Healing" : "Damage · Damage to Bosses"}</small>
-								</h3>
-								{metrics.map((metric) => (
-									<div className="raid-difficulty-grid" key={metric}>
-										{(["Heroic", "Mythic"] as const).map((difficulty) => (
-											<div className="raid-difficulty-column" key={difficulty}>
-												<h3 className="raid-difficulty-title">
-													{difficulty === "Heroic" ? "영웅" : "신화"}{" "}
-													<small>{difficulty.toUpperCase()}</small>
-												</h3>
-												{
-													<RaidTable
-														key={metric}
-														data={raidSection(
-															spec,
-															metric,
-															difficulty,
-															encounters,
-															snapshot.generatedAt,
-														)}
-														character={character}
-														spec={spec}
-														snapshot={snapshot}
-													/>
-												}
+							</a>
+						))}
+					</nav>
+					<RaidSummaryTable snapshot={snapshot} />
+					<p className="raid-reading-note">
+						등록된 전문화 · 현재 WCL 기본 파티션 기준입니다. Best %와 Med는 WCL 순위 백분위이며
+						Highest DPS/HPS는 초당 수치입니다. 요약 백분위는 WCL 응답을 그대로 표시합니다. *Kills
+						Logged는 보스별 Kills의 합계입니다. —는 값이 제공되지 않았음을 뜻하며, 미처치는 Kills
+						0으로 구분합니다.
+					</p>
+					{snapshot.characters.map((character, index) => (
+						<section
+							id={`raid-character-${index}`}
+							key={character.name}
+							className="raid-character-section"
+							aria-labelledby={`raid-character-title-${index}`}
+						>
+							<header className="raid-character-header">
+								<div>
+									<h2
+										id={`raid-character-title-${index}`}
+										style={{ color: CLASS_COLORS[character.class] }}
+									>
+										{character.name}
+									</h2>
+									<span>{character.realm}</span>
+									{character.mainSpecPending && (
+										<small>주 전문화 미확정 · 파멸 / 포식 동시 추적</small>
+									)}
+								</div>
+								<button type="button" onClick={() => onOpenCharacter(character)}>
+									쐐기·장비·특성·메타 상세 ↗
+								</button>
+							</header>
+							{character.specOrder.map((slug) => {
+								const spec = character.specs[slug];
+								if (!spec) return null;
+								const healer = ALL_SPECS.find((s) => s.specSlug === slug)?.role === "healer";
+								const metrics: RaidMetric[] = healer ? ["hps"] : ["dps", "bossdps"];
+								return (
+									<div className="raid-spec-section" key={slug}>
+										<h3>
+											<SpecIcon className={character.class} specName={spec.specName} />{" "}
+											<small>{healer ? "Healing" : "Damage · Damage to Bosses"}</small>
+										</h3>
+										{metrics.map((metric) => (
+											<div className="raid-difficulty-grid" key={metric}>
+												{(["Heroic", "Mythic"] as const).map((difficulty) => (
+													<div className="raid-difficulty-column" key={difficulty}>
+														<h3 className="raid-difficulty-title">
+															{difficulty === "Heroic" ? "영웅" : "신화"}{" "}
+															<small>{difficulty.toUpperCase()}</small>
+														</h3>
+														{
+															<RaidTable
+																key={metric}
+																data={raidSection(
+																	spec,
+																	metric,
+																	difficulty,
+																	encounters,
+																	snapshot.generatedAt,
+																)}
+																character={character}
+																spec={spec}
+																snapshot={snapshot}
+															/>
+														}
+													</div>
+												))}
 											</div>
 										))}
 									</div>
-								))}
-							</div>
-						);
-					})}
-				</section>
-			))}
+								);
+							})}
+						</section>
+					))}
+				</>
+			)}
 			<footer className="raid-overview-footer">
 				실제 WCL 공개 로그 스냅샷 · 원본 기능 제작 howlsome · 메타 상세는 별도 갱신
 			</footer>
