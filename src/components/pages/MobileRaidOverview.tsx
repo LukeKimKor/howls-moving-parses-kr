@@ -26,7 +26,9 @@ import type {
 	RaidMetric,
 	Snapshot,
 } from "../../types/snapshot.js";
+import { AllStarsHelp, AllStarsSummary } from "../primitives/AllStarsSummary.js";
 import { CollectionNotice } from "../primitives/CollectionNotice.js";
+import { MissingValue } from "../primitives/MissingValue.js";
 import { RaidPercent } from "../primitives/RaidPercent.js";
 import { CLASS_COLORS, SpecIcon } from "../primitives/SpecIcon.js";
 
@@ -37,8 +39,9 @@ const metricLabels: Record<RaidMetric, string> = {
 };
 const isHealer = (slug: string) => ALL_SPECS.find((s) => s.specSlug === slug)?.role === "healer";
 const value = (n: number | null) =>
-	n === null ? "—" : n.toLocaleString("en-GB", { maximumFractionDigits: 2 });
-const percent = (n: number | null | undefined) => (n == null ? "—" : <RaidPercent value={n} />);
+	n === null ? <MissingValue /> : n.toLocaleString("en-GB", { maximumFractionDigits: 2 });
+const percent = (n: number | null | undefined) =>
+	n == null ? <MissingValue /> : <RaidPercent value={n} />;
 
 function sourceUrl(
 	character: CharacterData,
@@ -102,6 +105,8 @@ function MobilePerformance({
 					<dd>{value(data.summary.killsLogged)}</dd>
 				</div>
 			</dl>
+			<AllStarsSummary data={data} specName={spec.specName} zoneId={snapshot.raid?.id} />
+			<AllStarsHelp />
 			{(data.collection.deferred ||
 				data.collection.state === "failed" ||
 				data.collection.state === "partial" ||
@@ -118,22 +123,9 @@ function MobilePerformance({
 				</p>
 			)}
 			<details className="mobile-collection-details">
-				<summary>종합 순위 · 수집 상태</summary>
+				<summary>수집 상태</summary>
 				<CollectionNotice label={RAID_METRIC_LABELS[data.metric]} status={data.collection} />
 				{data.collection.state === "ok" && !data.collection.retainedAt && <p>조회 완료</p>}
-				{data.summary.allStars.length ? (
-					data.summary.allStars.map((star, index) => (
-						<p key={`${star.spec}-${star.partition}-${index}`}>
-							{(hasValue(star.points) || hasValue(star.rank)) && (
-								<SpecIcon className={character.class} specName={star.spec} />
-							)}{" "}
-							점수 {value(star.points)} · 순위 {value(star.rank)}
-							{star.partition != null ? ` · 파티션 ${star.partition}` : ""}
-						</p>
-					))
-				) : (
-					<p>종합 순위 값 미제공</p>
-				)}
 			</details>
 			<div className="mobile-boss-toolbar">
 				<span>보스를 누르면 상세 수치가 펼쳐집니다.</span>
@@ -217,12 +209,12 @@ function MobilePerformance({
 												: "—"}
 										</dd>
 									</div>
-									<div>
-										<dt>종합 점수</dt>
+									<div className="mobile-boss-all-stars">
+										<dt>보스 점수</dt>
 										<dd>{value(row.allStarPoints)}</dd>
 									</div>
-									<div>
-										<dt>종합 순위</dt>
+									<div className="mobile-boss-all-stars">
+										<dt>보스 순위</dt>
 										<dd>{row.allStarRank === null ? "—" : formatNumber(row.allStarRank)}</dd>
 									</div>
 									<div>
@@ -425,17 +417,28 @@ export function MobileRaidOverview({
 										snapshot.generatedAt,
 									);
 									return (
-										<div className="mobile-roster-spec" key={s}>
-											<span>
-												{hasSummaryPercent(section.summary) && (
-													<SpecIcon className={c.class} specName={entry.specName} />
-												)}
-												<small>{metricLabels[m]}</small>
-											</span>
-											<span>
-												{percent(section.summary.bestPerformanceAverage)} /{" "}
-												{percent(section.summary.medianPerformanceAverage)}
-											</span>
+										<div className="mobile-roster-spec-group" key={s}>
+											<div className="mobile-roster-spec">
+												<span>
+													{hasSummaryPercent(section.summary) && (
+														<SpecIcon className={c.class} specName={entry.specName} />
+													)}
+													<small>{metricLabels[m]}</small>
+												</span>
+												<span>
+													{percent(section.summary.bestPerformanceAverage)}
+													{section.summary.bestPerformanceAverage != null &&
+													section.summary.medianPerformanceAverage != null
+														? " / "
+														: null}
+													{percent(section.summary.medianPerformanceAverage)}
+												</span>
+											</div>
+											<AllStarsSummary
+												data={section}
+												specName={entry.specName}
+												zoneId={snapshot.raid?.id}
+											/>
 										</div>
 									);
 								})}

@@ -88,7 +88,9 @@ export function LogPerformancePanel({
 											<PercentBadge value={parse.bestPercent} />
 										</DataTable.Cell>
 										<DataTable.Cell>
-											{parse.bestAmount > 0 ? formatDps(parse.bestAmount) : "—"}
+											{Number.isFinite(parse.bestAmount) && parse.bestAmount >= 0
+												? formatDps(parse.bestAmount)
+												: "—"}
 										</DataTable.Cell>
 										<DataTable.Cell>
 											{parse.date ? new Date(parse.date).toLocaleDateString("ko-KR") : "—"}

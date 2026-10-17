@@ -3,6 +3,26 @@ import { describe, expect, it } from "vitest";
 import { DataTable } from "../DataTable.js";
 
 describe("DataTable", () => {
+	it("leaves missing cells visually empty and accessible while preserving confirmed zero", () => {
+		const { container } = render(
+			<DataTable>
+				<DataTable.Body>
+					<DataTable.Row>
+						<DataTable.Cell>—</DataTable.Cell>
+						<DataTable.Cell>-/-</DataTable.Cell>
+						<DataTable.Cell>
+							<span>—</span>
+						</DataTable.Cell>
+						<DataTable.Cell>{null}</DataTable.Cell>
+						<DataTable.Cell>{0}</DataTable.Cell>
+					</DataTable.Row>
+				</DataTable.Body>
+			</DataTable>,
+		);
+		const cells = [...container.querySelectorAll("td")];
+		expect(cells.map((c) => c.textContent)).toEqual(["", "", "", "", "0"]);
+		expect(screen.getAllByRole("img", { name: "값 미확인" })).toHaveLength(4);
+	});
 	it('renders column headers with scope="col"', () => {
 		render(
 			<DataTable>

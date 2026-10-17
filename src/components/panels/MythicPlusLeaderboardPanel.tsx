@@ -49,7 +49,7 @@ export function MythicPlusLeaderboardPanel({
 											<ExternalLink href={entry.profileUrl} label="WCL" />
 										</DataTable.Cell>
 										<DataTable.Cell>
-											{entry.score > 0 ? (
+											{Number.isFinite(entry.score) && entry.score >= 0 ? (
 												<strong>{entry.score.toLocaleString("en-GB")}</strong>
 											) : (
 												<span className="empty-state">—</span>

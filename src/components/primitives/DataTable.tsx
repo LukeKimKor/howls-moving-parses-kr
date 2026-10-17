@@ -7,6 +7,7 @@ import {
 	useContext,
 	useRef,
 } from "react";
+import { blankTablePlaceholders } from "./MissingValue.js";
 
 /**
  * Context carrying a ref to the current table's column labels.
@@ -102,8 +103,9 @@ DataTable.Cell = function DataTableCell({
 	scope?: "row" | "col";
 	"data-label"?: string;
 }) {
-	if (scope) return <th scope={scope}>{children}</th>;
-	return <td data-label={dataLabel}>{children}</td>;
+	const content = blankTablePlaceholders(children);
+	if (scope) return <th scope={scope}>{content}</th>;
+	return <td data-label={dataLabel}>{content}</td>;
 };
 
 export { DataTable };

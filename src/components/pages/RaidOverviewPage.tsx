@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import { ALL_SPECS } from "../../data/specs.js";
+import { scopedAllStars } from "../../lib/all-stars.js";
 import { formatClearTime, formatNumber } from "../../lib/format.js";
 import {
 	bossGroup,
 	difficultyLabel,
 	gameName,
-	hasValue,
 	raidGroups,
 	rateLabel,
 	specLabel,
@@ -21,7 +21,9 @@ import type {
 	Snapshot,
 } from "../../types/snapshot.js";
 import { NewBuildBanner } from "../chrome/NewBuildBanner.js";
+import { AllStarsSummary } from "../primitives/AllStarsSummary.js";
 import { CollectionNotice } from "../primitives/CollectionNotice.js";
+import { MissingValue, blankTablePlaceholders } from "../primitives/MissingValue.js";
 import { RaidPercent as PercentBadge } from "../primitives/RaidPercent.js";
 import { CLASS_COLORS, SpecIcon } from "../primitives/SpecIcon.js";
 import { DesktopRaidToc } from "./DesktopRaidToc.js";
@@ -98,23 +100,7 @@ function RaidTable({
 				</div>
 			</div>
 			<div className="raid-stars-slot">
-				{data.summary.allStars.length > 0 && (
-					<div className="raid-all-stars">
-						{data.summary.allStars.map((star) => (
-							<span key={`${star.spec}-${star.partition}-${star.points}-${star.rank}`}>
-								{(hasValue(star.points) || hasValue(star.rank)) && (
-									<SpecIcon className={character.class} specName={star.spec} />
-								)}{" "}
-								종합 점수 <strong>{points(star.points)}</strong> · 순위{" "}
-								{star.rank === null ? "—" : formatNumber(star.rank)}
-								{data.summary.allStars.length > 1 &&
-									star.partition !== null &&
-									star.partition !== undefined &&
-									` · 파티션 ${star.partition}`}
-							</span>
-						))}
-					</div>
-				)}
+				<AllStarsSummary data={data} specName={spec.specName} zoneId={snapshot.raid?.id} />
 			</div>
 			<div className="raid-status-slot">
 				<CollectionNotice label={RAID_METRIC_LABELS[data.metric]} status={data.collection} />
@@ -147,7 +133,7 @@ function RaidTable({
 								중앙값 백분위
 							</th>
 							<th scope="colgroup" colSpan={2}>
-								종합 순위
+								보스 점수 · 순위
 							</th>
 						</tr>
 						<tr>
@@ -182,7 +168,7 @@ function RaidTable({
 									</th>
 									<td>
 										{row.bestPercent === null ? (
-											"—"
+											<MissingValue />
 										) : (
 											<>
 												<PercentBadge value={row.bestPercent} />
@@ -192,18 +178,28 @@ function RaidTable({
 											</>
 										)}
 									</td>
-									<td>{amount(row.bestAmount)}</td>
-									<td>{row.kills === null ? "—" : formatNumber(row.kills)}</td>
+									<td>{blankTablePlaceholders(amount(row.bestAmount))}</td>
+									<td>{row.kills === null ? <MissingValue /> : formatNumber(row.kills)}</td>
 									<td>
-										{row.fastestKillMs && row.fastestKillMs > 0
-											? formatClearTime(row.fastestKillMs)
-											: "—"}
+										{row.fastestKillMs && row.fastestKillMs > 0 ? (
+											formatClearTime(row.fastestKillMs)
+										) : (
+											<MissingValue />
+										)}
 									</td>
 									<td>
-										{row.medianPercent === null ? "—" : <PercentBadge value={row.medianPercent} />}
+										{row.medianPercent === null ? (
+											<MissingValue />
+										) : (
+											<PercentBadge value={row.medianPercent} />
+										)}
 									</td>
-									<td>{points(row.allStarPoints)}</td>
-									<td>{row.allStarRank === null ? "—" : formatNumber(row.allStarRank)}</td>
+									<td className="boss-all-stars">
+										{blankTablePlaceholders(points(row.allStarPoints))}
+									</td>
+									<td className="boss-all-stars">
+										{row.allStarRank === null ? <MissingValue /> : formatNumber(row.allStarRank)}
+									</td>
 								</tr>
 							);
 						})}
@@ -345,8 +341,8 @@ export function RaidOverviewPage({
 					<p className="raid-reading-note">
 						등록된 전문화 · 현재 WCL 기본 집계 구간 기준입니다. 최고·중앙값은 순위 백분위이고, 최고
 						초당 피해량·치유량은 실제 초당 수치입니다. 요약은 WCL의 백분위 평균을 그대로 표시합니다.
-						*처치 기록 합계는 우두머리별 처치 수를 합친 값입니다. —는 미확인, 0은 확인된 값 0을
-						뜻합니다.
+						*처치 기록 합계는 우두머리별 처치 수를 합친 값입니다. 표의 빈칸은 미확인, 0은 확인된 값
+						0을 뜻합니다.
 					</p>
 					{snapshot.characters.map((character, index) => (
 						<section
@@ -384,7 +380,25 @@ export function RaidOverviewPage({
 											<small>{healer ? "치유량" : "전체 피해 · 우두머리 피해"}</small>
 										</h3>
 										{metrics.map((metric) => (
-											<div className="raid-difficulty-grid" key={metric}>
+											<div
+												className="raid-difficulty-grid"
+												key={metric}
+												style={
+													{
+														"--all-stars-rows": Math.max(
+															1,
+															...(["Heroic", "Mythic"] as const).map((difficulty) =>
+																Math.ceil(
+																	scopedAllStars(
+																		spec.raidPerformance?.[metric]?.[difficulty],
+																		spec.specName,
+																	).length / 2,
+																),
+															),
+														),
+													} as CSSProperties
+												}
+											>
 												{(["Heroic", "Mythic"] as const).map((difficulty) => (
 													<div className="raid-difficulty-column" key={difficulty}>
 														<h3 className="raid-difficulty-title">

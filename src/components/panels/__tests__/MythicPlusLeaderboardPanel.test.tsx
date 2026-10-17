@@ -52,12 +52,12 @@ describe("MythicPlusLeaderboardPanel", () => {
 		expect(screen.getByText(/Emberwing Feather/)).toBeTruthy();
 	});
 
-	it("shows — when score is 0", () => {
+	it("preserves a zero score rather than treating it as missing", () => {
 		const base = mockEntries[0];
 		if (!base) throw new Error("no mock");
 		const noScore: MythicPlusLeaderboardEntry[] = [{ ...base, score: 0, scoreColor: "" }];
 		render(<MythicPlusLeaderboardPanel leaderboard={noScore} metric="dps" />);
-		expect(screen.getByText("—")).toBeTruthy();
+		expect(screen.getByText("0")).toBeVisible();
 	});
 
 	it("shows HPS label for healer specs", () => {

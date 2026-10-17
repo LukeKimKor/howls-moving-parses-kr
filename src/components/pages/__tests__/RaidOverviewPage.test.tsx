@@ -52,6 +52,64 @@ function fixture(): Snapshot {
 }
 
 describe("all-character raid overview", () => {
+	it("places scoped All Stars after Healing and does not use Boss Damage for the summary", () => {
+		const data = fixture();
+		const spec = data.characters[0]?.specs["arcane-mage"];
+		if (!spec) throw new Error("Fixture missing");
+		const section = raidSection(
+			spec,
+			"dps",
+			"Heroic",
+			data.raid?.encounters ?? [],
+			data.generatedAt,
+		);
+		spec.raidPerformance = {
+			dps: {
+				Mythic: { ...section, difficulty: "Mythic" },
+				Heroic: {
+					...section,
+					summary: {
+						...section.summary,
+						allStars: [
+							{ spec: "Arcane", partition: 2, points: 897.969, rank: 16 },
+							{ spec: "Arcane", partition: 1, points: 1017.71, rank: 308 },
+						],
+					},
+				},
+			},
+			bossdps: {
+				Mythic: { ...section, metric: "bossdps", difficulty: "Mythic" },
+				Heroic: {
+					...section,
+					metric: "bossdps",
+					summary: {
+						...section.summary,
+						allStars: [{ spec: "Arcane", partition: 2, points: 904.716, rank: 5 }],
+					},
+				},
+			},
+		};
+		render(<RaidOverviewPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		const table = screen.getByRole("table", { name: "영웅 전체 캐릭터 요약" });
+		expect(
+			within(table)
+				.getAllByRole("columnheader")
+				.map((e) => e.textContent),
+		).toEqual([
+			"캐릭터",
+			"전체 피해최고 / 중앙값",
+			"우두머리 피해최고 / 중앙값",
+			"치유량최고 / 중앙값",
+			"종합 점수All Stars · 패치별",
+			"순위WCL · 패치별",
+		]);
+		expect(within(table).getByText("897.97")).toBeVisible();
+		expect(within(table).getByText("16위")).toBeVisible();
+		expect(within(table).getByText("1,017.71")).toBeVisible();
+		expect(within(table).getByText("308위")).toBeVisible();
+		expect(within(table).queryByText("904.72")).not.toBeInTheDocument();
+		expect(document.body.textContent).not.toContain("파티션");
+	});
 	it("localizes boss labels without changing source identities and hides empty-cell spec icons", () => {
 		const data = fixture();
 		data.raid = {
@@ -105,7 +163,7 @@ describe("all-character raid overview", () => {
 		expect(document.querySelectorAll(".raid-metric-panel")).toHaveLength(52);
 		expect(screen.getAllByRole("columnheader", { name: "최고 초당 치유량" })).toHaveLength(4);
 		expect(document.querySelectorAll(".raid-spec-section")).toHaveLength(14);
-		expect(document.querySelectorAll(".raid-roster-summary tbody tr")).toHaveLength(13);
+		expect(document.querySelectorAll(".raid-roster-summary tbody tr")).toHaveLength(26);
 		expect(screen.queryByText("Mage")).not.toBeInTheDocument();
 		expect(screen.getByRole("heading", { name: "앙귀태", level: 2 })).toHaveStyle({
 			color: "#c77df4",
