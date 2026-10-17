@@ -9,9 +9,9 @@ import { EmptyState } from "../primitives/EmptyState.js";
 export function MythicPlusMetaBuildsPanel() {
 	return (
 		<Card>
-			<Card.Header>M+ Meta Talent Builds</Card.Header>
+			<Card.Header>쐐기 특성 빌드 표본</Card.Header>
 			<Card.Body>
-				<EmptyState message="Meta builds will be available in a future release." />
+				<EmptyState message="특성 빌드 집계는 아직 제공되지 않습니다." />
 			</Card.Body>
 		</Card>
 	);

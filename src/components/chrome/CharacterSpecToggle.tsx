@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useAppState } from "../../contexts/AppStateContext.js";
 import { ALL_SPECS } from "../../data/specs.js";
+import { specLabel } from "../../lib/ko.js";
 import type { CharacterData } from "../../types/snapshot.js";
 
 /**
@@ -21,8 +22,8 @@ export function CharacterSpecToggle({ character }: { character: CharacterData })
 	if (character.specOrder.length <= 1) return null;
 
 	return (
-		<fieldset className="spec-toggle" aria-label="Select spec">
-			<legend className="sr-only">Spec</legend>
+		<fieldset className="spec-toggle" aria-label="전문화 선택">
+			<legend className="sr-only">전문화</legend>
 			{character.specOrder.map((slug) => {
 				const specDef = ALL_SPECS.find((s) => s.specSlug === slug);
 				const isActive = slug === activeSpecSlugForCharacter;
@@ -34,7 +35,7 @@ export function CharacterSpecToggle({ character }: { character: CharacterData })
 						onClick={() => setActiveSpecSlugForCharacter(slug)}
 						className={isActive ? "spec-toggle-btn active" : "spec-toggle-btn"}
 					>
-						{specDef?.specName ?? slug}
+						{specLabel(specDef?.specName ?? slug, character.class)}
 					</button>
 				);
 			})}

@@ -52,14 +52,58 @@ function fixture(): Snapshot {
 }
 
 describe("all-character raid overview", () => {
+	it("localizes boss labels without changing source identities and hides empty-cell spec icons", () => {
+		const data = fixture();
+		data.raid = {
+			id: 53,
+			name: "The Venomous Abyss",
+			encounters: [
+				{ id: 1, name: "Nek'zali the Soulcoiler" },
+				{ id: 2, name: "Nymrissa Wavecaller" },
+				{ id: 3, name: "Kith'ix" },
+			],
+		};
+		const spec = data.characters[0]?.specs["arcane-mage"];
+		if (!spec) throw new Error("Fixture missing");
+		const empty = raidSection(spec, "dps", "Heroic", data.raid.encounters, data.generatedAt);
+		const zero = {
+			...empty,
+			collection: { state: "ok" as const, attemptedRequests: 1, failedRequests: 0, issues: [] },
+			summary: { ...empty.summary, bestPerformanceAverage: 0, medianPerformanceAverage: null },
+		};
+		spec.raidPerformance = { dps: { Heroic: zero, Mythic: { ...empty, difficulty: "Mythic" } } };
+		render(<RaidOverviewPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		const summary = document.querySelector(".raid-roster-summary");
+		if (!summary) throw new Error("Missing summary");
+		expect(summary.querySelectorAll("img")).toHaveLength(1);
+		expect(within(summary as HTMLElement).getByText("0.0%")).toBeInTheDocument();
+		expect(screen.getAllByText("영혼살무사 네크잘리").length).toBeGreaterThan(0);
+		expect(screen.getAllByText("해일결속 동굴").length).toBeGreaterThan(0);
+		expect(document.querySelectorAll(".raid-boss-marker")).toHaveLength(0);
+		expect(data.raid.encounters[0]?.name).toBe("Nek'zali the Soulcoiler");
+		const link = document.querySelector<HTMLAnchorElement>(".raid-metric-title a");
+		expect(link?.href).toContain("spec=Arcane");
+		expect(link?.href).toContain("metric=dps");
+	});
+	it("offers a summary and every character in the desktop table of contents", () => {
+		const data = fixture();
+		render(<RaidOverviewPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		const toc = screen.getByRole("navigation", { name: "공격대 성적 목차" });
+		expect(within(toc).getAllByRole("link")).toHaveLength(14);
+		expect(within(toc).getByRole("link", { name: "종합 요약" })).toHaveAttribute(
+			"href",
+			"#raid-summary",
+		);
+		expect(toc.querySelectorAll('[aria-current="location"]')).toHaveLength(1);
+	});
 	it("shows all 13 characters, both DH specs and all 52 metric/difficulty panels without selection", () => {
 		const data = fixture();
 		render(<RaidOverviewPage snapshot={data} onOpenCharacter={vi.fn()} />);
-		expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(13);
+		expect(document.querySelectorAll(".raid-character-header h2")).toHaveLength(13);
 		for (const character of data.characters)
 			expect(screen.getByRole("heading", { name: character.name, level: 2 })).toBeInTheDocument();
 		expect(document.querySelectorAll(".raid-metric-panel")).toHaveLength(52);
-		expect(screen.getAllByRole("columnheader", { name: "Highest HPS" })).toHaveLength(4);
+		expect(screen.getAllByRole("columnheader", { name: "최고 초당 치유량" })).toHaveLength(4);
 		expect(document.querySelectorAll(".raid-spec-section")).toHaveLength(14);
 		expect(document.querySelectorAll(".raid-roster-summary tbody tr")).toHaveLength(13);
 		expect(screen.queryByText("Mage")).not.toBeInTheDocument();
@@ -177,7 +221,7 @@ describe("all-character raid overview", () => {
 		};
 		spec.raidPerformance = { dps: { Heroic: sample, Mythic: { ...sample, difficulty: "Mythic" } } };
 		render(<RaidOverviewPage snapshot={data} onOpenCharacter={vi.fn()} />);
-		const panel = screen.getByRole("region", { name: "오렌지크림피자 Arcane Heroic Damage" });
+		const panel = screen.getByRole("region", { name: "오렌지크림피자 비전 영웅 전체 피해" });
 		expect(within(panel).getByText(/기록 유무를 확인할 수 없습니다/)).toBeInTheDocument();
 		expect(within(panel).getByText(/이전 데이터 표시/)).toBeInTheDocument();
 		expect(within(panel).getByText("2:05")).toBeInTheDocument();

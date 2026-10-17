@@ -7,9 +7,9 @@ import type {
 } from "../types/snapshot.js";
 
 export const RAID_METRIC_LABELS: Record<RaidMetric, string> = {
-	dps: "Damage",
-	bossdps: "Damage to Bosses",
-	hps: "Healing",
+	dps: "전체 피해",
+	bossdps: "우두머리 피해",
+	hps: "치유량",
 };
 export const SPEC_LABELS: Record<string, string> = {
 	Arcane: "비전",

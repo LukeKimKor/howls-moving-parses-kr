@@ -1,3 +1,4 @@
+import { classLabel, specLabel } from "../../lib/ko.js";
 import type { CharacterData } from "../../types/snapshot.js";
 
 interface LandingPageProps {
@@ -12,8 +13,8 @@ interface LandingPageProps {
 export function LandingPage({ characters, onSelect }: LandingPageProps) {
 	return (
 		<main>
-			<h1>Howl&apos;s Moving Parses</h1>
-			<p>Pick your character to get started.</p>
+			<h1>와우 대시보드</h1>
+			<p>조회할 캐릭터를 선택하세요.</p>
 			<ul>
 				{characters.map((char) => {
 					const specName = char.mainSpecPending
@@ -25,7 +26,7 @@ export function LandingPage({ characters, onSelect }: LandingPageProps) {
 								{char.name}
 								<br />
 								<small>
-									{specName} {char.class}
+									{specLabel(specName, char.class)} {classLabel(char.class)}
 								</small>
 							</button>
 						</li>

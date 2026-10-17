@@ -1,3 +1,4 @@
+import { regionLabel, tierLabelKo } from "../../lib/ko.js";
 import type { MythicPlusData } from "../../types/snapshot.js";
 import { Card } from "../primitives/Card.js";
 import { EmptyState } from "../primitives/EmptyState.js";
@@ -16,9 +17,9 @@ export function MythicScorePanel({ data }: { data: MythicPlusData | null }) {
 	if (!data) {
 		return (
 			<Card>
-				<Card.Header>Mythic+ Score</Card.Header>
+				<Card.Header>쐐기 점수</Card.Header>
 				<Card.Body>
-					<EmptyState message="No Mythic+ data available." />
+					<EmptyState message="쐐기 점수 데이터가 없습니다." />
 				</Card.Body>
 			</Card>
 		);
@@ -27,7 +28,7 @@ export function MythicScorePanel({ data }: { data: MythicPlusData | null }) {
 	const scoreDisplay = (
 		<span className="header-score" style={{ color: data.scoreColor || undefined }}>
 			{data.score.toLocaleString("en-GB")}
-			<small className="header-score-tier"> {data.scoreTierLabel}</small>
+			<small className="header-score-tier"> {tierLabelKo(data.scoreTierLabel)}</small>
 		</span>
 	);
 
@@ -38,25 +39,24 @@ export function MythicScorePanel({ data }: { data: MythicPlusData | null }) {
 
 	return (
 		<Card>
-			<Card.Header right={scoreDisplay}>Mythic+ Score</Card.Header>
+			<Card.Header right={scoreDisplay}>쐐기 점수</Card.Header>
 			<Card.Body>
 				<p>캐릭터 전체 시즌 점수{data.season ? ` · ${data.season}` : ""}</p>
 				<dl className="rank-summary">
-					<dt>Realm rank</dt>
+					<dt>서버 순위</dt>
 					<dd>{data.realmRank > 0 ? `#${data.realmRank.toLocaleString()}` : "—"}</dd>
-					<dt>{data.titleCutoff.region.toUpperCase()} rank</dt>
+					<dt>{regionLabel(data.titleCutoff.region)} 순위</dt>
 					<dd>{data.regionRank > 0 ? `#${data.regionRank.toLocaleString()}` : "—"}</dd>
-					<dt>World rank</dt>
+					<dt>세계 순위</dt>
 					<dd>{data.worldRank > 0 ? `#${data.worldRank.toLocaleString()}` : "—"}</dd>
 				</dl>
 				{showCutoff && (
 					<div className={`cutoff-row ${cutoffClass}`}>
 						<span className="cutoff-row-label">
-							{data.titleCutoff.region.toUpperCase()} top {data.titleCutoff.percentile}% score
-							cutoff
+							{regionLabel(data.titleCutoff.region)} 상위 {data.titleCutoff.percentile}% 점수 기준
 						</span>
 						<span className="cutoff-row-diff">
-							{arrow} {Math.abs(diff).toFixed(1)} pts
+							{arrow} {Math.abs(diff).toFixed(1)}점
 						</span>
 					</div>
 				)}

@@ -13,10 +13,10 @@ export function DamageBreakdownPanel({
 }) {
 	return (
 		<Card>
-			<Card.Header>Damage Breakdown</Card.Header>
+			<Card.Header>피해량 구성</Card.Header>
 			<Card.Body>
 				{breakdown.length === 0 ? (
-					<EmptyState message="No damage breakdown data available." />
+					<EmptyState message="피해량 구성 데이터가 없습니다." />
 				) : (
 					<div className="meter-chart">
 						{breakdown.slice(0, 5).map((source) => (

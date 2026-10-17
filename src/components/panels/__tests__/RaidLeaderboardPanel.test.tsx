@@ -25,6 +25,6 @@ describe("RaidLeaderboardPanel", () => {
 
 	it("empty leaderboard shows empty state", () => {
 		render(<RaidLeaderboardPanel mythicLeaderboard={[]} heroicLeaderboard={[]} />);
-		expect(screen.getByText(/No raid leaderboard data available/)).toBeTruthy();
+		expect(screen.getByText(/공격대 순위 데이터가 없습니다/)).toBeTruthy();
 	});
 });

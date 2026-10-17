@@ -797,8 +797,6 @@ fieldset.difficulty-toggle button[aria-pressed="true"] {
 	padding: 1rem;
 	background: #15171b;
 	scroll-margin-top: 1rem;
-	content-visibility: auto;
-	contain-intrinsic-size: auto 1150px;
 }
 .raid-character-header {
 	border-bottom: 1px solid #383d47;
@@ -1193,6 +1191,83 @@ fieldset.difficulty-toggle button[aria-pressed="true"] {
 .raid-refresh-details > summary {
 	display: none;
 }
+.desktop-raid-toc {
+	display: none;
+}
+.raid-summary-scroll,
+.raid-character-section {
+	scroll-margin-top: 24px;
+}
+.raid-summary-heading {
+	margin: 0 0 10px;
+}
+.raid-scope-note {
+	font-size: 0.74rem;
+	margin-top: 6px;
+}
+.boss-raid-origin {
+	display: block;
+	color: #9eafc4;
+	font-size: 10px;
+	font-weight: 400;
+}
+@media (min-width: 1440px) {
+	.raid-overview {
+		padding-left: 206px;
+	}
+	.raid-character-nav {
+		display: none;
+	}
+	.desktop-raid-toc {
+		position: fixed;
+		left: max(12px, calc((100vw - 1920px) / 2 + 12px));
+		top: 24px;
+		width: 168px;
+		display: flex;
+		flex-direction: column;
+		max-height: calc(100vh - 48px);
+		overflow-y: auto;
+		padding: 12px 8px;
+		border: 1px solid #344050;
+		border-radius: 8px;
+		background: #151c26;
+		z-index: 40;
+	}
+	.desktop-toc-title {
+		padding: 6px 8px 12px;
+		font-size: 12px;
+		color: #aab8cd;
+	}
+	.desktop-raid-toc a {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-height: 34px;
+		padding: 7px 8px;
+		border-left: 2px solid transparent;
+		color: #bec9d9;
+		text-decoration: none;
+		font-size: 12px;
+		line-height: 1.5;
+	}
+	.desktop-raid-toc a[aria-current="location"] {
+		background: #273951;
+		border-left-color: #a7c7f2;
+		color: #fff;
+		font-weight: 650;
+	}
+	.desktop-toc-characters {
+		border-top: 1px solid #344050;
+		margin-top: 6px;
+		padding-top: 6px;
+	}
+	.toc-class-dot {
+		width: 5px;
+		height: 5px;
+		flex: 0 0 5px;
+		border-radius: 50%;
+	}
+}
 @media (max-width: 767px) {
 	.raid-overview {
 		padding: 12px 10px;
@@ -1404,6 +1479,7 @@ fieldset.difficulty-toggle button[aria-pressed="true"] {
 	.mobile-score-summary dt {
 		color: #c3ccda;
 		font-size: 12px;
+		min-height: 36px;
 	}
 	.mobile-score-summary dd {
 		margin: 5px 0 0;

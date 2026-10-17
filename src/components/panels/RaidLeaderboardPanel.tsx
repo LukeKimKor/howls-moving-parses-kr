@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { rankLabelKo, regionLabel } from "../../lib/ko.js";
 import type { RaidLeaderboardEntry } from "../../types/snapshot.js";
 import { Card } from "../primitives/Card.js";
 import { DataTable } from "../primitives/DataTable.js";
@@ -24,32 +25,32 @@ export function RaidLeaderboardPanel({
 
 	return (
 		<Card>
-			<Card.Header>Raid Leaderboard ({region.toUpperCase()})</Card.Header>
+			<Card.Header>공격대 순위 ({regionLabel(region)})</Card.Header>
 			<Card.Body>
-				<fieldset className="difficulty-toggle" aria-label="Select difficulty">
-					<legend className="sr-only">Difficulty</legend>
+				<fieldset className="difficulty-toggle" aria-label="난이도 선택">
+					<legend className="sr-only">난이도</legend>
 					<button
 						type="button"
 						aria-pressed={difficulty === "Mythic"}
 						onClick={() => setDifficulty("Mythic")}
 					>
-						Mythic
+						신화
 					</button>
 					<button
 						type="button"
 						aria-pressed={difficulty === "Heroic"}
 						onClick={() => setDifficulty("Heroic")}
 					>
-						Heroic
+						영웅
 					</button>
 				</fieldset>
 
 				{leaderboard.length === 0 ? (
-					<EmptyState message="No raid leaderboard data available." />
+					<EmptyState message="공격대 순위 데이터가 없습니다." />
 				) : (
 					<div style={{ overflowX: "auto" }}>
 						<DataTable>
-							<DataTable.Header columns={["Rank", "Name", "Realm", "Best %", "Label"]} />
+							<DataTable.Header columns={["순위", "이름", "서버", "최고 백분위", "등급"]} />
 							<DataTable.Body>
 								{leaderboard.map((entry) => (
 									<DataTable.Row key={`${entry.name}-${entry.realm}`}>
@@ -61,7 +62,7 @@ export function RaidLeaderboardPanel({
 										<DataTable.Cell>
 											<PercentBadge value={entry.bestPercent} />
 										</DataTable.Cell>
-										<DataTable.Cell>{entry.rankLabel}</DataTable.Cell>
+										<DataTable.Cell>{rankLabelKo(entry.rankLabel)}</DataTable.Cell>
 									</DataTable.Row>
 								))}
 							</DataTable.Body>

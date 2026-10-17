@@ -62,11 +62,11 @@ describe("MythicPlusLeaderboardPanel", () => {
 
 	it("shows HPS label for healer specs", () => {
 		render(<MythicPlusLeaderboardPanel leaderboard={mockEntries} metric="hps" />);
-		expect(screen.getByRole("columnheader", { name: "Best HPS" })).toBeTruthy();
+		expect(screen.getByRole("columnheader", { name: "최고 초당 치유량" })).toBeTruthy();
 	});
 
 	it("empty leaderboard shows empty state", () => {
 		render(<MythicPlusLeaderboardPanel leaderboard={[]} metric="dps" />);
-		expect(screen.getByText(/No M\+ leaderboard data available/)).toBeTruthy();
+		expect(screen.getByText(/쐐기 순위 데이터가 없습니다/)).toBeTruthy();
 	});
 });

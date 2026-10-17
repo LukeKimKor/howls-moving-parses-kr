@@ -26,18 +26,18 @@ describe("RecentRunsPanel", () => {
 
 	it("in-time runs show green styled 'In time' text", () => {
 		render(<RecentRunsPanel recentRuns={[mockRun(true, 18)]} bestRuns={[]} />);
-		const el = screen.getByText("In time");
+		const el = screen.getByText("시간 내 완료");
 		expect(el.className).toContain("run-status-intimer");
 	});
 
 	it("depleted runs show red styled 'Depleted' text", () => {
 		render(<RecentRunsPanel recentRuns={[mockRun(false, 17)]} bestRuns={[]} />);
-		const el = screen.getByText("Depleted");
+		const el = screen.getByText("시간 초과");
 		expect(el.className).toContain("run-status-depleted");
 	});
 
 	it("empty runs array renders empty state message", () => {
 		render(<RecentRunsPanel recentRuns={[]} bestRuns={[]} />);
-		expect(screen.getByText(/No recent runs found/)).toBeTruthy();
+		expect(screen.getByText(/최근 쐐기 기록이 없습니다/)).toBeTruthy();
 	});
 });

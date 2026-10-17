@@ -1,3 +1,4 @@
+import { classLabel, specLabel } from "../../lib/ko.js";
 import type { CharacterData } from "../../types/snapshot.js";
 import { DataTable } from "../primitives/DataTable.js";
 
@@ -44,7 +45,7 @@ export function CharactersSummaryPanel({
 				popovertarget={popoverId}
 				className="summary-trigger-btn"
 			>
-				All Characters ({characters.length})
+				전체 캐릭터 ({characters.length})
 			</button>
 
 			{/* @ts-expect-error — popover attribute is in HTML spec */}
@@ -53,8 +54,8 @@ export function CharactersSummaryPanel({
 					<DataTable>
 						<DataTable.Header
 							columns={[
-								"Character",
-								"M+ Score",
+								"캐릭터",
+								"쐐기 점수",
 								...dungeons.map((d) => dungeonShortNames.get(d) ?? d),
 							]}
 						/>
@@ -79,8 +80,10 @@ export function CharactersSummaryPanel({
 									<DataTable.Row key={char.name} onClick={() => onSelectCharacter(char.name)}>
 										<DataTable.Cell scope="row">
 											{char.name} ·{" "}
-											{char.mainSpecPending ? "주 전문화 미확정" : (mainSpec?.specName ?? "")} ·{" "}
-											{char.class}
+											{char.mainSpecPending
+												? "주 전문화 미확정"
+												: specLabel(mainSpec?.specName ?? "", char.class)}{" "}
+											· {classLabel(char.class)}
 											{hasFailure && <small> · 일부 조회 실패</small>}
 										</DataTable.Cell>
 										<DataTable.Cell>

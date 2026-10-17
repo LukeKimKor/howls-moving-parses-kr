@@ -2,6 +2,15 @@ import { useRef, useState } from "react";
 import { ALL_SPECS } from "../../data/specs.js";
 import { formatClearTime, formatNumber } from "../../lib/format.js";
 import {
+	bossGroup,
+	difficultyLabel,
+	gameName,
+	hasSummaryPercent,
+	hasValue,
+	rateLabel,
+	specLabel,
+} from "../../lib/ko.js";
+import {
 	RAID_METRIC_LABELS,
 	SPEC_LABELS,
 	raidEncounters,
@@ -23,8 +32,8 @@ import { CLASS_COLORS, SpecIcon } from "../primitives/SpecIcon.js";
 
 const metricLabels: Record<RaidMetric, string> = {
 	dps: "전체 피해",
-	bossdps: "보스 피해",
-	hps: "치유",
+	bossdps: "우두머리 피해",
+	hps: "치유량",
 };
 const isHealer = (slug: string) => ALL_SPECS.find((s) => s.specSlug === slug)?.role === "healer";
 const value = (n: number | null) =>
@@ -69,7 +78,7 @@ function MobilePerformance({
 	return (
 		<section
 			className={`mobile-performance raid-${data.difficulty.toLowerCase()}`}
-			aria-label={`${character.name} ${spec.specName} ${data.difficulty} ${data.metric} 모바일 성적`}
+			aria-label={`${character.name} ${specLabel(spec.specName, character.class)} ${difficultyLabel(data.difficulty)} ${RAID_METRIC_LABELS[data.metric]} 모바일 성적`}
 		>
 			<div className="mobile-performance-heading">
 				<h3>
@@ -81,15 +90,15 @@ function MobilePerformance({
 			</div>
 			<dl className="mobile-score-summary">
 				<div>
-					<dt>Best 평균</dt>
+					<dt>최고 백분위 평균</dt>
 					<dd>{percent(data.summary.bestPerformanceAverage)}</dd>
 				</div>
 				<div>
-					<dt>Median 평균</dt>
+					<dt>중앙값 백분위 평균</dt>
 					<dd>{percent(data.summary.medianPerformanceAverage)}</dd>
 				</div>
 				<div>
-					<dt>Kills 합계*</dt>
+					<dt>처치 합계*</dt>
 					<dd>{value(data.summary.killsLogged)}</dd>
 				</div>
 			</dl>
@@ -109,19 +118,21 @@ function MobilePerformance({
 				</p>
 			)}
 			<details className="mobile-collection-details">
-				<summary>All Stars · 수집 상태</summary>
+				<summary>종합 순위 · 수집 상태</summary>
 				<CollectionNotice label={RAID_METRIC_LABELS[data.metric]} status={data.collection} />
 				{data.collection.state === "ok" && !data.collection.retainedAt && <p>조회 완료</p>}
 				{data.summary.allStars.length ? (
 					data.summary.allStars.map((star, index) => (
 						<p key={`${star.spec}-${star.partition}-${index}`}>
-							<SpecIcon className={character.class} specName={star.spec} /> Points{" "}
-							{value(star.points)} · Rank {value(star.rank)}
+							{(hasValue(star.points) || hasValue(star.rank)) && (
+								<SpecIcon className={character.class} specName={star.spec} />
+							)}{" "}
+							점수 {value(star.points)} · 순위 {value(star.rank)}
 							{star.partition != null ? ` · 파티션 ${star.partition}` : ""}
 						</p>
 					))
 				) : (
-					<p>All Stars 값 미제공</p>
+					<p>종합 순위 값 미제공</p>
 				)}
 			</details>
 			<div className="mobile-boss-toolbar">
@@ -141,7 +152,7 @@ function MobilePerformance({
 					const id = `mobile-boss-${index}`;
 					const state =
 						row.state === "no-kills"
-							? "미처치 · Kills 0"
+							? "미처치 · 처치 수 0"
 							: row.state === "unavailable"
 								? data.collection.deferred
 									? "갱신 보류"
@@ -168,16 +179,19 @@ function MobilePerformance({
 								}
 							>
 								<span className="mobile-boss-name">
-									{row.bossName}
+									{gameName(row.bossName)}
+									{bossGroup(row.bossName) && bossGroup(row.bossName) !== "맹독 심연" && (
+										<small>{bossGroup(row.bossName)}</small>
+									)}
 									<small>{state ?? ""}</small>
 								</span>
 								<span className="mobile-boss-percent">
 									<span>
-										<small>Best</small>
+										<small>최고</small>
 										{percent(row.bestPercent)}
 									</span>
 									<span>
-										<small>Median</small>
+										<small>중앙값</small>
 										{percent(row.medianPercent)}
 									</span>
 								</span>
@@ -188,15 +202,15 @@ function MobilePerformance({
 							<div id={id} className="mobile-boss-extra" hidden={!open}>
 								<dl>
 									<div>
-										<dt>Highest {data.metric === "hps" ? "HPS" : "DPS"}</dt>
+										<dt>최고 {rateLabel(data.metric)}</dt>
 										<dd>{value(row.bestAmount)}</dd>
 									</div>
 									<div>
-										<dt>Kills</dt>
+										<dt>처치 수</dt>
 										<dd>{value(row.kills)}</dd>
 									</div>
 									<div>
-										<dt>Fastest</dt>
+										<dt>최단 시간</dt>
 										<dd>
 											{row.fastestKillMs && row.fastestKillMs > 0
 												? formatClearTime(row.fastestKillMs)
@@ -204,17 +218,18 @@ function MobilePerformance({
 										</dd>
 									</div>
 									<div>
-										<dt>All Stars Points</dt>
+										<dt>종합 점수</dt>
 										<dd>{value(row.allStarPoints)}</dd>
 									</div>
 									<div>
-										<dt>All Stars Rank</dt>
+										<dt>종합 순위</dt>
 										<dd>{row.allStarRank === null ? "—" : formatNumber(row.allStarRank)}</dd>
 									</div>
 									<div>
 										<dt>전문화</dt>
 										<dd>
-											{row.specName ? (
+											{row.specName &&
+											(hasValue(row.bestPercent) || hasValue(row.medianPercent)) ? (
 												<SpecIcon className={character.class} specName={row.specName} />
 											) : (
 												"—"
@@ -232,7 +247,7 @@ function MobilePerformance({
 			</div>
 			{!data.rows.length && <p>보스 목록 미조회</p>}
 			<p className="mobile-reading-note">
-				백분위 Best / Median · —는 값 미제공 · *Kills는 보스별 합계
+				최고 / 중앙값은 순위 백분위 · —는 미확인, 0은 확인된 값 · *처치는 우두머리별 합계
 			</p>
 		</section>
 	);
@@ -359,7 +374,7 @@ export function MobileRaidOverview({
 				</fieldset>
 				<fieldset className="mobile-metric-tabs" aria-label="성적 지표">
 					{view === "character" && isHealer(slug) ? (
-						<span className="mobile-healing-label">치유 · Healing</span>
+						<span className="mobile-healing-label">치유량</span>
 					) : (
 						(["dps", "bossdps"] as const).map((m) => (
 							<button
@@ -386,7 +401,7 @@ export function MobileRaidOverview({
 						</p>
 						<div className="mobile-roster-labels">
 							<span>캐릭터 / 전문화</span>
-							<span>Best / Median</span>
+							<span>최고 / 중앙값 백분위</span>
 						</div>
 						{snapshot.characters.map((c, index) => (
 							<article className="mobile-roster-card" key={c.name}>
@@ -412,7 +427,9 @@ export function MobileRaidOverview({
 									return (
 										<div className="mobile-roster-spec" key={s}>
 											<span>
-												<SpecIcon className={c.class} specName={entry.specName} />
+												{hasSummaryPercent(section.summary) && (
+													<SpecIcon className={c.class} specName={entry.specName} />
+												)}
 												<small>{metricLabels[m]}</small>
 											</span>
 											<span>

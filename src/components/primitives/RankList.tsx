@@ -10,15 +10,15 @@ export function RankList({
 	return (
 		<dl className="rank-list">
 			<div className="rank-item">
-				<dt>Realm</dt>
+				<dt>서버</dt>
 				<dd>#{ranks.realm.toLocaleString("en-GB")}</dd>
 			</div>
 			<div className="rank-item">
-				<dt>Region</dt>
+				<dt>지역</dt>
 				<dd>#{ranks.region.toLocaleString("en-GB")}</dd>
 			</div>
 			<div className="rank-item">
-				<dt>World</dt>
+				<dt>세계</dt>
 				<dd>#{ranks.world.toLocaleString("en-GB")}</dd>
 			</div>
 		</dl>

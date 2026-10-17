@@ -33,7 +33,7 @@ describe("SpecSelect", () => {
 		const { container } = render(<SpecSelect />, { wrapper: Wrapper });
 		const optgroups = container.querySelectorAll("optgroup");
 		const labels = [...optgroups].map((g) => g.getAttribute("label"));
-		expect(labels).toContain("Death Knight");
+		expect(labels).toContain("죽음의 기사");
 		expect(labels).not.toContain("DeathKnight");
 	});
 

@@ -28,6 +28,6 @@ describe("DamageBreakdownPanel", () => {
 
 	it("handles empty breakdown gracefully", () => {
 		render(<DamageBreakdownPanel breakdown={[]} />);
-		expect(screen.getByText(/No damage breakdown data available/)).toBeTruthy();
+		expect(screen.getByText(/피해량 구성 데이터가 없습니다/)).toBeTruthy();
 	});
 });

@@ -19,19 +19,19 @@ describe("MythicScorePanel", () => {
 	it("renders score and tier label", () => {
 		render(<MythicScorePanel data={mockData} />);
 		expect(screen.getByText("3,142")).toBeTruthy();
-		expect(screen.getByText("Keystone Hero")).toBeTruthy();
+		expect(screen.getByText("쐐기돌 영웅")).toBeTruthy();
 	});
 
 	it("renders cutoff row with distance indicator", () => {
 		render(<MythicScorePanel data={mockData} />);
-		expect(screen.getByText(/cutoff/i)).toBeTruthy();
+		expect(screen.getByText(/점수 기준/)).toBeTruthy();
 		// Score 3142, cutoff 3310 → 168 pts behind → shows ▼
-		expect(screen.getByText(/168\.0 pts/)).toBeTruthy();
+		expect(screen.getByText(/168\.0점/)).toBeTruthy();
 	});
 
 	it("shows error state when data is null", () => {
 		render(<MythicScorePanel data={null} />);
-		expect(screen.getByText(/No Mythic\+ data available/)).toBeTruthy();
+		expect(screen.getByText(/쐐기 점수 데이터가 없습니다/)).toBeTruthy();
 	});
 
 	it("does not show cutoff when cutoff score is 0", () => {

@@ -1,4 +1,5 @@
 import { formatClearTime } from "../../lib/format.js";
+
 import type { MythicPlusRun } from "../../types/snapshot.js";
 import { Card } from "../primitives/Card.js";
 import { DataTable } from "../primitives/DataTable.js";
@@ -16,16 +17,16 @@ export function RecentRunsPanel({
 }) {
 	return (
 		<Card>
-			<Card.Header>Recent M+ Runs</Card.Header>
+			<Card.Header>최근 쐐기 기록</Card.Header>
 			<Card.Body>
 				{recentRuns.length === 0 ? (
-					<EmptyState message="No recent runs found." />
+					<EmptyState message="최근 쐐기 기록이 없습니다." />
 				) : (
 					<>
-						<h3>Last {Math.min(10, recentRuns.length)} Runs</h3>
+						<h3>최근 {Math.min(10, recentRuns.length)}회</h3>
 						<div style={{ overflowX: "auto" }}>
 							<DataTable>
-								<DataTable.Header columns={["Dungeon", "+Level", "Time", "Status", "Score"]} />
+								<DataTable.Header columns={["던전", "단수", "소요 시간", "완료 상태", "점수"]} />
 								<DataTable.Body>
 									{recentRuns.slice(0, 10).map((run) => (
 										<DataTable.Row key={`${run.completedAt}-${run.dungeon}-${run.keystoneLevel}`}>
@@ -34,12 +35,12 @@ export function RecentRunsPanel({
 											<DataTable.Cell>{formatClearTime(run.clearTimeMs)}</DataTable.Cell>
 											<DataTable.Cell>
 												{run.inTime ? (
-													<span className="run-status-intimer" aria-label="In time">
-														In time
+													<span className="run-status-intimer" aria-label="시간 내 완료">
+														시간 내 완료
 													</span>
 												) : (
-													<span className="run-status-depleted" aria-label="Depleted">
-														Depleted
+													<span className="run-status-depleted" aria-label="시간 초과">
+														시간 초과
 													</span>
 												)}
 											</DataTable.Cell>
@@ -54,10 +55,10 @@ export function RecentRunsPanel({
 
 				{bestRuns.length > 0 && (
 					<>
-						<h3>Best Run Per Dungeon</h3>
+						<h3>던전별 최고 기록</h3>
 						<div style={{ overflowX: "auto" }}>
 							<DataTable>
-								<DataTable.Header columns={["Dungeon", "+Level", "Score"]} />
+								<DataTable.Header columns={["던전", "단수", "점수"]} />
 								<DataTable.Body>
 									{bestRuns.map((run) => (
 										<DataTable.Row key={run.dungeon}>

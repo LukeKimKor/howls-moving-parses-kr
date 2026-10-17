@@ -5,7 +5,7 @@ import { MythicPlusMetaGearPanel } from "../MythicPlusMetaGearPanel.js";
 describe("MythicPlusMetaGearPanel", () => {
 	it("renders empty state when no trinkets", () => {
 		render(<MythicPlusMetaGearPanel trinkets={[]} />);
-		expect(screen.getByText("No trinket data available.")).toBeTruthy();
+		expect(screen.getByText("장신구 표본 데이터가 없습니다.")).toBeTruthy();
 	});
 
 	it("renders trinket name and usage when data is present", () => {
@@ -23,6 +23,6 @@ describe("MythicPlusMetaGearPanel", () => {
 
 	it('is wrapped in a Card with header "M+ Meta Trinkets (Top 10 EU)"', () => {
 		render(<MythicPlusMetaGearPanel trinkets={[]} />);
-		expect(screen.getByRole("heading", { name: /M\+ Meta Trinkets/ })).toBeTruthy();
+		expect(screen.getByRole("heading", { name: /쐐기 장신구 표본/ })).toBeTruthy();
 	});
 });

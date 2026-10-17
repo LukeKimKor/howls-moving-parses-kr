@@ -4,8 +4,8 @@ import { ExternalLink } from "../ExternalLink.js";
 
 describe("ExternalLink", () => {
 	it("renders label text", () => {
-		render(<ExternalLink href="https://example.com" label="View on Wowhead" />);
-		expect(screen.getByText(/View on Wowhead/)).toBeTruthy();
+		render(<ExternalLink href="https://example.com" label="와우헤드에서 보기" />);
+		expect(screen.getByText(/와우헤드에서 보기/)).toBeTruthy();
 	});
 
 	it('has target="_blank"', () => {

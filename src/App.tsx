@@ -21,6 +21,7 @@ import {
 import { AppStateProvider, useAppState } from "./contexts/AppStateContext.js";
 import { ALL_SPECS } from "./data/specs.js";
 import { formatDateUtc } from "./lib/format.js";
+import { classLabel, regionLabel, specLabel } from "./lib/ko.js";
 import { characterProfileUrl } from "./lib/regions.js";
 import type { CharacterData, Snapshot } from "./types/snapshot.js";
 
@@ -98,10 +99,10 @@ function AppInner({ onSelectCharacter }: { onSelectCharacter: (name: string) => 
 	return (
 		<div className="page-wrap">
 			<header className="site-header">
-				<h1>Howl&apos;s Moving Parses</h1>
+				<h1>와우 대시보드</h1>
 				<div className="header-right">
 					<small className="updated-date">
-						Updated: {formatDateUtc(snapshot.generatedAt, snapshot.region)}
+						최근 실행: {formatDateUtc(snapshot.generatedAt, snapshot.region)}
 					</small>
 					<CharacterSelect characters={snapshot.characters} />
 				</div>
@@ -122,12 +123,10 @@ function AppInner({ onSelectCharacter }: { onSelectCharacter: (name: string) => 
 				<div className="character-identity">
 					<strong className="character-name">{character.name}</strong>
 					<span className="character-meta">
-						{specDef?.specName} {character.class} · {character.realm} (
-						{character.region.toUpperCase()})
+						{specLabel(specDef?.specName ?? "", character.class)} {classLabel(character.class)} ·{" "}
+						{character.realm} ({regionLabel(character.region)})
 					</span>
-					{character.mainSpecPending && (
-						<small>주 전문화 미확정 · Havoc / Devourer 동시 추적</small>
-					)}
+					{character.mainSpecPending && <small>주 전문화 미확정 · 파멸 / 포식 동시 추적</small>}
 					<CharacterSpecToggle character={character} />
 					<span className="profile-links">
 						<a
@@ -166,7 +165,9 @@ function AppInner({ onSelectCharacter }: { onSelectCharacter: (name: string) => 
 
 			<main>
 				<div className="grid">
-					<section aria-label={`${character.name} — ${specData?.specName ?? ""}`}>
+					<section
+						aria-label={`${character.name} — ${specLabel(specData?.specName ?? "", character.class)}`}
+					>
 						<MythicScorePanel data={specData?.mythicPlus ?? null} />
 						<RecentRunsPanel
 							recentRuns={specData?.mythicPlus?.recentRuns ?? []}
@@ -194,7 +195,7 @@ function AppInner({ onSelectCharacter }: { onSelectCharacter: (name: string) => 
 					</section>
 
 					<section
-						aria-label={`${metaDef?.specName ?? ""} ${metaDef?.classDisplayName ?? ""} meta`}
+						aria-label={`${specLabel(metaDef?.specName ?? "", metaDef?.className)} ${classLabel(metaDef?.className ?? "")} 표본`}
 					>
 						<SpecSelect />
 						<p className="meta-source-note">
@@ -223,7 +224,7 @@ function AppInner({ onSelectCharacter }: { onSelectCharacter: (name: string) => 
 			</main>
 
 			<footer className="site-footer">
-				<small>Made with love by howlsome</small>
+				<small>원본 기능 제작: howlsome</small>
 				<small className="footer-schedule">
 					{snapshot.dataMode === "raiderio-only"
 						? "Raider.IO 공개 데이터 스냅샷 · WCL 연결 대기"

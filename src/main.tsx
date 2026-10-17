@@ -2,6 +2,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "@picocss/pico";
 import "./styles.css";
+import "./raid-analysis.css";
+import "./typography.css";
 import App from "./App.js";
 
 const root = document.getElementById("root");

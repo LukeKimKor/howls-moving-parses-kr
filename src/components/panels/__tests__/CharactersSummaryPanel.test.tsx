@@ -61,7 +61,7 @@ describe("CharactersSummaryPanel", () => {
 				onSelectCharacter={() => {}}
 			/>,
 		);
-		expect(screen.getByText(/All Characters \(1\)/)).toBeTruthy();
+		expect(screen.getByText(/전체 캐릭터 \(1\)/)).toBeTruthy();
 	});
 
 	it("renders one row per character", () => {

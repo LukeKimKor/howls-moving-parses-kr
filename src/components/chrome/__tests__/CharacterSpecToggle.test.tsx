@@ -87,18 +87,18 @@ describe("CharacterSpecToggle", () => {
 		render(<CharacterSpecToggle character={multiSpecChar} />, { wrapper: Wrapper });
 		const buttons = screen.getAllByRole("button");
 		const activeButton = buttons.find((b) => b.getAttribute("aria-pressed") === "true");
-		expect(activeButton?.textContent).toContain("Elemental");
+		expect(activeButton?.textContent).toContain("정기");
 	});
 
 	it("spec labels show human-readable spec names", () => {
 		render(<CharacterSpecToggle character={multiSpecChar} />, { wrapper: Wrapper });
-		expect(screen.getByText("Elemental")).toBeTruthy();
-		expect(screen.getByText("Enhancement")).toBeTruthy();
+		expect(screen.getByText("정기")).toBeTruthy();
+		expect(screen.getByText("고양")).toBeTruthy();
 	});
 
 	it('clicking inactive spec sets aria-pressed="true" on it', () => {
 		render(<CharacterSpecToggle character={multiSpecChar} />, { wrapper: Wrapper });
-		const enhButton = screen.getByText("Enhancement");
+		const enhButton = screen.getByText("고양");
 		fireEvent.click(enhButton);
 		expect(enhButton.closest("button")?.getAttribute("aria-pressed")).toBe("true");
 	});

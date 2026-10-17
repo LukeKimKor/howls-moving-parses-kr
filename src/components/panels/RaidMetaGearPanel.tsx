@@ -1,3 +1,4 @@
+import { regionLabel } from "../../lib/ko.js";
 import type { MetaItem } from "../../types/snapshot.js";
 import { Card } from "../primitives/Card.js";
 import { DataTable } from "../primitives/DataTable.js";
@@ -13,13 +14,13 @@ export function RaidMetaGearPanel({
 }: { trinkets: MetaItem[]; region?: "eu" | "kr" }) {
 	return (
 		<Card>
-			<Card.Header>Raid Meta Trinkets (Top 10 {region.toUpperCase()})</Card.Header>
+			<Card.Header>공격대 장신구 표본 (상위 10명 {regionLabel(region)})</Card.Header>
 			<Card.Body>
 				{trinkets.length === 0 ? (
-					<EmptyState message="No trinket data available." />
+					<EmptyState message="장신구 표본 데이터가 없습니다." />
 				) : (
 					<DataTable>
-						<DataTable.Header columns={["Trinket", "Usage"]} />
+						<DataTable.Header columns={["장신구", "사용 비율"]} />
 						<DataTable.Body>
 							{trinkets.map((item) => (
 								<DataTable.Row key={item.name}>

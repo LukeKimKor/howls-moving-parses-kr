@@ -1,0 +1,74 @@
+/* Unmodified Pretendard 1.3.9 by Kil Hyung-jin, SIL OFL 1.1.
+ * Copyright and complete license: public/fonts/OFL-Pretendard.txt. */
+@font-face {
+	font-family: "Pretendard Variable";
+	font-style: normal;
+	font-weight: 45 920;
+	font-display: swap;
+	src: url("/fonts/PretendardVariable.woff2") format("woff2-variations");
+}
+
+:root {
+	--pico-font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+		system-ui, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+	font-synthesis: none;
+	font-variant-numeric: tabular-nums lining-nums;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+	font-family: var(--pico-font-family);
+}
+
+.raid-overview,
+.page-wrap,
+.mobile-raid-overview {
+	font-weight: 400;
+	letter-spacing: -0.01em;
+	word-break: keep-all;
+	overflow-wrap: anywhere;
+}
+
+h1,
+h2,
+h3,
+h4 {
+	font-weight: 650;
+	line-height: 1.4;
+	text-wrap: balance;
+}
+
+.raid-overview h1,
+.site-header h1 {
+	font-weight: 700;
+	letter-spacing: -0.035em;
+}
+
+.raid-overview th,
+.desktop-raid-toc a,
+.mobile-view-toggle button,
+.mobile-selection-bar button {
+	font-weight: 500;
+}
+
+.raid-percent,
+.raid-summary-stats strong,
+.mobile-score-summary dd,
+.header-score {
+	font-weight: 650;
+	font-variant-numeric: tabular-nums lining-nums;
+}
+
+.desktop-raid-toc a[aria-current="location"] {
+	font-weight: 650;
+}
+
+.raid-refresh-info,
+.raid-reading-note,
+.raid-summary-scroll > p,
+.mobile-reading-note {
+	line-height: 1.8;
+}

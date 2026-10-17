@@ -1,4 +1,5 @@
 import { useAppState } from "../../contexts/AppStateContext.js";
+import { classLabel, specLabel } from "../../lib/ko.js";
 import type { CharacterData } from "../../types/snapshot.js";
 
 /**
@@ -15,15 +16,15 @@ export function CharacterSelect({ characters }: { characters: CharacterData[] })
 
 	return (
 		<label>
-			<span className="sr-only">Character</span>
-			<select value={selectedCharacterName} onChange={handleChange} aria-label="Select character">
+			<span className="sr-only">캐릭터</span>
+			<select value={selectedCharacterName} onChange={handleChange} aria-label="캐릭터 선택">
 				{characters.map((char) => {
 					const specName = char.mainSpecPending
 						? "주 전문화 미확정"
 						: (char.specs[char.mainSpecSlug]?.specName ?? "");
 					return (
 						<option key={char.name} value={char.name}>
-							{char.name} — {specName} {char.class}
+							{char.name} — {specLabel(specName, char.class)} {classLabel(char.class)}
 						</option>
 					);
 				})}

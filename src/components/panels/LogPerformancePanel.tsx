@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { formatDps } from "../../lib/format.js";
+import { gameName } from "../../lib/ko.js";
 import type { LogData } from "../../types/snapshot.js";
 import { Card } from "../primitives/Card.js";
 import { DataTable } from "../primitives/DataTable.js";
@@ -30,7 +31,7 @@ export function LogPerformancePanel({
 	raidUnavailableReason?: string;
 	mplusUnavailableReason?: string;
 }) {
-	const perfLabel = metric === "hps" ? "HPS" : "DPS";
+	const perfLabel = metric === "hps" ? "초당 치유량" : "초당 피해량";
 
 	const hasMythic = data?.raidParses.some((p) => p.difficulty === "Mythic") ?? false;
 	const hasHeroic = data?.raidParses.some((p) => p.difficulty === "Heroic") ?? false;
@@ -42,9 +43,9 @@ export function LogPerformancePanel({
 	if (!data) {
 		return (
 			<Card>
-				<Card.Header>Log Performance</Card.Header>
+				<Card.Header>로그 성적</Card.Header>
 				<Card.Body>
-					<EmptyState message={unavailableReason ?? "No public logs found for this character."} />
+					<EmptyState message={unavailableReason ?? "이 캐릭터의 공개 로그가 없습니다."} />
 				</Card.Body>
 			</Card>
 		);
@@ -54,33 +55,35 @@ export function LogPerformancePanel({
 
 	return (
 		<Card>
-			<Card.Header>Log Performance</Card.Header>
+			<Card.Header>로그 성적</Card.Header>
 			<Card.Body>
 				<div className="log-section-header">
-					<h3>Raid</h3>
+					<h3>공격대</h3>
 					{(hasMythic || hasHeroic) && (
 						<select
 							value={difficulty}
 							onChange={(e) => setDifficulty(e.target.value as "Heroic" | "Mythic")}
-							aria-label="Select difficulty"
+							aria-label="난이도 선택"
 							className="difficulty-select"
 						>
-							{hasHeroic && <option value="Heroic">Heroic</option>}
-							{hasMythic && <option value="Mythic">Mythic</option>}
+							{hasHeroic && <option value="Heroic">영웅</option>}
+							{hasMythic && <option value="Mythic">신화</option>}
 						</select>
 					)}
 				</div>
 
 				{filteredRaidParses.length === 0 ? (
-					<EmptyState message={raidUnavailableReason ?? "No raid parses found."} />
+					<EmptyState message={raidUnavailableReason ?? "공격대 로그 기록이 없습니다."} />
 				) : (
 					<div style={{ overflowX: "auto" }}>
 						<DataTable>
-							<DataTable.Header columns={["Boss", "Best %", `Best ${perfLabel}`, "Date"]} />
+							<DataTable.Header
+								columns={["우두머리", "최고 백분위", `최고 ${perfLabel}`, "날짜"]}
+							/>
 							<DataTable.Body>
 								{filteredRaidParses.map((parse) => (
-									<DataTable.Row key={parse.bossName}>
-										<DataTable.Cell>{parse.bossName}</DataTable.Cell>
+									<DataTable.Row key={gameName(parse.bossName)}>
+										<DataTable.Cell>{gameName(parse.bossName)}</DataTable.Cell>
 										<DataTable.Cell>
 											<PercentBadge value={parse.bestPercent} />
 										</DataTable.Cell>
@@ -88,7 +91,7 @@ export function LogPerformancePanel({
 											{parse.bestAmount > 0 ? formatDps(parse.bestAmount) : "—"}
 										</DataTable.Cell>
 										<DataTable.Cell>
-											{parse.date ? new Date(parse.date).toLocaleDateString("en-GB") : "—"}
+											{parse.date ? new Date(parse.date).toLocaleDateString("ko-KR") : "—"}
 										</DataTable.Cell>
 									</DataTable.Row>
 								))}
@@ -97,13 +100,13 @@ export function LogPerformancePanel({
 					</div>
 				)}
 
-				<h3>Mythic+</h3>
+				<h3>쐐기</h3>
 				{data.recentDungeonLogs.length === 0 ? (
-					<EmptyState message={mplusUnavailableReason ?? "No recent dungeon logs found."} />
+					<EmptyState message={mplusUnavailableReason ?? "최근 쐐기 로그 기록이 없습니다."} />
 				) : (
 					<div style={{ overflowX: "auto" }}>
 						<DataTable>
-							<DataTable.Header columns={["Dungeon", "Rank %", perfLabel, "Date"]} />
+							<DataTable.Header columns={["던전", "순위 백분위", perfLabel, "날짜"]} />
 							<DataTable.Body>
 								{[...data.recentDungeonLogs]
 									.sort((a, b) => {
@@ -120,7 +123,7 @@ export function LogPerformancePanel({
 											</DataTable.Cell>
 											<DataTable.Cell>{formatDps(log.dps)}</DataTable.Cell>
 											<DataTable.Cell>
-												{log.date ? new Date(log.date).toLocaleDateString("en-GB") : "—"}
+												{log.date ? new Date(log.date).toLocaleDateString("ko-KR") : "—"}
 											</DataTable.Cell>
 										</DataTable.Row>
 									))}

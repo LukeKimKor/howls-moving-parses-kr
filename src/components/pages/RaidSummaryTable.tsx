@@ -1,4 +1,5 @@
 import { ALL_SPECS } from "../../data/specs.js";
+import { hasSummaryPercent } from "../../lib/ko.js";
 import { RAID_METRIC_LABELS } from "../../lib/raid-overview.js";
 import type { RaidMetric, Snapshot } from "../../types/snapshot.js";
 import { RaidPercent } from "../primitives/RaidPercent.js";
@@ -9,8 +10,9 @@ const columns = (["Heroic", "Mythic"] as const).flatMap((difficulty) =>
 );
 export function RaidSummaryTable({ snapshot }: { snapshot: Snapshot }) {
 	return (
-		<section className="raid-summary-scroll" aria-label="전체 캐릭터 성적 요약">
-			<p>전체 요약 · 각 칸은 Best / Median 백분위입니다.</p>
+		<section id="raid-summary" className="raid-summary-scroll" aria-label="전체 캐릭터 성적 요약">
+			<h2 className="raid-summary-heading">종합 요약</h2>
+			<p>각 칸은 최고 / 중앙값 백분위입니다. 초당 피해량·치유량과 다른 수치입니다.</p>
 			<table className="raid-roster-summary">
 				<thead>
 					<tr>
@@ -18,17 +20,17 @@ export function RaidSummaryTable({ snapshot }: { snapshot: Snapshot }) {
 							캐릭터
 						</th>
 						<th scope="colgroup" colSpan={3}>
-							영웅 HEROIC
+							영웅
 						</th>
 						<th scope="colgroup" colSpan={3}>
-							신화 MYTHIC
+							신화
 						</th>
 					</tr>
 					<tr>
 						{columns.map(({ difficulty, metric }) => (
 							<th key={`${difficulty}-${metric}`} scope="col">
 								{RAID_METRIC_LABELS[metric]}
-								<small>Best / Median</small>
+								<small>최고 / 중앙값</small>
 							</th>
 						))}
 					</tr>
@@ -58,7 +60,9 @@ export function RaidSummaryTable({ snapshot }: { snapshot: Snapshot }) {
 											: undefined;
 										return (
 											<div className="roster-spec-value" key={slug}>
-												<SpecIcon className={character.class} specName={spec.specName} />
+												{hasSummaryPercent(summary) && (
+													<SpecIcon className={character.class} specName={spec.specName} />
+												)}
 												<span>
 													{summary?.bestPerformanceAverage == null ? (
 														"—"

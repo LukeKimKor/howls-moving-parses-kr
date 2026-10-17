@@ -1,0 +1,219 @@
+/* User-selected A design: compact dark analysis layout. */
+@media (min-width: 768px) {
+	.raid-overview {
+		font-family: var(--pico-font-family);
+		background: #0c1017;
+		color: #dce5f2;
+		font-size: 13px;
+		padding-top: 22px;
+		padding-right: 20px;
+		letter-spacing: -.15px;
+	}
+	.raid-overview h1 {
+		font-size: 27px;
+		letter-spacing: -1px;
+		font-weight: 700;
+	}
+	.raid-overview h2 {
+		font-size: 19px;
+		letter-spacing: -.4px;
+	}
+	.raid-overview h3 {
+		font-size: 14px;
+	}
+	.raid-overview h4 {
+		font-size: 14px;
+	}
+	.raid-overview-header {
+		padding-bottom: 18px;
+		border-bottom: 1px solid #243044;
+		margin-bottom: 14px;
+	}
+	.raid-refresh-info {
+		font-size: 12px;
+		line-height: 1.65;
+		max-width: 470px;
+	}
+	.raid-summary-scroll {
+		margin: 22px 0;
+	}
+	.raid-summary-scroll > p {
+		font-size: 12px;
+		line-height: 1.7;
+		margin: 7px 0 14px;
+	}
+	.raid-roster-summary {
+		font-size: 12px;
+		min-width: 1010px;
+		border: 1px solid #304058;
+	}
+	.raid-roster-summary th,
+	.raid-roster-summary td {
+		padding: 6px 9px;
+		border-color: #29374a;
+	}
+	.raid-roster-summary tbody th {
+		font-size: 13px;
+		background: #121c2a;
+		min-width: 180px;
+	}
+	.raid-roster-summary thead th {
+		background: #1c283b;
+		font-size: 12px;
+	}
+	.raid-roster-summary .summary-heroic {
+		background: #19182a;
+	}
+	.raid-roster-summary .summary-mythic {
+		background: #10232a;
+	}
+	.roster-spec-value {
+		min-height: 26px;
+		gap: 6px;
+	}
+	.raid-character-section {
+		background: #101823;
+		border-color: #2a384e;
+		border-radius: 8px;
+		margin: 22px 0;
+		padding: 14px;
+	}
+	.raid-character-header {
+		padding-bottom: 12px;
+	}
+	.raid-character-header button {
+		font-size: 12px;
+	}
+	.raid-spec-section > h3 {
+		margin: 12px 0 8px;
+	}
+	.raid-difficulty-grid {
+		gap: 14px;
+	}
+	.raid-difficulty-title {
+		padding: 8px 12px;
+		margin: 8px 0 !important;
+		font-size: 13px !important;
+		letter-spacing: .5px;
+	}
+	.raid-metric-panel {
+		border-radius: 4px;
+		margin-bottom: 12px;
+	}
+	.raid-metric-title {
+		padding: 10px 12px;
+	}
+	.raid-metric-title a {
+		font-size: 11px;
+	}
+	.raid-summary-stats {
+		height: 84px;
+		padding: 12px;
+	}
+	.raid-summary-stats > div > span {
+		font-size: 11px;
+		line-height: 1.6;
+	}
+	.raid-summary-stats strong {
+		font-size: 23px;
+	}
+	.raid-stars-slot {
+		height: 40px;
+	}
+	.raid-status-slot {
+		height: 54px;
+	}
+	.raid-all-stars {
+		font-size: 11px;
+		padding: 0 12px;
+		gap: 6px;
+	}
+	.raid-performance-table {
+		table-layout: fixed;
+		min-width: 560px;
+		font-size: 12px;
+		font-variant-numeric: tabular-nums lining-nums;
+	}
+	.raid-performance-table thead {
+		height: 64px;
+	}
+	.raid-performance-table thead tr {
+		height: 32px;
+	}
+	.raid-performance-table thead th {
+		font-size: 11px;
+		white-space: normal;
+		line-height: 1.5;
+		padding: 4px;
+	}
+	.raid-performance-table th,
+	.raid-performance-table td {
+		padding: 6px 4px;
+		border-color: #2c384a;
+	}
+	.raid-performance-table tbody th {
+		min-width: 0;
+		width: 27%;
+		font-size: 12px;
+	}
+	.raid-performance-table thead tr:first-child > th:first-child {
+		width: 27%;
+	}
+	.raid-performance-table tbody tr,
+	.raid-performance-table tbody th,
+	.raid-performance-table tbody td {
+		height: 46px;
+	}
+	.raid-performance-table tbody th a {
+		height: 34px;
+	}
+	.raid-boss-name {
+		max-height: 34px;
+		line-height: 17px;
+	}
+	.raid-performance-table .boss-raid-origin {
+		font-size: 10px;
+	}
+	.raid-performance-table tbody tr:hover {
+		background: #263349;
+	}
+	.raid-reading-note {
+		font-size: 11px;
+		line-height: 1.8;
+		color: #aebed3;
+	}
+	.desktop-raid-toc {
+		background: #111b29;
+		border-color: #2c3c53;
+		border-radius: 6px;
+	}
+	.desktop-raid-toc a {
+		font-size: 12px;
+		min-height: 32px;
+	}
+	.desktop-toc-title {
+		font-size: 11px;
+		letter-spacing: .3px;
+	}
+}
+
+@media (min-width: 768px) {
+	.raid-performance-table thead tr:first-child > th:nth-child(2) {
+		width: 12%;
+	}
+	.raid-performance-table thead tr:first-child > th:nth-child(3) {
+		width: 16%;
+	}
+	.raid-performance-table thead tr:first-child > th:nth-child(4) {
+		width: 6%;
+	}
+	.raid-performance-table thead tr:first-child > th:nth-child(5) {
+		width: 9%;
+	}
+	.raid-performance-table thead tr:first-child > th:nth-child(6) {
+		width: 10%;
+	}
+	.raid-performance-table thead tr:first-child > th:nth-child(7) {
+		width: 20%;
+	}
+}

@@ -6,7 +6,7 @@ describe("DataTable", () => {
 	it('renders column headers with scope="col"', () => {
 		render(
 			<DataTable>
-				<DataTable.Header columns={["Name", "Score", "Rank"]} />
+				<DataTable.Header columns={["이름", "점수", "순위"]} />
 				<DataTable.Body>{null}</DataTable.Body>
 			</DataTable>,
 		);

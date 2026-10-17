@@ -10,9 +10,9 @@ export function TalentSnapshotPanel({ data }: { data: TalentData | null }) {
 	if (!data || data.talents.length === 0) {
 		return (
 			<Card>
-				<Card.Header>Talent Snapshot</Card.Header>
+				<Card.Header>현재 특성</Card.Header>
 				<Card.Body>
-					<EmptyState message="No talent data available." />
+					<EmptyState message="특성 데이터가 없습니다." />
 				</Card.Body>
 			</Card>
 		);
@@ -20,13 +20,17 @@ export function TalentSnapshotPanel({ data }: { data: TalentData | null }) {
 
 	return (
 		<Card>
-			<Card.Header>Talent Snapshot</Card.Header>
+			<Card.Header>현재 특성</Card.Header>
 			<Card.Body>
 				<p>Raider.IO의 현재 전문화 특성입니다. 다른 전문화의 특성은 제공되지 않으면 비워 둡니다.</p>
 				{data.loadoutString && (
 					<details>
 						<summary>게임 내 특성 가져오기 문자열</summary>
-						<textarea readOnly aria-label="Talent import string" value={data.loadoutString} />
+						<textarea
+							readOnly
+							aria-label="게임 내 특성 가져오기 문자열"
+							value={data.loadoutString}
+						/>
 					</details>
 				)}
 				<details>
@@ -37,7 +41,7 @@ export function TalentSnapshotPanel({ data }: { data: TalentData | null }) {
 						))}
 					</ol>
 				</details>
-				{data.wowheadUrl && <ExternalLink href={data.wowheadUrl} label="View on Wowhead" />}
+				{data.wowheadUrl && <ExternalLink href={data.wowheadUrl} label="와우헤드에서 보기" />}
 			</Card.Body>
 		</Card>
 	);

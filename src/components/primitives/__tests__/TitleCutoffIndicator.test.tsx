@@ -11,16 +11,16 @@ describe("TitleCutoffIndicator", () => {
 
 	it('shows "Below" indicator when score < cutoff', () => {
 		render(<TitleCutoffIndicator yourScore={3000} cutoff={3310} />);
-		expect(screen.getByText(/▼ Below/)).toBeTruthy();
+		expect(screen.getByText(/▼ 기준보다 낮음/)).toBeTruthy();
 	});
 
 	it('shows "Above" indicator when score >= cutoff', () => {
 		render(<TitleCutoffIndicator yourScore={3400} cutoff={3310} />);
-		expect(screen.getByText(/▲ Above/)).toBeTruthy();
+		expect(screen.getByText(/▲ 기준보다 높음/)).toBeTruthy();
 	});
 
 	it("shows the label text", () => {
 		render(<TitleCutoffIndicator yourScore={3000} cutoff={3310} />);
-		expect(screen.getByText(/title cutoff/i)).toBeTruthy();
+		expect(screen.getByText(/칭호 기준/)).toBeTruthy();
 	});
 });

@@ -5,11 +5,11 @@ import { RaidMetaBuildsPanel } from "../RaidMetaBuildsPanel.js";
 describe("RaidMetaBuildsPanel", () => {
 	it("always renders the empty state regardless of input", () => {
 		render(<RaidMetaBuildsPanel />);
-		expect(screen.getByText("Meta builds will be available in a future release.")).toBeTruthy();
+		expect(screen.getByText("특성 빌드 집계는 아직 제공되지 않습니다.")).toBeTruthy();
 	});
 
 	it('is wrapped in a Card with header "Raid Meta Talent Builds"', () => {
 		render(<RaidMetaBuildsPanel />);
-		expect(screen.getByRole("heading", { name: "Raid Meta Talent Builds" })).toBeTruthy();
+		expect(screen.getByRole("heading", { name: "공격대 특성 빌드 표본" })).toBeTruthy();
 	});
 });

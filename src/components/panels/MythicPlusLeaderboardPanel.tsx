@@ -1,4 +1,5 @@
 import { formatDps } from "../../lib/format.js";
+import { regionLabel } from "../../lib/ko.js";
 import type { MythicPlusLeaderboardEntry } from "../../types/snapshot.js";
 import { Card } from "../primitives/Card.js";
 import { DataTable } from "../primitives/DataTable.js";
@@ -22,19 +23,19 @@ export function MythicPlusLeaderboardPanel({
 	metric: "dps" | "hps";
 	region?: "eu" | "kr";
 }) {
-	const metricLabel = metric === "hps" ? "HPS" : "DPS";
+	const metricLabel = metric === "hps" ? "초당 치유량" : "초당 피해량";
 
 	return (
 		<Card>
-			<Card.Header>M+ Leaderboard ({region.toUpperCase()})</Card.Header>
+			<Card.Header>쐐기 순위 ({regionLabel(region)})</Card.Header>
 			<Card.Body>
 				{leaderboard.length === 0 ? (
-					<EmptyState message="No M+ leaderboard data available." />
+					<EmptyState message="쐐기 순위 데이터가 없습니다." />
 				) : (
 					<div style={{ overflowX: "auto" }}>
 						<DataTable>
 							<DataTable.Header
-								columns={["#", "Name", "M+ Score", `Best ${metricLabel}`, "Trinkets"]}
+								columns={["#", "이름", "쐐기 점수", `최고 ${metricLabel}`, "장신구"]}
 							/>
 							<DataTable.Body>
 								{leaderboard.map((entry) => (

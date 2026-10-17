@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import { ALL_SPECS } from "../../data/specs.js";
 import { formatClearTime, formatNumber } from "../../lib/format.js";
+import {
+	bossGroup,
+	difficultyLabel,
+	gameName,
+	hasValue,
+	raidGroups,
+	rateLabel,
+	specLabel,
+} from "../../lib/ko.js";
 import { RAID_METRIC_LABELS, raidEncounters, raidSection } from "../../lib/raid-overview.js";
 import { kstTime, nextScheduledAt, raidLastSuccess } from "../../lib/refresh-time.js";
 import { characterProfileUrl } from "../../lib/regions.js";
@@ -15,6 +24,7 @@ import { NewBuildBanner } from "../chrome/NewBuildBanner.js";
 import { CollectionNotice } from "../primitives/CollectionNotice.js";
 import { RaidPercent as PercentBadge } from "../primitives/RaidPercent.js";
 import { CLASS_COLORS, SpecIcon } from "../primitives/SpecIcon.js";
+import { DesktopRaidToc } from "./DesktopRaidToc.js";
 import { MobileRaidOverview } from "./MobileRaidOverview.js";
 import { RaidSummaryTable } from "./RaidSummaryTable.js";
 
@@ -49,7 +59,7 @@ function RaidTable({
 	return (
 		<section
 			className={`raid-metric-panel raid-${data.difficulty.toLowerCase()}`}
-			aria-label={`${character.name} ${spec.specName} ${data.difficulty} ${RAID_METRIC_LABELS[data.metric]}`}
+			aria-label={`${character.name} ${specLabel(spec.specName, character.class)} ${difficultyLabel(data.difficulty)} ${RAID_METRIC_LABELS[data.metric]}`}
 		>
 			<div className="raid-metric-title">
 				<h4>
@@ -61,7 +71,7 @@ function RaidTable({
 			</div>
 			<div className="raid-summary-stats">
 				<div>
-					<span>Best Perf. Avg</span>
+					<span>최고 백분위 평균</span>
 					<strong>
 						{data.summary.bestPerformanceAverage === null ? (
 							"—"
@@ -71,7 +81,7 @@ function RaidTable({
 					</strong>
 				</div>
 				<div>
-					<span>Median Perf. Avg</span>
+					<span>중앙값 백분위 평균</span>
 					<strong>
 						{data.summary.medianPerformanceAverage === null ? (
 							"—"
@@ -81,7 +91,7 @@ function RaidTable({
 					</strong>
 				</div>
 				<div>
-					<span>Kills Logged*</span>
+					<span>처치 기록 합계*</span>
 					<strong>
 						{data.summary.killsLogged === null ? "—" : formatNumber(data.summary.killsLogged)}
 					</strong>
@@ -92,8 +102,10 @@ function RaidTable({
 					<div className="raid-all-stars">
 						{data.summary.allStars.map((star) => (
 							<span key={`${star.spec}-${star.partition}-${star.points}-${star.rank}`}>
-								<SpecIcon className={character.class} specName={star.spec} /> All Star Points{" "}
-								<strong>{points(star.points)}</strong> · Rank{" "}
+								{(hasValue(star.points) || hasValue(star.rank)) && (
+									<SpecIcon className={character.class} specName={star.spec} />
+								)}{" "}
+								종합 점수 <strong>{points(star.points)}</strong> · 순위{" "}
 								{star.rank === null ? "—" : formatNumber(star.rank)}
 								{data.summary.allStars.length > 1 &&
 									star.partition !== null &&
@@ -111,57 +123,52 @@ function RaidTable({
 				className="raid-table-scroll"
 				// biome-ignore lint/a11y/noNoninteractiveTabindex: This overflow region must receive keyboard focus for horizontal scrolling.
 				tabIndex={0}
-				aria-label={`${character.name} ${data.difficulty} ${data.metric} 보스 표`}
+				aria-label={`${character.name} ${difficultyLabel(data.difficulty)} ${RAID_METRIC_LABELS[data.metric]} 우두머리 표`}
 			>
 				<table className="raid-performance-table">
 					<thead>
 						<tr>
 							<th scope="col" rowSpan={2}>
-								Boss
+								우두머리
 							</th>
 							<th scope="col" rowSpan={2}>
-								Best %
+								최고 백분위
 							</th>
 							<th scope="col" rowSpan={2}>
-								Highest {data.metric === "hps" ? "HPS" : "DPS"}
+								최고 {rateLabel(data.metric)}
 							</th>
 							<th scope="col" rowSpan={2}>
-								Kills
+								처치 수
 							</th>
 							<th scope="col" rowSpan={2}>
-								Fastest
+								최단 시간
 							</th>
 							<th scope="col" rowSpan={2}>
-								Med
+								중앙값 백분위
 							</th>
 							<th scope="colgroup" colSpan={2}>
-								All Stars
+								종합 순위
 							</th>
 						</tr>
 						<tr>
-							<th scope="col">Points</th>
-							<th scope="col">Rank</th>
+							<th scope="col">점수</th>
+							<th scope="col">순위</th>
 						</tr>
 					</thead>
 					<tbody>
 						{data.rows.map((row) => {
 							const bossUrl = new URL(url);
 							if (row.encounterId > 0) bossUrl.searchParams.set("boss", String(row.encounterId));
-							const image = snapshot.raid?.encounters.find(
-								(e) => e.id === row.encounterId,
-							)?.imageUrl;
 							return (
 								<tr key={row.bossName} className={`raid-row-${row.state}`}>
 									<th scope="row">
 										<a href={bossUrl.href} target="_blank" rel="noopener noreferrer">
-											{image ? (
-												<img src={image} alt="" width={26} height={26} loading="lazy" />
-											) : (
-												<span className="raid-boss-marker" aria-hidden="true">
-													◆
-												</span>
-											)}
-											<span className="raid-boss-name">{row.bossName}</span>
+											<span className="raid-boss-name">
+												{gameName(row.bossName)}
+												{bossGroup(row.bossName) && bossGroup(row.bossName) !== "맹독 심연" && (
+													<small className="boss-raid-origin">{bossGroup(row.bossName)}</small>
+												)}
+											</span>
 										</a>
 										{row.state === "unavailable" && (
 											<small>
@@ -247,15 +254,23 @@ export function RaidOverviewPage({
 		return () => navigator.serviceWorker.removeEventListener("message", handler);
 	}, []);
 	return (
-		<main className="raid-overview">
+		<main className="raid-overview" data-theme="dark">
+			{!mobile && <DesktopRaidToc characters={snapshot.characters} />}
 			<header className="raid-overview-header">
 				<div>
-					<p className="raid-eyebrow">HOWL&apos;S MOVING PARSES · KR 아즈샤라</p>
-					<h1>전체 캐릭터 레이드 성적</h1>
+					<p className="raid-eyebrow">내캐릭 로그관리 · 한국 아즈샤라</p>
+					<h1>와우 대시보드</h1>
 					<p>
-						{snapshot.raid?.name ?? "기존 레이드 로그"} · {snapshot.characters.length}개 캐릭터 ·
-						영웅 &amp; 신화
+						{raidGroups(encounters.map((e) => e.name)).length > 1
+							? "시즌 통합 공격대"
+							: gameName(snapshot.raid?.name ?? "기존 레이드 로그")}{" "}
+						· {snapshot.characters.length}개 캐릭터 · 영웅 &amp; 신화
 					</p>
+					{raidGroups(encounters.map((e) => e.name)).length > 1 && (
+						<p className="raid-scope-note">
+							{raidGroups(encounters.map((e) => e.name)).join(" · ")}
+						</p>
+					)}
 				</div>
 				<details className="raid-refresh-details" open={!mobile}>
 					<summary>수집 시각 · 갱신 일정</summary>
@@ -303,7 +318,7 @@ export function RaidOverviewPage({
 			)}
 			{!snapshot.raidMetricSchema?.supported.includes("bossdps") && (
 				<p className="raid-schema-notice">
-					Damage to Bosses의 공식 스키마 지원 확인 대기 · 새 수집은 미조회로 표시하며, 이전 데이터가
+					우두머리 피해 지표의 공식 지원 확인 대기 · 새 수집은 미조회로 표시하며, 이전 데이터가
 					있으면 시각과 함께 보존합니다.
 				</p>
 			)}
@@ -328,10 +343,10 @@ export function RaidOverviewPage({
 					</nav>
 					<RaidSummaryTable snapshot={snapshot} />
 					<p className="raid-reading-note">
-						등록된 전문화 · 현재 WCL 기본 파티션 기준입니다. Best %와 Med는 WCL 순위 백분위이며
-						Highest DPS/HPS는 초당 수치입니다. 요약 백분위는 WCL 응답을 그대로 표시합니다. *Kills
-						Logged는 보스별 Kills의 합계입니다. —는 값이 제공되지 않았음을 뜻하며, 미처치는 Kills
-						0으로 구분합니다.
+						등록된 전문화 · 현재 WCL 기본 집계 구간 기준입니다. 최고·중앙값은 순위 백분위이고, 최고
+						초당 피해량·치유량은 실제 초당 수치입니다. 요약은 WCL의 백분위 평균을 그대로 표시합니다.
+						*처치 기록 합계는 우두머리별 처치 수를 합친 값입니다. —는 미확인, 0은 확인된 값 0을
+						뜻합니다.
 					</p>
 					{snapshot.characters.map((character, index) => (
 						<section
@@ -366,7 +381,7 @@ export function RaidOverviewPage({
 									<div className="raid-spec-section" key={slug}>
 										<h3>
 											<SpecIcon className={character.class} specName={spec.specName} />{" "}
-											<small>{healer ? "Healing" : "Damage · Damage to Bosses"}</small>
+											<small>{healer ? "치유량" : "전체 피해 · 우두머리 피해"}</small>
 										</h3>
 										{metrics.map((metric) => (
 											<div className="raid-difficulty-grid" key={metric}>
@@ -374,7 +389,6 @@ export function RaidOverviewPage({
 													<div className="raid-difficulty-column" key={difficulty}>
 														<h3 className="raid-difficulty-title">
 															{difficulty === "Heroic" ? "영웅" : "신화"}{" "}
-															<small>{difficulty.toUpperCase()}</small>
 														</h3>
 														{
 															<RaidTable

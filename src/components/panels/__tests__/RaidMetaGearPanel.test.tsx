@@ -5,7 +5,7 @@ import { RaidMetaGearPanel } from "../RaidMetaGearPanel.js";
 describe("RaidMetaGearPanel", () => {
 	it("renders empty state when no trinkets", () => {
 		render(<RaidMetaGearPanel trinkets={[]} />);
-		expect(screen.getByText("No trinket data available.")).toBeTruthy();
+		expect(screen.getByText("장신구 표본 데이터가 없습니다.")).toBeTruthy();
 	});
 
 	it("renders trinket name and usage when data is present", () => {
@@ -18,8 +18,8 @@ describe("RaidMetaGearPanel", () => {
 		expect(screen.getByText("70%")).toBeTruthy();
 	});
 
-	it('is wrapped in a Card with header "Raid Meta Trinkets (Top 10 EU)"', () => {
+	it('is wrapped in a Card with header "공격대 장신구 표본 (Top 10 EU)"', () => {
 		render(<RaidMetaGearPanel trinkets={[]} />);
-		expect(screen.getByRole("heading", { name: /Raid Meta Trinkets/ })).toBeTruthy();
+		expect(screen.getByRole("heading", { name: /공격대 장신구 표본/ })).toBeTruthy();
 	});
 });

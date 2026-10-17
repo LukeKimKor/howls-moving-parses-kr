@@ -1,5 +1,6 @@
 import { useAppState } from "../../contexts/AppStateContext.js";
 import { ALL_SPECS } from "../../data/specs.js";
+import { classLabel, specLabel } from "../../lib/ko.js";
 
 /**
  * Header dropdown listing all 39 WoW specs grouped by class.
@@ -21,17 +22,17 @@ export function SpecSelect() {
 
 	return (
 		<label>
-			<span className="sr-only">Spec Meta</span>
+			<span className="sr-only">전문화별 표본</span>
 			<select
 				value={selectedMetaSpecSlug}
 				onChange={(e) => setSelectedMetaSpecSlug(e.target.value)}
-				aria-label="Select spec for meta panel"
+				aria-label="표본을 조회할 전문화 선택"
 			>
 				{[...groups.entries()].map(([className, specs]) => (
-					<optgroup key={className} label={className}>
+					<optgroup key={className} label={classLabel(className)}>
 						{specs.map((spec) => (
 							<option key={spec.specSlug} value={spec.specSlug}>
-								{spec.specName}
+								{specLabel(spec.specName, spec.className)}
 							</option>
 						))}
 					</optgroup>

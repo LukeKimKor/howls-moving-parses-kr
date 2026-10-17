@@ -11,9 +11,9 @@ export function TrinketsPanel({ data }: { data: GearData | null }) {
 	if (!data) {
 		return (
 			<Card>
-				<Card.Header>Trinkets</Card.Header>
+				<Card.Header>장신구</Card.Header>
 				<Card.Body>
-					<EmptyState message="No gear data available." />
+					<EmptyState message="착용 장비 데이터가 없습니다." />
 				</Card.Body>
 			</Card>
 		);
@@ -26,9 +26,9 @@ export function TrinketsPanel({ data }: { data: GearData | null }) {
 	if (trinkets.length === 0) {
 		return (
 			<Card>
-				<Card.Header>Trinkets</Card.Header>
+				<Card.Header>장신구</Card.Header>
 				<Card.Body>
-					<EmptyState message="No trinket data found." />
+					<EmptyState message="장신구 데이터가 없습니다." />
 				</Card.Body>
 			</Card>
 		);
@@ -36,15 +36,15 @@ export function TrinketsPanel({ data }: { data: GearData | null }) {
 
 	return (
 		<Card>
-			<Card.Header>Trinkets</Card.Header>
+			<Card.Header>장신구</Card.Header>
 			<Card.Body>
 				<DataTable>
-					<DataTable.Header columns={["Slot", "Item", "iLvl"]} />
+					<DataTable.Header columns={["부위", "아이템", "아이템 레벨"]} />
 					<DataTable.Body>
 						{trinkets.map((item) => (
 							<DataTable.Row key={item.slot}>
 								<DataTable.Cell scope="row">
-									{item.slot === "trinket1" ? "Trinket 1" : "Trinket 2"}
+									{item.slot === "trinket1" ? "장신구 1" : "장신구 2"}
 								</DataTable.Cell>
 								<DataTable.Cell>{item.name}</DataTable.Cell>
 								<DataTable.Cell>{item.ilvl}</DataTable.Cell>

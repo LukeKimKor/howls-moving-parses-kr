@@ -1,4 +1,5 @@
 import { formatNumber } from "../../lib/format.js";
+import { regionLabel } from "../../lib/ko.js";
 
 /**
  * Shows the character's M+ score vs the EU Keystone Hero 1% title cutoff.
@@ -15,21 +16,19 @@ export function TitleCutoffIndicator({
 }) {
 	const isAbove = yourScore >= cutoff;
 	const diff = Math.abs(yourScore - cutoff);
-	const indicator = isAbove ? "▲ Above" : "▼ Below";
+	const indicator = isAbove ? "▲ 기준보다 높음" : "▼ 기준보다 낮음";
 
 	return (
 		<div className="title-cutoff">
-			<span className="cutoff-label">
-				Score / title cutoff comparison — {region.toUpperCase()} top 1%
-			</span>
+			<span className="cutoff-label">점수 / 칭호 기준 비교 · {regionLabel(region)} 상위 1%</span>
 			<span className="cutoff-scores">
 				{formatNumber(yourScore)} / {formatNumber(cutoff)}
 			</span>
 			<span
 				className={`cutoff-indicator ${isAbove ? "above" : "below"}`}
-				aria-label={`${indicator} cutoff by ${formatNumber(diff)}`}
+				aria-label={`${indicator} ${formatNumber(diff)}점`}
 			>
-				{indicator} by {formatNumber(diff)}
+				{indicator} {formatNumber(diff)}점
 			</span>
 		</div>
 	);

@@ -114,7 +114,7 @@ describe("focused mobile raid overview", () => {
 		fireEvent.click(within(first as HTMLElement).getByRole("button"));
 		expect(within(first as HTMLElement).getByText("123,456.7")).toBeVisible();
 		expect(within(first as HTMLElement).getByText("2:05")).toBeVisible();
-		expect(screen.getByText("미처치 · Kills 0")).toBeInTheDocument();
+		expect(screen.getByText("미처치 · 처치 수 0")).toBeInTheDocument();
 		fireEvent.click(screen.getByRole("button", { name: "모두 펼치기" }));
 		expect(document.querySelectorAll(".mobile-boss-extra:not([hidden])")).toHaveLength(2);
 		fireEvent.click(screen.getByRole("button", { name: "모두 접기" }));
@@ -125,9 +125,9 @@ describe("focused mobile raid overview", () => {
 		fireEvent.change(screen.getByRole("combobox"), { target: { value: "2" } });
 		fireEvent.click(screen.getByRole("button", { name: /포식/ }));
 		fireEvent.click(screen.getByRole("button", { name: "신화" }));
-		fireEvent.click(screen.getByRole("button", { name: "보스 피해" }));
+		fireEvent.click(screen.getByRole("button", { name: "우두머리 피해" }));
 		expect(
-			screen.getByRole("region", { name: "앙귀태 Devourer Mythic bossdps 모바일 성적" }),
+			screen.getByRole("region", { name: "앙귀태 포식 신화 우두머리 피해 모바일 성적" }),
 		).toBeInTheDocument();
 		expect(screen.getByText(/주 전문화 미확정/)).toBeInTheDocument();
 		expect(screen.getAllByText("95.0%")).toHaveLength(1);
@@ -136,10 +136,10 @@ describe("focused mobile raid overview", () => {
 		render(<MobileRaidOverview snapshot={fixture()} onOpenCharacter={vi.fn()} />);
 		for (const index of [3, 12]) {
 			fireEvent.change(screen.getByRole("combobox"), { target: { value: String(index) } });
-			expect(screen.getByText("치유 · Healing")).toBeInTheDocument();
-			expect(screen.queryByRole("button", { name: "보스 피해" })).not.toBeInTheDocument();
+			expect(screen.getByText("치유량")).toBeInTheDocument();
+			expect(screen.queryByRole("button", { name: "우두머리 피해" })).not.toBeInTheDocument();
 			expect(document.querySelector(".mobile-performance")?.getAttribute("aria-label")).toContain(
-				"hps 모바일 성적",
+				"치유량 모바일 성적",
 			);
 		}
 	});
