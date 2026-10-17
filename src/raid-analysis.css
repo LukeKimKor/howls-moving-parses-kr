@@ -539,6 +539,219 @@
 .desktop-raid-toc a {
 	border-radius: 6px;
 }
+
+/* A single compact row lets Heroic and Mythic remain visible together. */
+.raid-compact-summary .summary-toolbar {
+	display: grid;
+	grid-template-columns: auto 1fr auto;
+	align-items: center;
+	gap: 16px;
+}
+.raid-compact-summary .raid-summary-heading {
+	margin: 0;
+}
+.summary-metric-tabs {
+	display: flex;
+	gap: 4px;
+	padding: 0;
+	margin: 0;
+	border: 0;
+	width: auto;
+	justify-self: end;
+}
+.summary-metric-tabs button {
+	margin: 0;
+	padding: 6px 12px;
+	min-height: 38px;
+	font-size: 16px;
+	background: #1c293d;
+	border: 1px solid #455775;
+}
+.summary-metric-tabs button[aria-pressed="true"] {
+	background: #334e74;
+	border-color: #a9c7f2;
+}
+.summary-patch-select {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+	font-size: 16px;
+	white-space: nowrap;
+}
+.summary-patch-select select {
+	min-height: 38px;
+	width: auto;
+	max-width: 250px;
+	padding: 5px 32px 5px 10px;
+	margin: 0;
+	font-size: 16px;
+	background-color: #1c293d;
+	border-color: #455775;
+}
+.raid-compact-summary > .summary-scope-note {
+	margin: 5px 0 8px;
+	font-size: 14px;
+	line-height: 1.5;
+}
+.raid-compact-summary .raid-roster-summary {
+	min-width: 1000px;
+	font-size: 16px;
+}
+.compact-character-col {
+	width: 20%;
+}
+.compact-percent-col {
+	width: 17%;
+}
+.compact-points-col {
+	width: 12%;
+}
+.compact-rank-col {
+	width: 11%;
+}
+.raid-compact-summary .raid-roster-summary th,
+.raid-compact-summary .raid-roster-summary td {
+	padding: 4px 6px;
+	line-height: 1.4;
+}
+.raid-compact-summary .raid-roster-summary thead th {
+	height: 28px;
+	font-size: 14px;
+}
+.raid-compact-summary .raid-roster-summary thead tr:first-child th {
+	font-size: 16px;
+}
+.raid-compact-summary .raid-roster-summary thead .summary-heroic {
+	background: #30243f;
+}
+.raid-compact-summary .raid-roster-summary thead .summary-mythic {
+	background: #183d48;
+}
+.raid-compact-summary .raid-roster-summary tbody tr {
+	height: 38px;
+}
+.raid-compact-summary .raid-roster-summary tbody th {
+	font-size: 16px;
+	min-width: 0;
+}
+.raid-compact-summary .raid-roster-summary tbody th a {
+	text-decoration: none;
+}
+.raid-compact-summary .raid-roster-summary tbody th a:hover {
+	text-decoration: underline;
+}
+.raid-compact-summary .roster-spec-value,
+.compact-spec-value {
+	min-height: 28px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	white-space: nowrap;
+}
+.raid-compact-summary .roster-spec-value {
+	font-size: 16px;
+}
+.compact-spec-value strong {
+	color: #f4f8ff;
+	font-size: 17px;
+	font-weight: 650;
+}
+.summary-multi-spec {
+	display: block;
+	margin-top: 3px;
+	font-size: 13px;
+	color: #c7b3df;
+	font-weight: 400;
+}
+.summary-secondary {
+	display: flex;
+	align-items: flex-start;
+	flex-wrap: wrap;
+	gap: 0 24px;
+	margin-top: 5px;
+}
+.summary-secondary .all-stars-help,
+.summary-patch-history {
+	margin: 0;
+	padding: 0;
+	background: transparent;
+	border: 0;
+	color: #bfcde0;
+	font-size: 14px;
+}
+.summary-secondary .all-stars-help > summary,
+.summary-patch-history > summary {
+	min-height: 32px;
+	display: flex;
+	align-items: center;
+	font-size: 14px;
+}
+.summary-secondary > details[open] {
+	flex: 1 0 100%;
+	max-width: 100%;
+}
+.summary-history-scroll {
+	overflow-x: auto;
+	border: 1px solid #354258;
+	border-radius: 6px;
+	margin: 8px 0;
+}
+.summary-history-table {
+	min-width: 850px;
+	width: 100%;
+	margin: 0;
+	font-size: 16px;
+}
+.summary-history-table th,
+.summary-history-table td {
+	padding: 6px 8px;
+	font-size: 16px;
+}
+@media (max-width: 767px) {
+	.mobile-roster .summary-patch-select {
+		justify-content: space-between;
+		margin: 12px 0 4px;
+	}
+	.summary-patch-select select {
+		min-height: 44px;
+		max-width: 220px;
+	}
+	.mobile-roster > p {
+		margin: 6px 0;
+	}
+	.mobile-roster-spec-group + .mobile-roster-spec-group {
+		padding-top: 6px;
+	}
+	.mobile-compact-stars {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 10px;
+		margin: 0 0 5px;
+	}
+	.mobile-compact-stars > div {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 5px;
+		min-height: 30px;
+	}
+	.mobile-compact-stars dt {
+		font-size: 14px;
+		color: #bfcde0;
+	}
+	.mobile-compact-stars dd {
+		font-size: 17px;
+		margin: 0;
+		font-weight: 650;
+		white-space: nowrap;
+	}
+	.mobile-roster .summary-patch-history > summary {
+		min-height: 44px;
+		font-size: 16px;
+	}
+}
 @media (max-width: 767px) {
 	.mobile-roster-card {
 		background: #161f30;

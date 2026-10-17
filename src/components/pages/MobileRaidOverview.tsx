@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { ALL_SPECS } from "../../data/specs.js";
+import { starRank } from "../../lib/all-stars.js";
 import { formatClearTime, formatNumber } from "../../lib/format.js";
 import {
 	bossGroup,
@@ -17,6 +18,7 @@ import {
 	raidSection,
 } from "../../lib/raid-overview.js";
 import { kstTime } from "../../lib/refresh-time.js";
+import { selectedSummaryStar, summaryPatchOptions } from "../../lib/raid-summary.js";
 import { characterProfileUrl } from "../../lib/regions.js";
 import type {
 	CharacterData,
@@ -28,9 +30,10 @@ import type {
 } from "../../types/snapshot.js";
 import { AllStarsHelp, AllStarsSummary } from "../primitives/AllStarsSummary.js";
 import { CollectionNotice } from "../primitives/CollectionNotice.js";
-import { MissingValue } from "../primitives/MissingValue.js";
+import { MissingValue, blankTablePlaceholders } from "../primitives/MissingValue.js";
 import { RaidPercent } from "../primitives/RaidPercent.js";
 import { CLASS_COLORS, SpecIcon } from "../primitives/SpecIcon.js";
+import { RaidSummaryHistory, SummaryPatchSelect } from "./RaidSummaryTable.js";
 
 const metricLabels: Record<RaidMetric, string> = {
 	dps: "전체 피해",
@@ -271,6 +274,9 @@ export function MobileRaidOverview({
 	const [difficulty, setDifficulty] = useState<RaidDifficulty>("Heroic");
 	const [damageMetric, setDamageMetric] = useState<"dps" | "bossdps">("dps");
 	const [view, setView] = useState<"character" | "roster">("character");
+	const [summaryPatchId, setSummaryPatchId] = useState<number | null>(
+		() => summaryPatchOptions(snapshot)[0]?.id ?? null,
+	);
 	const controlsRef = useRef<HTMLDivElement>(null);
 	const resultsRef = useRef<HTMLDivElement>(null);
 	const showResults = () =>
@@ -392,6 +398,11 @@ export function MobileRaidOverview({
 			<div className="mobile-results" ref={resultsRef}>
 				{view === "roster" ? (
 					<section className="mobile-roster" aria-label="모바일 전체 요약">
+						<SummaryPatchSelect
+							snapshot={snapshot}
+							value={summaryPatchId}
+							onChange={setSummaryPatchId}
+						/>
 						<p>
 							{difficulty === "Heroic" ? "영웅" : "신화"} · {metricLabels[damageMetric]} · 힐러는
 							치유로 표시
@@ -421,8 +432,16 @@ export function MobileRaidOverview({
 										encounters,
 										snapshot.generatedAt,
 									);
+									const star = selectedSummaryStar(
+										snapshot,
+										index,
+										s,
+										m,
+										difficulty,
+										summaryPatchId,
+									);
 									return (
-										<div className="mobile-roster-spec-group" key={s}>
+										<div className="mobile-roster-spec-group" data-spec={s} data-metric={m} key={s}>
 											<div className="mobile-roster-spec">
 												<span>
 													{hasSummaryPercent(section.summary) && (
@@ -439,17 +458,22 @@ export function MobileRaidOverview({
 													{percent(section.summary.medianPerformanceAverage)}
 												</span>
 											</div>
-											<AllStarsSummary
-												data={section}
-												specName={entry.specName}
-												zoneId={snapshot.raid?.id}
-												patchMetadata={snapshot.raidPatchMetadata}
-											/>
+											<dl className="mobile-compact-stars">
+												<div>
+													<dt>종합 점수</dt>
+													<dd>{value(star?.points ?? null)}</dd>
+												</div>
+												<div>
+													<dt>순위</dt>
+													<dd>{blankTablePlaceholders(starRank(star?.rank))}</dd>
+												</div>
+											</dl>
 										</div>
 									);
 								})}
 							</article>
 						))}
+						<RaidSummaryHistory snapshot={snapshot} damageMetric={damageMetric} />
 					</section>
 				) : (
 					<>
