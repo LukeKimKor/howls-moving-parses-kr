@@ -4,25 +4,27 @@
 		font-family: var(--pico-font-family);
 		background: #0c1017;
 		color: #dce5f2;
-		font-size: 13px;
-		padding-top: 22px;
-		padding-right: 20px;
+		font-size: 16px;
+		padding-top: 24px;
+		padding-right: 24px;
 		letter-spacing: -.15px;
+		line-height: 1.65;
+		padding-left: 24px;
 	}
 	.raid-overview h1 {
-		font-size: 27px;
+		font-size: 32px;
 		letter-spacing: -1px;
 		font-weight: 700;
 	}
 	.raid-overview h2 {
-		font-size: 19px;
+		font-size: 24px;
 		letter-spacing: -.4px;
 	}
 	.raid-overview h3 {
-		font-size: 14px;
+		font-size: 18px;
 	}
 	.raid-overview h4 {
-		font-size: 14px;
+		font-size: 18px;
 	}
 	.raid-overview-header {
 		padding-bottom: 18px;
@@ -30,36 +32,38 @@
 		margin-bottom: 14px;
 	}
 	.raid-refresh-info {
-		font-size: 12px;
-		line-height: 1.65;
-		max-width: 470px;
+		font-size: 14px;
+		line-height: 1.75;
+		max-width: 560px;
 	}
 	.raid-summary-scroll {
 		margin: 22px 0;
 	}
 	.raid-summary-scroll > p {
-		font-size: 12px;
-		line-height: 1.7;
+		font-size: 14px;
+		line-height: 1.75;
 		margin: 7px 0 14px;
 	}
 	.raid-roster-summary {
-		font-size: 12px;
-		min-width: 1010px;
+		font-size: 16px;
+		min-width: 1120px;
 		border: 1px solid #304058;
+		table-layout: fixed;
 	}
 	.raid-roster-summary th,
 	.raid-roster-summary td {
-		padding: 6px 9px;
+		padding: 10px 8px;
 		border-color: #29374a;
 	}
 	.raid-roster-summary tbody th {
-		font-size: 13px;
+		font-size: 17px;
 		background: #121c2a;
-		min-width: 180px;
+		min-width: 200px;
+		width: 200px;
 	}
 	.raid-roster-summary thead th {
 		background: #1c283b;
-		font-size: 12px;
+		font-size: 14px;
 	}
 	.raid-roster-summary .summary-heroic {
 		background: #19182a;
@@ -68,32 +72,33 @@
 		background: #10232a;
 	}
 	.roster-spec-value {
-		min-height: 26px;
-		gap: 6px;
+		min-height: 32px;
+		gap: 8px;
 	}
 	.raid-character-section {
 		background: #101823;
 		border-color: #2a384e;
 		border-radius: 8px;
-		margin: 22px 0;
-		padding: 14px;
+		margin: 28px 0;
+		padding: 18px;
 	}
 	.raid-character-header {
-		padding-bottom: 12px;
+		padding-bottom: 16px;
 	}
 	.raid-character-header button {
-		font-size: 12px;
+		font-size: 14px;
+		min-height: 44px;
 	}
 	.raid-spec-section > h3 {
 		margin: 12px 0 8px;
 	}
 	.raid-difficulty-grid {
-		gap: 14px;
+		gap: 24px;
 	}
 	.raid-difficulty-title {
-		padding: 8px 12px;
+		padding: 12px 16px;
 		margin: 8px 0 !important;
-		font-size: 13px !important;
+		font-size: 18px !important;
 		letter-spacing: .5px;
 	}
 	.raid-metric-panel {
@@ -101,84 +106,88 @@
 		margin-bottom: 12px;
 	}
 	.raid-metric-title {
-		padding: 10px 12px;
+		padding: 14px 16px;
 	}
 	.raid-metric-title a {
-		font-size: 11px;
+		font-size: 14px;
+		min-height: 44px;
+		display: inline-flex;
+		align-items: center;
 	}
 	.raid-summary-stats {
-		height: 84px;
-		padding: 12px;
+		height: 112px;
+		padding: 16px;
 	}
 	.raid-summary-stats > div > span {
-		font-size: 11px;
+		font-size: 14px;
 		line-height: 1.6;
 	}
 	.raid-summary-stats strong {
-		font-size: 23px;
+		font-size: 30px;
 	}
 	.raid-stars-slot {
-		height: 40px;
+		height: 64px;
 	}
 	.raid-status-slot {
-		height: 54px;
+		height: 76px;
 	}
 	.raid-all-stars {
-		font-size: 11px;
-		padding: 0 12px;
-		gap: 6px;
+		font-size: 14px;
+		padding: 0 16px;
+		gap: 8px;
 	}
 	.raid-performance-table {
 		table-layout: fixed;
-		min-width: 560px;
-		font-size: 12px;
+		min-width: 680px;
+		font-size: 16px;
 		font-variant-numeric: tabular-nums lining-nums;
+		line-height: 1.5;
 	}
 	.raid-performance-table thead {
-		height: 64px;
+		height: 80px;
 	}
 	.raid-performance-table thead tr {
-		height: 32px;
+		height: 40px;
 	}
 	.raid-performance-table thead th {
-		font-size: 11px;
+		font-size: 14px;
 		white-space: normal;
 		line-height: 1.5;
-		padding: 4px;
+		padding: 6px;
 	}
 	.raid-performance-table th,
 	.raid-performance-table td {
-		padding: 6px 4px;
+		padding: 6px;
 		border-color: #2c384a;
 	}
 	.raid-performance-table tbody th {
 		min-width: 0;
-		width: 27%;
-		font-size: 12px;
+		width: 26%;
+		font-size: 16px;
 	}
 	.raid-performance-table thead tr:first-child > th:first-child {
-		width: 27%;
+		width: 26%;
 	}
 	.raid-performance-table tbody tr,
 	.raid-performance-table tbody th,
 	.raid-performance-table tbody td {
-		height: 46px;
+		height: 60px;
 	}
 	.raid-performance-table tbody th a {
-		height: 34px;
+		height: 40px;
 	}
 	.raid-boss-name {
-		max-height: 34px;
-		line-height: 17px;
+		max-height: 40px;
+		line-height: 20px;
 	}
 	.raid-performance-table .boss-raid-origin {
-		font-size: 10px;
+		font-size: 13px;
 	}
 	.raid-performance-table tbody tr:hover {
 		background: #263349;
 	}
 	.raid-reading-note {
-		font-size: 11px;
+		font-size: 14px;
 		line-height: 1.8;
 		color: #aebed3;
 	}
@@ -188,18 +197,18 @@
 		border-radius: 6px;
 	}
 	.desktop-raid-toc a {
-		font-size: 12px;
-		min-height: 32px;
+		font-size: 15px;
+		min-height: 44px;
 	}
 	.desktop-toc-title {
-		font-size: 11px;
+		font-size: 14px;
 		letter-spacing: .3px;
 	}
 }
 
 @media (min-width: 768px) {
 	.raid-performance-table thead tr:first-child > th:nth-child(2) {
-		width: 12%;
+		width: 13%;
 	}
 	.raid-performance-table thead tr:first-child > th:nth-child(3) {
 		width: 16%;
@@ -216,4 +225,45 @@
 	.raid-performance-table thead tr:first-child > th:nth-child(7) {
 		width: 20%;
 	}
+}
+
+@media (min-width: 768px) {
+	.raid-performance-table tbody th,
+	.raid-performance-table tbody td {
+		padding: 2px 6px;
+	}
+	.raid-performance-table tbody th small {
+		height: auto;
+		min-height: 16px;
+		line-height: 16px;
+		font-size: 13px;
+	}
+	.raid-difficulty-grid:not(:has(.collection-notice)) .raid-status-slot {
+		height: 0;
+	}
+	.raid-difficulty-grid:not(:has(.raid-all-stars)) .raid-stars-slot {
+		height: 0;
+	}
+	.raid-character-nav a {
+		font-size: 16px;
+		min-height: 40px;
+		display: inline-flex;
+		align-items: center;
+	}
+}
+
+@media (min-width: 1440px) {
+	.raid-overview {
+		padding-right: 252px;
+	}
+}
+
+.page-wrap table th,
+.page-wrap table td {
+	font-size: 16px;
+	line-height: 1.55;
+}
+
+.page-wrap .meta-source-note {
+	font-size: 15px;
 }
