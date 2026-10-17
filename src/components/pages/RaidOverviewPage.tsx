@@ -100,7 +100,12 @@ function RaidTable({
 				</div>
 			</div>
 			<div className="raid-stars-slot">
-				<AllStarsSummary data={data} specName={spec.specName} zoneId={snapshot.raid?.id} />
+				<AllStarsSummary
+					data={data}
+					specName={spec.specName}
+					zoneId={snapshot.raid?.id}
+					patchMetadata={snapshot.raidPatchMetadata}
+				/>
 			</div>
 			<div className="raid-status-slot">
 				<CollectionNotice label={RAID_METRIC_LABELS[data.metric]} status={data.collection} />

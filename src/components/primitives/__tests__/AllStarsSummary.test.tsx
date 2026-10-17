@@ -7,7 +7,7 @@ import {
 	starPoints,
 	starRank,
 } from "../../../lib/all-stars.js";
-import type { RaidDifficultyData } from "../../../types/snapshot.js";
+import type { RaidDifficultyData, RaidPatchMetadata } from "../../../types/snapshot.js";
 import { AllStarsSummary } from "../AllStarsSummary.js";
 
 // Synthetic scope and zero probes; never written to the real snapshot.
@@ -29,6 +29,31 @@ const data: RaidDifficultyData = {
 	rows: [],
 };
 describe("scoped All Stars", () => {
+	it("uses only matching official zone metadata and keeps unlisted/default IDs unknown", () => {
+		const metadata: RaidPatchMetadata = {
+			zoneId: 53,
+			zoneName: "Synthetic raid",
+			checkedAt: "2026-10-17T00:00:00Z",
+			partitions: [
+				{ id: 1, name: "Synthetic patch A" },
+				{ id: 2, name: "Synthetic patch B" },
+			],
+			source: "WCL API worldData.zone.partitions",
+			schema: {
+				partitionType: "Partition",
+				partitionArgument: { description: null, defaultValue: null },
+			},
+			queries: { schema: 1, metadata: 1 },
+		};
+		expect(raidPatchLabel(53, 1, metadata)).toBe("Synthetic patch A");
+		expect(raidPatchLabel(53, 2, metadata)).toBe("Synthetic patch B");
+		expect(raidPatchLabel(53, -1, metadata)).toBe("패치명 미확인");
+		expect(raidPatchLabel(99, 1, metadata)).toBe("패치명 미확인");
+		render(<AllStarsSummary data={data} specName="Havoc" zoneId={53} patchMetadata={metadata} />);
+		expect(screen.getByText("Synthetic patch A")).toBeVisible();
+		expect(screen.getByText("Synthetic patch B")).toBeVisible();
+		expect(screen.getByText("0위")).toBeVisible();
+	});
 	it("preserves each source pair and keeps the two DH specs separate", () => {
 		expect(scopedAllStars(data, "Havoc")).toEqual(data.summary.allStars.slice(0, 2));
 		expect(scopedAllStars(data, "Devourer")).toEqual([data.summary.allStars[2]]);

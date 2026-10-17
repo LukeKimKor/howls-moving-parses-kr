@@ -144,7 +144,11 @@ export function RaidSummaryTable({ snapshot }: { snapshot: Snapshot }) {
 																			</strong>
 																		</span>
 																		<small>
-																			{raidPatchLabel(snapshot.raid?.id, star.partition)}
+																			{raidPatchLabel(
+																				snapshot.raid?.id,
+																				star.partition,
+																				snapshot.raidPatchMetadata,
+																			)}
 																		</small>
 																	</div>
 																))

@@ -1,16 +1,18 @@
 import { raidPatchLabel, scopedAllStars, starPoints, starRank } from "../../lib/all-stars.js";
 import { RAID_METRIC_LABELS } from "../../lib/raid-overview.js";
-import type { RaidDifficultyData } from "../../types/snapshot.js";
+import type { RaidDifficultyData, RaidPatchMetadata } from "../../types/snapshot.js";
 import { blankTablePlaceholders } from "./MissingValue.js";
 
 export function AllStarsSummary({
 	data,
 	specName,
 	zoneId,
+	patchMetadata,
 }: {
 	data: RaidDifficultyData;
 	specName: string;
 	zoneId?: number;
+	patchMetadata?: RaidPatchMetadata;
 }) {
 	const entries = scopedAllStars(data, specName);
 	return (
@@ -26,7 +28,9 @@ export function AllStarsSummary({
 						data-partition={star.partition}
 						key={`${star.spec}-${star.partition}-${index}`}
 					>
-						<span className="all-stars-patch">{raidPatchLabel(zoneId, star.partition)}</span>
+						<span className="all-stars-patch">
+							{raidPatchLabel(zoneId, star.partition, patchMetadata)}
+						</span>
 						<dl>
 							<div>
 								<dt>종합 점수</dt>

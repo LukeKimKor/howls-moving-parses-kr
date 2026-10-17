@@ -1,7 +1,22 @@
 import type { Region } from "../lib/regions.js";
 
+export interface RaidPatchMetadata {
+	zoneId: number;
+	zoneName: string;
+	checkedAt: string;
+	partitions: Array<{ id: number; name: string }>;
+	source: "WCL API worldData.zone.partitions";
+	schema: {
+		partitionType: string;
+		partitionArgument: { description: string | null; defaultValue: string | null };
+		timeframeArgument?: { name: string; description: string | null; defaultValue: string | null };
+	};
+	queries: { schema: number; metadata: 1 };
+}
+
 /** The root snapshot produced by the build script and imported by App.tsx. */
 export interface Snapshot {
+	raidPatchMetadata?: RaidPatchMetadata;
 	refreshSchedule?: { utcHours: number[]; enabled: boolean };
 	mythicPlusZone?: { id: number; name: string; encounters: Array<{ id: number; name: string }> };
 	wclMetadataAt?: string;

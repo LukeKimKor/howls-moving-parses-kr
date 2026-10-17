@@ -1,16 +1,24 @@
 import { ALL_SPECS } from "../data/specs.js";
-import type { RaidDifficultyData, RaidMetric } from "../types/snapshot.js";
+import type { RaidDifficultyData, RaidMetric, RaidPatchMetadata } from "../types/snapshot.js";
 
 export type AllStarEntry = RaidDifficultyData["summary"]["allStars"][number];
 
-// Only add names verified against WCL's zone-specific metadata. IDs are not patch versions.
-const verifiedPatchNames: Readonly<Record<number, Readonly<Record<number, string>>>> = {};
-
-export function raidPatchLabel(zoneId: number | undefined, partition: number | null | undefined) {
-	return (
-		(zoneId == null || partition == null ? undefined : verifiedPatchNames[zoneId]?.[partition]) ??
-		"패치명 미확인"
-	);
+export function raidPatchLabel(
+	zoneId: number | undefined,
+	partition: number | null | undefined,
+	metadata?: RaidPatchMetadata,
+) {
+	if (
+		zoneId != null &&
+		partition != null &&
+		metadata?.zoneId === zoneId &&
+		metadata.source === "WCL API worldData.zone.partitions" &&
+		Array.isArray(metadata.partitions)
+	) {
+		const name = metadata.partitions.find((patch) => patch.id === partition)?.name;
+		if (typeof name === "string" && name.trim()) return name;
+	}
+	return "패치명 미확인";
 }
 
 export function primaryRaidMetric(specSlug: string): RaidMetric {

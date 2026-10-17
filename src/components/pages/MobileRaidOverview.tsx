@@ -105,7 +105,12 @@ function MobilePerformance({
 					<dd>{value(data.summary.killsLogged)}</dd>
 				</div>
 			</dl>
-			<AllStarsSummary data={data} specName={spec.specName} zoneId={snapshot.raid?.id} />
+			<AllStarsSummary
+				data={data}
+				specName={spec.specName}
+				zoneId={snapshot.raid?.id}
+				patchMetadata={snapshot.raidPatchMetadata}
+			/>
 			<AllStarsHelp />
 			{(data.collection.deferred ||
 				data.collection.state === "failed" ||
@@ -438,6 +443,7 @@ export function MobileRaidOverview({
 												data={section}
 												specName={entry.specName}
 												zoneId={snapshot.raid?.id}
+												patchMetadata={snapshot.raidPatchMetadata}
 											/>
 										</div>
 									);

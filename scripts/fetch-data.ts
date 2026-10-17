@@ -48,6 +48,7 @@ import {
 	verifyRaidMetricSchema,
 } from "./raid-performance.js";
 import { toRealmSlug } from "./realm-slug.js";
+import { fetchRaidPatchMetadata, mergeRaidPatchMetadata } from "./raid-patch-metadata.js";
 import { readRefreshSchedule } from "./refresh-policy.js";
 import { freshStatus, runCharacterBatches } from "./refresh-scheduler.js";
 import { wclQueryCache } from "./wcl-query-cache.js";
@@ -2278,9 +2279,15 @@ export async function main(): Promise<void> {
 	const rioOnly = process.argv.includes("--raiderio-only");
 	const cacheOnly = process.argv.includes("--cache-only");
 	const metaOnly = process.argv.includes("--meta-only");
+	const patchesOnly = process.argv.includes("--patch-metadata-only");
+	if (patchesOnly && (rioOnly || cacheOnly || metaOnly))
+		throw new Error("Patch metadata scope cannot be combined with other collection modes");
 	const force = process.argv.includes("--force-refresh");
 	const refreshMeta =
-		!rioOnly && !cacheOnly && (metaOnly || !process.argv.includes("--characters-only"));
+		!rioOnly &&
+		!cacheOnly &&
+		!patchesOnly &&
+		(metaOnly || !process.argv.includes("--characters-only"));
 	const config = loadConfig();
 	validateConfig(config);
 	let previous: Snapshot | undefined;
@@ -2317,6 +2324,7 @@ export async function main(): Promise<void> {
 		writeFileSync("cache/wcl-runtime.json", JSON.stringify(wclRuntime.state));
 	};
 	wclRuntime.activate(state, saveRuntime);
+	wclRuntime.setStage("bootstrap");
 	const saveQueryCache = () => {
 		mkdirSync("cache", { recursive: true });
 		writeFileSync("cache/wcl-query-cache.json", JSON.stringify(wclQueryCache.entries));
@@ -2330,6 +2338,51 @@ export async function main(): Promise<void> {
 		wclQueryCache.activate({}, saveQueryCache);
 	}
 	wclQueryCache.bypass = force;
+	const requirePatchBudget = () => {
+		if (!wclRuntime.currentBudget())
+			throw new WclDeferredError("Patch metadata deferred: valid WCL point budget unavailable");
+		wclRuntime.beforeQuery();
+	};
+	if (patchesOnly) {
+		try {
+			if (!previous?.raid?.id)
+				throw new Error(
+					"Patch metadata requires the existing real raid snapshot; no character bootstrap requested",
+				);
+			wclRuntime.assertCooldown();
+			const patchToken = await getWclToken();
+			const metadata = await fetchRaidPatchMetadata(
+				(query, vars, onErrors) => wclQuery(patchToken, query, vars, onErrors),
+				previous.raid.id,
+				requirePatchBudget,
+			);
+			const next = mergeRaidPatchMetadata(previous, metadata, getBuildHash());
+			mkdirSync("cache", { recursive: true });
+			mkdirSync("public", { recursive: true });
+			mkdirSync("src/data", { recursive: true });
+			writeFileSync("cache/last-snapshot.json", JSON.stringify(next));
+			writeFileSync("src/data/snapshot.json", JSON.stringify(next, null, 2));
+			writeFileSync("public/snapshot.json", JSON.stringify(next));
+			writeFileSync("public/build-hash.json", JSON.stringify({ hash: next.buildHash }));
+			const report = {
+				metadata,
+				runtime: wclRuntime.summary,
+				characterQueries: 0,
+				specMetaQueries: 0,
+				originalLogGeneratedAt: previous.generatedAt,
+			};
+			console.log(`✓ Raid patch metadata only (no credentials): ${JSON.stringify(report)}`);
+			if (process.env.GITHUB_STEP_SUMMARY)
+				writeFileSync(
+					process.env.GITHUB_STEP_SUMMARY,
+					`## Official raid patch metadata\n\n\`\`\`json\n${JSON.stringify(report, null, 2)}\n\`\`\`\n\nCharacter records and their collection timestamps were not refreshed. Schema argument descriptions are retained verbatim; special IDs are not inferred.\n`,
+				);
+		} finally {
+			saveRuntime();
+			wclRuntime.active = false;
+		}
+		return;
+	}
 	const region = config.characters[0]?.region ?? "kr";
 	const tracked = new Set(
 		config.characters
@@ -2348,6 +2401,7 @@ export async function main(): Promise<void> {
 	let raid = compatible?.raid;
 	let mythicPlusZone = compatible?.mythicPlusZone;
 	let raidMetricSchema = compatible?.raidMetricSchema;
+	let raidPatchMetadata = compatible?.raidPatchMetadata;
 	let metadataAt = compatible?.wclMetadataAt;
 	let raidZoneId = compatible?.wclZones?.raid ?? raid?.id ?? 0;
 	let mplusZoneId = compatible?.wclZones?.mythicPlus ?? mythicPlusZone?.id ?? 0;
@@ -2410,6 +2464,28 @@ export async function main(): Promise<void> {
 					token,
 					`query RefreshZoneBudget { worldData { zone(id: ${raidZoneId}) { id } } }`,
 				);
+			if (
+				raidZoneId &&
+				(!raidPatchMetadata ||
+					raidPatchMetadata.zoneId !== raidZoneId ||
+					force ||
+					Date.now() - Date.parse(raidPatchMetadata.checkedAt) >= WCL_POLICY.metadataTtlMs)
+			) {
+				try {
+					raidPatchMetadata = await fetchRaidPatchMetadata(
+						(query, vars, onErrors) => wclQuery(token, query, vars, onErrors),
+						raidZoneId,
+						requirePatchBudget,
+					);
+					console.log(
+						`✓ Official raid patches: ${JSON.stringify({ zoneId: raidPatchMetadata.zoneId, partitions: raidPatchMetadata.partitions, schema: raidPatchMetadata.schema })}`,
+					);
+				} catch (error) {
+					console.warn(
+						`::warning::Raid patch names unavailable; existing mapping retained: ${error instanceof Error ? error.message : "metadata failed"}`,
+					);
+				}
+			}
 		} catch (error) {
 			const reason = error instanceof Error ? error.message : "WCL 초기화 조회 실패";
 			wclRuntime.defer(reason, error instanceof WclDeferredError ? error.retryAt : undefined);
@@ -2454,6 +2530,7 @@ export async function main(): Promise<void> {
 		mythicPlusZone,
 		wclMetadataAt: metadataAt,
 		raidMetricSchema,
+		raidPatchMetadata,
 		wclZones:
 			raidZoneId && mplusZoneId
 				? { raid: raidZoneId, mythicPlus: mplusZoneId }

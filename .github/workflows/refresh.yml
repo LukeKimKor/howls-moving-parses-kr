@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'characters / meta only / all / cache-only UI build (no provider API calls)'
+        description: 'characters / spec meta / all / cache (no API) / patches (raid patch metadata only)'
         type: choice
-        options: [characters, meta, all, cache]
+        options: [characters, meta, all, cache, patches]
         default: characters
         required: true
       force_refresh:
