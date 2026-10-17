@@ -1,0 +1,467 @@
+{
+  "version": "1.3.9",
+  "source": "https://github.com/orioncactus/pretendard/tree/v1.3.9/packages/pretendard/dist/web/variable/woff2-dynamic-subset",
+  "license": "SIL-OFL-1.1",
+  "files": [
+    {
+      "name": "PretendardVariable.subset.0.woff2",
+      "gitBlobSha": "eec84682c9e1118f5d64bac7b60a0d5c8cc277db",
+      "bytes": 34568
+    },
+    {
+      "name": "PretendardVariable.subset.1.woff2",
+      "gitBlobSha": "a0fa937345eb0d7c341ac4a4b63496a2b7d2d078",
+      "bytes": 32044
+    },
+    {
+      "name": "PretendardVariable.subset.10.woff2",
+      "gitBlobSha": "5ac44404ac52db01d5318a3ce41db7025256125f",
+      "bytes": 33032
+    },
+    {
+      "name": "PretendardVariable.subset.11.woff2",
+      "gitBlobSha": "aec023b90b564d1c50b4501bd138c592d6592463",
+      "bytes": 37400
+    },
+    {
+      "name": "PretendardVariable.subset.12.woff2",
+      "gitBlobSha": "27f0ba1cf08d4d68da4cb2b3abbc2ea915fe14f7",
+      "bytes": 37940
+    },
+    {
+      "name": "PretendardVariable.subset.13.woff2",
+      "gitBlobSha": "c78d1b7654985830400adc0ea90c5fe6b4da324f",
+      "bytes": 35708
+    },
+    {
+      "name": "PretendardVariable.subset.14.woff2",
+      "gitBlobSha": "4ee047882bfd16a67e504e5902244076ae62c62e",
+      "bytes": 36512
+    },
+    {
+      "name": "PretendardVariable.subset.15.woff2",
+      "gitBlobSha": "e311b83e8c8bb5874e8dded8790b52a062cb0530",
+      "bytes": 35668
+    },
+    {
+      "name": "PretendardVariable.subset.16.woff2",
+      "gitBlobSha": "1118dad2a2cf7868c75668f48f06908bc229a468",
+      "bytes": 37916
+    },
+    {
+      "name": "PretendardVariable.subset.17.woff2",
+      "gitBlobSha": "28d9f1b02899b1892cdc357d6a8c75ed984e13ab",
+      "bytes": 34940
+    },
+    {
+      "name": "PretendardVariable.subset.18.woff2",
+      "gitBlobSha": "0aa785d80dc1e3937b2911aba15ab3180acdfc4b",
+      "bytes": 41600
+    },
+    {
+      "name": "PretendardVariable.subset.19.woff2",
+      "gitBlobSha": "cffd0457cdbda5437f8c5054f2a4a5adc24a37f5",
+      "bytes": 42328
+    },
+    {
+      "name": "PretendardVariable.subset.2.woff2",
+      "gitBlobSha": "11188574ceeab8a1513413cf453a48474ec2473a",
+      "bytes": 43920
+    },
+    {
+      "name": "PretendardVariable.subset.20.woff2",
+      "gitBlobSha": "446057e3f19607efdaa982a321a56f7ca6a603d2",
+      "bytes": 36128
+    },
+    {
+      "name": "PretendardVariable.subset.21.woff2",
+      "gitBlobSha": "a1f22ace7a6f19c629f9e729288cb95ead1e7f23",
+      "bytes": 37268
+    },
+    {
+      "name": "PretendardVariable.subset.22.woff2",
+      "gitBlobSha": "544bce298fec01f73157f19e8d427d121ff7452c",
+      "bytes": 38680
+    },
+    {
+      "name": "PretendardVariable.subset.23.woff2",
+      "gitBlobSha": "7184f01fbed048b7afdd217e0aa9cc299ad5db07",
+      "bytes": 40284
+    },
+    {
+      "name": "PretendardVariable.subset.24.woff2",
+      "gitBlobSha": "030323fe9810ffafe354ff7ba9f90d5d029e39f2",
+      "bytes": 32300
+    },
+    {
+      "name": "PretendardVariable.subset.25.woff2",
+      "gitBlobSha": "cbbeb7c4698db1096acb70f0246dc2953b466a1f",
+      "bytes": 42032
+    },
+    {
+      "name": "PretendardVariable.subset.26.woff2",
+      "gitBlobSha": "6cd7515ff60dde70440031a0c68b09fc29545431",
+      "bytes": 40324
+    },
+    {
+      "name": "PretendardVariable.subset.27.woff2",
+      "gitBlobSha": "2af9f95922ca6ec4d16ccd72fb8b68a46fb9e37f",
+      "bytes": 35424
+    },
+    {
+      "name": "PretendardVariable.subset.28.woff2",
+      "gitBlobSha": "25c9459f7268570d82f2917764342750fbdbe5e3",
+      "bytes": 38468
+    },
+    {
+      "name": "PretendardVariable.subset.29.woff2",
+      "gitBlobSha": "2226447dda0867684ae415b9db068b9fa575840b",
+      "bytes": 39288
+    },
+    {
+      "name": "PretendardVariable.subset.3.woff2",
+      "gitBlobSha": "8ccaf48f6f2ce3c7eaed15da7f3ba09ca2fce67e",
+      "bytes": 40648
+    },
+    {
+      "name": "PretendardVariable.subset.30.woff2",
+      "gitBlobSha": "c5a3f9def547eb4c1c1412d619ef8ff8e28bc98c",
+      "bytes": 38448
+    },
+    {
+      "name": "PretendardVariable.subset.31.woff2",
+      "gitBlobSha": "b5a465b4e27e77de0be1f4189f66617d29399b9c",
+      "bytes": 41892
+    },
+    {
+      "name": "PretendardVariable.subset.32.woff2",
+      "gitBlobSha": "0d02dc928b572252c24a378b2f8da0e6a10764d7",
+      "bytes": 40216
+    },
+    {
+      "name": "PretendardVariable.subset.33.woff2",
+      "gitBlobSha": "1912f3bb9babae90573a055ee4040851e3a4758f",
+      "bytes": 34916
+    },
+    {
+      "name": "PretendardVariable.subset.34.woff2",
+      "gitBlobSha": "3cc0b4e2ec537afb75b3d5ab1202bb8f132256ca",
+      "bytes": 34720
+    },
+    {
+      "name": "PretendardVariable.subset.35.woff2",
+      "gitBlobSha": "c6d452f3be058895bcfb4fe408049a501baa96c7",
+      "bytes": 35352
+    },
+    {
+      "name": "PretendardVariable.subset.36.woff2",
+      "gitBlobSha": "d549819a831532c7bc6cc4173f5e336738a2401a",
+      "bytes": 34688
+    },
+    {
+      "name": "PretendardVariable.subset.37.woff2",
+      "gitBlobSha": "31b1a22ee6103bd53029d9de792f06a7873acc4c",
+      "bytes": 27916
+    },
+    {
+      "name": "PretendardVariable.subset.38.woff2",
+      "gitBlobSha": "8866b03ee4cc77a9560781f96916d607e654ed4b",
+      "bytes": 34808
+    },
+    {
+      "name": "PretendardVariable.subset.39.woff2",
+      "gitBlobSha": "f165e2c8f2a72bf5b1ef8d5635b81a0a5b8cb29c",
+      "bytes": 34256
+    },
+    {
+      "name": "PretendardVariable.subset.4.woff2",
+      "gitBlobSha": "33f9cf65dec5dac180424154b3476f910a9ba720",
+      "bytes": 35156
+    },
+    {
+      "name": "PretendardVariable.subset.40.woff2",
+      "gitBlobSha": "521ec28d9ece022ef1bb773505d8b23cf353abbf",
+      "bytes": 29840
+    },
+    {
+      "name": "PretendardVariable.subset.41.woff2",
+      "gitBlobSha": "96b01ce0d9905e38d5ba70d7a9cbb09795e82da9",
+      "bytes": 33188
+    },
+    {
+      "name": "PretendardVariable.subset.42.woff2",
+      "gitBlobSha": "0f0b66d2edda5af368da826a960683776525f69d",
+      "bytes": 34608
+    },
+    {
+      "name": "PretendardVariable.subset.43.woff2",
+      "gitBlobSha": "b470a9094717de710cb960c2beba18b533e7a3f5",
+      "bytes": 30384
+    },
+    {
+      "name": "PretendardVariable.subset.44.woff2",
+      "gitBlobSha": "96a3e1d493c4ae5cb28fa0b2c714f25846fc0822",
+      "bytes": 32136
+    },
+    {
+      "name": "PretendardVariable.subset.45.woff2",
+      "gitBlobSha": "31e4cecaff982991b438fb813d63ece3d7477da2",
+      "bytes": 34664
+    },
+    {
+      "name": "PretendardVariable.subset.46.woff2",
+      "gitBlobSha": "d0ae0923ac171cd2413bd6070cbc4aa287eaace9",
+      "bytes": 36540
+    },
+    {
+      "name": "PretendardVariable.subset.47.woff2",
+      "gitBlobSha": "3b41251d081a1b14fa533acb73aa011cb2e5f642",
+      "bytes": 35720
+    },
+    {
+      "name": "PretendardVariable.subset.48.woff2",
+      "gitBlobSha": "ce02f5bd830fb86b2fd154d3a56849c9e5fd9040",
+      "bytes": 37776
+    },
+    {
+      "name": "PretendardVariable.subset.49.woff2",
+      "gitBlobSha": "0e7d1fe826dc98e6476d706d033bb3dc20ee8f7b",
+      "bytes": 36052
+    },
+    {
+      "name": "PretendardVariable.subset.5.woff2",
+      "gitBlobSha": "0eaa11cd5de117a57c4b6b6e4b4c5bb4ed9be67a",
+      "bytes": 33624
+    },
+    {
+      "name": "PretendardVariable.subset.50.woff2",
+      "gitBlobSha": "9c91849ef2e84662be86195a260cc2426b6832ea",
+      "bytes": 33228
+    },
+    {
+      "name": "PretendardVariable.subset.51.woff2",
+      "gitBlobSha": "e8e3b4e4043b2baddc7a5fad00e1d408d9df8889",
+      "bytes": 36024
+    },
+    {
+      "name": "PretendardVariable.subset.52.woff2",
+      "gitBlobSha": "62291a7a6fbb8c5439c2fbae1272ffd5b537c271",
+      "bytes": 34356
+    },
+    {
+      "name": "PretendardVariable.subset.53.woff2",
+      "gitBlobSha": "74c0d7c4ba8dd16634e39a5fc04e55741f322e71",
+      "bytes": 34572
+    },
+    {
+      "name": "PretendardVariable.subset.54.woff2",
+      "gitBlobSha": "37685e26cea2866b07f5a976d772172150dd2b7b",
+      "bytes": 33344
+    },
+    {
+      "name": "PretendardVariable.subset.55.woff2",
+      "gitBlobSha": "c99ef873cfc47dd358aaed3bb2832a3ad7bfa3a4",
+      "bytes": 34184
+    },
+    {
+      "name": "PretendardVariable.subset.56.woff2",
+      "gitBlobSha": "bd18b2e8b0d14b3f8bee003b1b4552d071bb0a52",
+      "bytes": 35184
+    },
+    {
+      "name": "PretendardVariable.subset.57.woff2",
+      "gitBlobSha": "ebdd968852367455886e004bffc4995f7bf06d85",
+      "bytes": 35960
+    },
+    {
+      "name": "PretendardVariable.subset.58.woff2",
+      "gitBlobSha": "d8daf95e4013b8e96dbdf44f9369ebf80b98b8b0",
+      "bytes": 41564
+    },
+    {
+      "name": "PretendardVariable.subset.59.woff2",
+      "gitBlobSha": "b6783fe3cad28c152eb7af13d010812325e999c8",
+      "bytes": 38972
+    },
+    {
+      "name": "PretendardVariable.subset.6.woff2",
+      "gitBlobSha": "4ecbbbcf3a5305e195627e6d6c5cb8f811f2f24d",
+      "bytes": 33968
+    },
+    {
+      "name": "PretendardVariable.subset.60.woff2",
+      "gitBlobSha": "ec52a94d55a28d09185f14b413c200b96928c50d",
+      "bytes": 37776
+    },
+    {
+      "name": "PretendardVariable.subset.61.woff2",
+      "gitBlobSha": "02215b6b11eb2e0f8147e22f385fe13da1a72229",
+      "bytes": 35640
+    },
+    {
+      "name": "PretendardVariable.subset.62.woff2",
+      "gitBlobSha": "0acb5f676fadf81e4dcd38057efc735fa30f9257",
+      "bytes": 34876
+    },
+    {
+      "name": "PretendardVariable.subset.63.woff2",
+      "gitBlobSha": "9bd774ea6020ea517dc0eae5fe91ca22d79ed073",
+      "bytes": 28816
+    },
+    {
+      "name": "PretendardVariable.subset.64.woff2",
+      "gitBlobSha": "5dd145f4746307cd5e680cb0341c159be771d4cc",
+      "bytes": 8264
+    },
+    {
+      "name": "PretendardVariable.subset.65.woff2",
+      "gitBlobSha": "de7c978234d068f83da5f4b017da3b0e798323a6",
+      "bytes": 11108
+    },
+    {
+      "name": "PretendardVariable.subset.66.woff2",
+      "gitBlobSha": "ac74c4f2f091a625a1e1f68efbcc320529ebdde9",
+      "bytes": 8252
+    },
+    {
+      "name": "PretendardVariable.subset.67.woff2",
+      "gitBlobSha": "f029a1facaa3a7d16c6d932d2b0754a9d3d74c93",
+      "bytes": 21840
+    },
+    {
+      "name": "PretendardVariable.subset.68.woff2",
+      "gitBlobSha": "df664c5890bfdb85860e6a7acf43013772d08ee0",
+      "bytes": 16340
+    },
+    {
+      "name": "PretendardVariable.subset.69.woff2",
+      "gitBlobSha": "37d6d6f6a9140ac95394b292fb5e75b0b45a2ae2",
+      "bytes": 34784
+    },
+    {
+      "name": "PretendardVariable.subset.7.woff2",
+      "gitBlobSha": "9f08418e3bafbaaa07d06551805327dd503552ce",
+      "bytes": 31912
+    },
+    {
+      "name": "PretendardVariable.subset.70.woff2",
+      "gitBlobSha": "056b0f5257a7d5099221585f5afe7ddb27bfc4bc",
+      "bytes": 27548
+    },
+    {
+      "name": "PretendardVariable.subset.71.woff2",
+      "gitBlobSha": "73688e4c67179a7d6ebd3690e68e5757222a6816",
+      "bytes": 28324
+    },
+    {
+      "name": "PretendardVariable.subset.72.woff2",
+      "gitBlobSha": "d298292db8a3ad8211197fc31352c9a335054a0e",
+      "bytes": 19508
+    },
+    {
+      "name": "PretendardVariable.subset.73.woff2",
+      "gitBlobSha": "18b8b22ba0724632a10bc903e6eae8e3a2f0ac88",
+      "bytes": 18336
+    },
+    {
+      "name": "PretendardVariable.subset.74.woff2",
+      "gitBlobSha": "da514f498c39ce5737a30e69cac31daeae21c078",
+      "bytes": 22392
+    },
+    {
+      "name": "PretendardVariable.subset.75.woff2",
+      "gitBlobSha": "be2d1b180f4c4a1dcb132dd316a50853870754bf",
+      "bytes": 19996
+    },
+    {
+      "name": "PretendardVariable.subset.76.woff2",
+      "gitBlobSha": "202befb97a029dfddb06c0aca11cf697c03b400e",
+      "bytes": 24924
+    },
+    {
+      "name": "PretendardVariable.subset.77.woff2",
+      "gitBlobSha": "b945efbb49c8039e327a9d8844fc52010ba097b3",
+      "bytes": 26044
+    },
+    {
+      "name": "PretendardVariable.subset.78.woff2",
+      "gitBlobSha": "55e04b633df7813734b6c11223dd2851e7502bfe",
+      "bytes": 26548
+    },
+    {
+      "name": "PretendardVariable.subset.79.woff2",
+      "gitBlobSha": "cd1a71ca5e69053f436c080ae1dc1617e6f29cea",
+      "bytes": 26224
+    },
+    {
+      "name": "PretendardVariable.subset.8.woff2",
+      "gitBlobSha": "1b84ede3e1d63c0a0cb2dbf02fe9c6f135407590",
+      "bytes": 36696
+    },
+    {
+      "name": "PretendardVariable.subset.80.woff2",
+      "gitBlobSha": "fe0831c9428e33b077164e81645f5371d0f948f1",
+      "bytes": 28796
+    },
+    {
+      "name": "PretendardVariable.subset.81.woff2",
+      "gitBlobSha": "3f6583e2b0900c1c2ba2fae269bc3d25d240042d",
+      "bytes": 26300
+    },
+    {
+      "name": "PretendardVariable.subset.82.woff2",
+      "gitBlobSha": "e8880fea2b7c145330dc4e90e276c56b5ebf4675",
+      "bytes": 26500
+    },
+    {
+      "name": "PretendardVariable.subset.83.woff2",
+      "gitBlobSha": "275966175accb7adda138da9a4b57ddf73c585c0",
+      "bytes": 26964
+    },
+    {
+      "name": "PretendardVariable.subset.84.woff2",
+      "gitBlobSha": "a923ff4071dd86c3a75cdc5e9d613776c70f4ea6",
+      "bytes": 24492
+    },
+    {
+      "name": "PretendardVariable.subset.85.woff2",
+      "gitBlobSha": "98625bbc74927f8a83075547da6a092a32745571",
+      "bytes": 25104
+    },
+    {
+      "name": "PretendardVariable.subset.86.woff2",
+      "gitBlobSha": "6c33d5547b50ea9c6208d12c68e127b3b11e7b75",
+      "bytes": 25716
+    },
+    {
+      "name": "PretendardVariable.subset.87.woff2",
+      "gitBlobSha": "17e44938bd72e9cd9c78abc119825e8cfb1876fa",
+      "bytes": 24664
+    },
+    {
+      "name": "PretendardVariable.subset.88.woff2",
+      "gitBlobSha": "13f3d635187099b8e053d618013250aa93462124",
+      "bytes": 25640
+    },
+    {
+      "name": "PretendardVariable.subset.89.woff2",
+      "gitBlobSha": "0e0c9902f009d7eed763b1bea237e27a2b3fcdaa",
+      "bytes": 21864
+    },
+    {
+      "name": "PretendardVariable.subset.9.woff2",
+      "gitBlobSha": "3cb1bb9b3cc8d469e431634a3bd5eccef8f017fb",
+      "bytes": 34012
+    },
+    {
+      "name": "PretendardVariable.subset.90.woff2",
+      "gitBlobSha": "a9f66ece45bc214f4f8986f3c55a82af86c5d364",
+      "bytes": 20852
+    },
+    {
+      "name": "PretendardVariable.subset.91.woff2",
+      "gitBlobSha": "8b897e0e8ce16d73d6bf92000b86cea992e7b6dd",
+      "bytes": 37996
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "@picocss/pico";
 import "./styles.css";
 import "./raid-analysis.css";
+import "./pretendard-subsets.css";
 import "./typography.css";
 import App from "./App.js";
 

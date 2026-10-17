@@ -1,16 +1,17 @@
-/* Unmodified Pretendard 1.3.9 by Kil Hyung-jin, SIL OFL 1.1.
+/* HMP Dashboard Sans is an OFL-compliant UI subset of Pretendard 1.3.9.
+ * Outlines/variable weights are retained; the modified subset has its own name.
  * Copyright and complete license: public/fonts/OFL-Pretendard.txt. */
 @font-face {
-	font-family: "Pretendard Variable";
+	font-family: "HMP Dashboard Sans";
 	font-style: normal;
 	font-weight: 45 920;
 	font-display: swap;
-	src: url("/fonts/PretendardVariable.woff2") format("woff2-variations");
+	src: url("/fonts/HmpDashboardSansCore.woff2") format("woff2-variations");
 }
-
 :root {
-	--pico-font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
-		system-ui, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+	--pico-font-family: "HMP Dashboard Sans", "Pretendard Variable", Pretendard, -apple-system,
+		BlinkMacSystemFont, system-ui, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR",
+		"Malgun Gothic", sans-serif;
 	font-synthesis: none;
 	font-variant-numeric: tabular-nums lining-nums;
 }

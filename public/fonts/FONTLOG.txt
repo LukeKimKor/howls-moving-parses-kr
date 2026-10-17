@@ -1,0 +1,18 @@
+2026-10-17: HMP Dashboard Sans Core
+
+Source: Pretendard Variable 1.3.9 by Kil Hyung-jin.
+License: SIL Open Font License 1.1; complete original notice in OFL-Pretendard.txt.
+
+The UI core retains glyph outlines, advances, hinting, variable weight range,
+and OpenType layout features from the original. Only unused glyphs are removed.
+The modified subset uses the distinct primary family HMP Dashboard Sans to
+respect the original Reserved Font Name. This is a derived subset, not an
+official upstream release or an endorsement by the original author.
+
+The other 92 variable subset files in dynamic/ are the unmodified official
+v1.3.9 release and keep their original family name. They provide glyphs absent
+from the fast UI core, including future names and less common characters.
+
+core-manifest.json records the source hash, retained code points, generated
+font hash, tool version, and outline/advance checks at weights 400/500/650/700.
+The generator and pinned development requirements are in scripts/fonts/.
