@@ -11,6 +11,7 @@ import {
 	characterMythicPlus,
 	maxBest,
 	missingRaidLabel,
+	readableOnDark,
 	sortRoster,
 	specRaidValues,
 } from "../../lib/roster.js";
@@ -114,7 +115,9 @@ export function RosterOverview({
 					label="최고 쐐기 점수"
 					value={
 						topScoreChar ? (
-							<span style={{ color: characterMythicPlus(topScoreChar)?.scoreColor }}>
+							<span
+								style={{ color: readableOnDark(characterMythicPlus(topScoreChar)?.scoreColor) }}
+							>
 								{Math.round(maxScore).toLocaleString("ko-KR")}
 							</span>
 						) : (
@@ -233,7 +236,7 @@ export function RosterOverview({
 									<td className="dash-col-score" data-label="쐐기 점수">
 										{mplus ? (
 											<div className="dash-score">
-												<strong style={{ color: mplus.scoreColor }}>
+												<strong style={{ color: readableOnDark(mplus.scoreColor) }}>
 													{Math.round(mplus.score).toLocaleString("ko-KR")}
 												</strong>
 												<span className="dash-meter" aria-hidden="true">

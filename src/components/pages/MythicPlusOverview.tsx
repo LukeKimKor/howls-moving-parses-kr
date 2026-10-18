@@ -7,6 +7,7 @@ import {
 	characterIlvl,
 	characterMythicPlus,
 	dungeonColumns,
+	readableOnDark,
 	sortRoster,
 } from "../../lib/roster.js";
 import type { CharacterData, MythicPlusRun, Snapshot } from "../../types/snapshot.js";
@@ -148,7 +149,7 @@ export function MythicPlusOverview({
 									<td className="dash-col-score" data-label="점수">
 										{mplus ? (
 											<div className="dash-score">
-												<strong style={{ color: mplus.scoreColor }}>
+												<strong style={{ color: readableOnDark(mplus.scoreColor) }}>
 													{Math.round(mplus.score).toLocaleString("ko-KR")}
 												</strong>
 												{mplus.scoreTierLabel && <small>{tierLabelKo(mplus.scoreTierLabel)}</small>}

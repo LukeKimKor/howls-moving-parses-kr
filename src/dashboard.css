@@ -411,7 +411,7 @@
 	font-size: 10px;
 }
 .dash-class-label {
-	opacity: 0.75;
+	color: var(--dash-muted);
 }
 .dash .dash-char-sub {
 	font-size: 12px;
@@ -483,7 +483,7 @@
 	opacity: 0.85;
 }
 .dash-sep {
-	color: #4a5873;
+	color: var(--dash-muted);
 }
 
 /* Links column */
@@ -546,7 +546,7 @@
 	color: var(--dash-muted);
 }
 .dash .dash-run-none {
-	color: #3f4b60;
+	color: var(--dash-muted);
 }
 .dash a.dash-run:hover {
 	outline: 1px solid var(--dash-border-strong);
@@ -708,7 +708,7 @@
 }
 
 .dash-empty {
-	color: #56637a;
+	color: var(--dash-muted);
 	font-size: 13px;
 }
 

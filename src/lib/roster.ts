@@ -157,3 +157,18 @@ export function missingRaidLabel(state: SpecRaidValue["state"]): string {
 	if (state === "skipped" || state === "unqueried") return "미조회";
 	return "기록 없음";
 }
+
+/**
+ * Raider.IO tier colours (e.g. #a335ee, #0070dd) are tuned for light backgrounds.
+ * For text on the dark dashboard, mix in white so it meets WCAG AA contrast; bars keep the raw colour.
+ */
+export function readableOnDark(hex: string | undefined, mix = 0.35): string | undefined {
+	const match = /^#?([0-9a-f]{6})$/i.exec(hex ?? "");
+	if (!match?.[1]) return hex;
+	const value = Number.parseInt(match[1], 16);
+	const channel = (shift: number) => {
+		const c = (value >> shift) & 0xff;
+		return Math.round(c + (255 - c) * mix);
+	};
+	return `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`;
+}
