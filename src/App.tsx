@@ -246,7 +246,6 @@ export default function App() {
 		return (
 			<DashboardPage
 				snapshot={snapshot}
-				initialCharacterName={storedChar?.name}
 				initialTab={lastTab}
 				onOpenCharacter={(character) => {
 					setLastTab(tabFromHash(window.location.hash) ?? lastTab);

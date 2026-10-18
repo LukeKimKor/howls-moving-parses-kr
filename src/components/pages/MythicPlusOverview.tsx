@@ -12,7 +12,7 @@ import {
 } from "../../lib/roster.js";
 import type { CharacterData, MythicPlusRun, Snapshot } from "../../types/snapshot.js";
 import { MissingValue } from "../primitives/MissingValue.js";
-import { CLASS_COLORS } from "../primitives/SpecIcon.js";
+import { CharacterCell } from "./DashParts.js";
 
 function RunCell({ run }: { run: MythicPlusRun | undefined }) {
 	if (!run) return <span className="dash-run dash-run-none">—</span>;
@@ -53,7 +53,7 @@ export function MythicPlusOverview({
 }) {
 	const [byScore, setByScore] = useState(true);
 	const rows = useMemo(
-		() => sortRoster(snapshot.characters, byScore ? "score" : "config", "dps"),
+		() => sortRoster(snapshot.characters, byScore ? "score" : "config"),
 		[snapshot.characters, byScore],
 	);
 	const dungeons = dungeonColumns(snapshot);
@@ -115,23 +115,11 @@ export function MythicPlusOverview({
 							return (
 								<tr key={character.name} data-mplus-character={character.name}>
 									<th scope="row" className="dash-col-char">
-										<div className="dash-char-cell">
-											<span
-												className="dash-class-bar"
-												aria-hidden="true"
-												style={{ background: CLASS_COLORS[character.class] }}
-											/>
-											<div className="dash-char-text">
-												<button
-													type="button"
-													className="dash-char-name"
-													style={{ color: CLASS_COLORS[character.class] }}
-													onClick={() => onOpenCharacter(character)}
-												>
-													{character.name}
-												</button>
+										<CharacterCell
+											character={character}
+											onOpen={onOpenCharacter}
+											sub={
 												<a
-													className="dash-char-sub"
 													href={characterProfileUrl(
 														"rio",
 														character.region,
@@ -143,8 +131,8 @@ export function MythicPlusOverview({
 												>
 													Raider.IO ↗
 												</a>
-											</div>
-										</div>
+											}
+										/>
 									</th>
 									<td className="dash-col-score" data-label="점수">
 										{mplus ? (

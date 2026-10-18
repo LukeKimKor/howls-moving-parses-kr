@@ -16,13 +16,9 @@ import type {
 
 export type DamageMetric = "dps" | "bossdps";
 
-export function isHealerSlug(slug: string): boolean {
-	return ALL_SPECS.find((spec) => spec.specSlug === slug)?.role === "healer";
-}
-
 /** Healers always use HPS; other specs follow the selected damage metric. */
 export function rosterMetric(slug: string, damageMetric: DamageMetric): RaidMetric {
-	return isHealerSlug(slug) ? "hps" : damageMetric;
+	return ALL_SPECS.find((spec) => spec.specSlug === slug)?.role === "healer" ? "hps" : damageMetric;
 }
 
 export function characterMythicPlus(character: CharacterData): MythicPlusData | null {
@@ -51,52 +47,15 @@ export interface SpecRaidValue {
 	state: "ok" | "empty" | "partial" | "failed" | "skipped" | "unqueried";
 }
 
-export function specRaidValues(
-	character: CharacterData,
-	difficulty: RaidDifficulty,
-	damageMetric: DamageMetric,
-): SpecRaidValue[] {
-	return character.specOrder.flatMap((slug) => {
-		const spec = character.specs[slug];
-		if (!spec) return [];
-		const metric = rosterMetric(slug, damageMetric);
-		const section = spec.raidPerformance?.[metric]?.[difficulty];
-		const summary = section?.summary;
-		return [
-			{
-				slug,
-				specName: spec.specName,
-				metric,
-				best: summary?.bestPerformanceAverage ?? null,
-				median: summary?.medianPerformanceAverage ?? null,
-				state: section?.collection.state ?? "unqueried",
-			},
-		];
-	});
-}
-
-/** Highest best-percentile among a character's specs, for sorting only. */
-export function maxBest(values: SpecRaidValue[]): number | null {
-	const numbers = values.map((v) => v.best).filter((v): v is number => typeof v === "number");
-	return numbers.length ? Math.max(...numbers) : null;
-}
-
-export type RosterSortKey = "config" | "ilvl" | "score" | "heroic" | "mythic";
-
-export function sortRoster(
-	characters: CharacterData[],
-	key: RosterSortKey,
-	damageMetric: DamageMetric,
-): CharacterData[] {
+/** Character-level order for the Mythic+ tab: by Raider.IO score (unknown last) or config order. */
+export function sortRoster(characters: CharacterData[], key: "config" | "score"): CharacterData[] {
 	if (key === "config") return [...characters];
-	const value = (character: CharacterData): number | null => {
-		if (key === "ilvl") return characterIlvl(character);
-		if (key === "score") return characterMythicPlus(character)?.score ?? null;
-		return maxBest(specRaidValues(character, key === "heroic" ? "Heroic" : "Mythic", damageMetric));
-	};
-	// Stable sort: descending, unknown values last, config order breaks ties.
 	return characters
-		.map((character, index) => ({ character, index, v: value(character) }))
+		.map((character, index) => ({
+			character,
+			index,
+			v: characterMythicPlus(character)?.score ?? null,
+		}))
 		.sort((a, b) => {
 			if (a.v === null && b.v === null) return a.index - b.index;
 			if (a.v === null) return 1;
@@ -104,6 +63,113 @@ export function sortRoster(
 			return b.v - a.v || a.index - b.index;
 		})
 		.map((entry) => entry.character);
+}
+
+// ── Spec rows: one row per character × tracked spec, grouped by role ──
+
+export type SpecRole = "dps" | "healer" | "tank";
+
+export const ROLE_LABELS: Record<SpecRole, string> = {
+	dps: "딜러",
+	healer: "힐러",
+	tank: "탱커",
+};
+export const ROLE_ORDER: SpecRole[] = ["dps", "healer", "tank"];
+
+export interface SpecRow {
+	key: string;
+	character: CharacterData;
+	/** Index in snapshot.characters (stable config order; used for All Stars lookups and anchors). */
+	characterIndex: number;
+	slug: string;
+	specName: string;
+	role: SpecRole;
+	metric: (damageMetric: DamageMetric) => RaidMetric;
+}
+
+export function specRole(slug: string): SpecRole {
+	return ALL_SPECS.find((spec) => spec.specSlug === slug)?.role ?? "dps";
+}
+
+export function specRows(characters: CharacterData[]): SpecRow[] {
+	return characters.flatMap((character, characterIndex) =>
+		character.specOrder.flatMap((slug) => {
+			const spec = character.specs[slug];
+			if (!spec) return [];
+			return [
+				{
+					key: `${character.name}/${slug}`,
+					character,
+					characterIndex,
+					slug,
+					specName: spec.specName,
+					role: specRole(slug),
+					metric: (damageMetric: DamageMetric) => rosterMetric(slug, damageMetric),
+				},
+			];
+		}),
+	);
+}
+
+export interface RaidPair {
+	best: number | null;
+	median: number | null;
+	state: SpecRaidValue["state"];
+}
+
+export function rowRaid(
+	row: SpecRow,
+	difficulty: RaidDifficulty,
+	damageMetric: DamageMetric,
+): RaidPair {
+	const section =
+		row.character.specs[row.slug]?.raidPerformance?.[row.metric(damageMetric)]?.[difficulty];
+	return {
+		best: section?.summary.bestPerformanceAverage ?? null,
+		median: section?.summary.medianPerformanceAverage ?? null,
+		state: section?.collection.state ?? "unqueried",
+	};
+}
+
+export type RowSortKey =
+	| "config"
+	| "ilvl"
+	| "score"
+	| "heroic"
+	| "heroicMedian"
+	| "heroicPoints"
+	| "mythic"
+	| "mythicMedian"
+	| "mythicPoints";
+
+/**
+ * Stable descending sort; unknown values last; config order breaks ties.
+ * All Stars points depend on the selected patch, so the caller supplies that lookup.
+ */
+export function sortRows(
+	rows: SpecRow[],
+	key: RowSortKey,
+	damageMetric: DamageMetric,
+	starPoints?: (row: SpecRow, difficulty: RaidDifficulty) => number | null,
+): SpecRow[] {
+	if (key === "config") return [...rows];
+	const value = (row: SpecRow): number | null => {
+		if (key === "ilvl") return characterIlvl(row.character);
+		if (key === "score") return characterMythicPlus(row.character)?.score ?? null;
+		const difficulty: RaidDifficulty = key.startsWith("heroic") ? "Heroic" : "Mythic";
+		if (key.endsWith("Points")) return starPoints?.(row, difficulty) ?? null;
+		const pair = rowRaid(row, difficulty, damageMetric);
+		return key.endsWith("Median") ? pair.median : pair.best;
+	};
+	return rows
+		.map((row, index) => ({ row, index, v: value(row) }))
+		.sort((a, b) => {
+			if (a.v === null && b.v === null) return a.index - b.index;
+			if (a.v === null) return 1;
+			if (b.v === null) return -1;
+			return b.v - a.v || a.index - b.index;
+		})
+		.map((entry) => entry.row);
 }
 
 export interface DungeonColumn {

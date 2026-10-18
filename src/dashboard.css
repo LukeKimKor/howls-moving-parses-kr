@@ -345,8 +345,10 @@
 	position: sticky;
 	left: 0;
 	z-index: 1;
-	min-width: 210px;
 	background: var(--dash-panel);
+}
+.dash .dash-mplus-table .dash-col-char {
+	min-width: 170px;
 }
 .dash .dash-table thead .dash-col-char {
 	z-index: 2;
@@ -455,35 +457,96 @@
 	opacity: 0.85;
 }
 
-/* Raid cells */
-.dash .dash-table .dash-col-raid {
-	white-space: nowrap;
-	min-width: 150px;
+/* Raid value cells: one value per cell, difficulty groups separated by a rule. */
+.dash .dash-table .dash-group {
+	text-align: center;
+	letter-spacing: 0.02em;
 }
-.dash .dash-table td.dash-heroic {
-	border-left: 1px solid rgb(185 140 255 / 0.14);
+.dash .dash-table thead th.dash-group.dash-heroic {
+	background: linear-gradient(rgb(185 140 255 / 0.1), rgb(185 140 255 / 0.1)), var(--dash-panel-2);
 }
-.dash .dash-table td.dash-mythic {
-	border-left: 1px solid rgb(255 157 77 / 0.14);
+.dash .dash-table thead th.dash-group.dash-mythic {
+	background: linear-gradient(rgb(255 157 77 / 0.1), rgb(255 157 77 / 0.1)), var(--dash-panel-2);
 }
-.dash-spec-line + .dash-spec-line {
-	margin-top: 4px;
+.dash .dash-table .dash-subhead th {
+	padding-top: 6px;
+	padding-bottom: 6px;
+	font-size: 12px;
+	font-weight: 500;
 }
-.dash-pct-pair {
-	display: inline-flex;
-	align-items: baseline;
-	gap: 6px;
+.dash .dash-table .dash-group-start {
+	border-left: 1px solid var(--dash-border-strong);
 }
-.dash-pct-pair .raid-percent:first-child {
-	font-weight: 700;
-	font-size: 16px;
-}
-.dash-pct-pair .raid-percent:last-child {
+.dash-pct .raid-percent {
 	font-size: 14px;
-	opacity: 0.85;
 }
-.dash-sep {
-	color: var(--dash-muted);
+.dash-pct-strong .raid-percent {
+	font-size: 16px;
+	font-weight: 700;
+}
+.dash a.dash-pct-link {
+	text-decoration: none;
+}
+.dash a.dash-pct-link:hover {
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+.dash .dash-amount {
+	color: #c4cede;
+}
+
+/* Fixed column budgets keep the character column from dominating. */
+.dash .dash-roster-table,
+.dash .dash-raid-summary,
+.dash .dash-boss-table {
+	table-layout: fixed;
+	min-width: 960px;
+}
+.dash-roster-table .dash-w-char {
+	width: 14%;
+}
+.dash-roster-table .dash-w-spec {
+	width: 9%;
+}
+.dash-roster-table .dash-w-num {
+	width: 7%;
+}
+.dash-roster-table .dash-w-score {
+	width: 14%;
+}
+.dash-roster-table .dash-w-pct {
+	width: 7%;
+}
+.dash-roster-table .dash-w-links {
+	width: 11%;
+}
+.dash-raid-summary .dash-w-char {
+	width: 15%;
+}
+.dash-raid-summary .dash-w-spec {
+	width: 11%;
+}
+.dash-raid-summary .dash-w-pct {
+	width: 9.25%;
+}
+.dash-boss-table .dash-w-boss {
+	width: 20%;
+}
+.dash-boss-table .dash-w-pct {
+	width: 9%;
+}
+.dash-boss-table .dash-w-amount {
+	width: 13%;
+}
+.dash .dash-table .dash-char-name,
+.dash .dash-table .dash-char-sub {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.dash-char-text {
+	overflow: hidden;
 }
 
 /* Links column */
@@ -559,9 +622,208 @@
 	line-height: 1.7;
 }
 
-/* The raid tab keeps its own layout; its header now lives in the shell. */
-.raid-embedded > .raid-character-nav {
-	padding-top: 0;
+/* ── Role sections ──────────────────────────────────────────── */
+.dash-role-section {
+	margin-bottom: 22px;
+}
+.dash-role-heading {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 0 2px 8px;
+	font-size: 13px;
+	color: var(--dash-muted);
+}
+.dash-role-badge {
+	padding: 2px 10px;
+	border-radius: 999px;
+	font-size: 13px;
+	font-weight: 650;
+	border: 1px solid currentColor;
+}
+.dash-role-dps {
+	color: #ff8a80;
+	background: rgb(255 138 128 / 0.08);
+}
+.dash-role-healer {
+	color: #6ee7a8;
+	background: rgb(110 231 168 / 0.08);
+}
+.dash-role-tank {
+	color: #8ab4ff;
+	background: rgb(138 180 255 / 0.08);
+}
+.dash-role-note::before {
+	content: "·";
+	margin-right: 10px;
+}
+.dash-role-empty {
+	margin: 0;
+	padding: 14px 16px;
+	border: 1px dashed var(--dash-border-strong);
+	border-radius: 10px;
+	color: var(--dash-muted);
+	font-size: 14px;
+}
+
+/* ── Raid tab ───────────────────────────────────────────────── */
+.dash-callout {
+	margin: 0 0 14px;
+	padding: 10px 14px;
+	border: 1px solid #4a3f22;
+	border-radius: 8px;
+	background: #1d1a10;
+	color: #e3cf9a;
+	font-size: 13px;
+}
+.dash-details-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 24px;
+	margin: -6px 2px 0;
+}
+.dash .dash-details,
+.dash .dash-details-row > details {
+	margin: 0;
+	font-size: 14px;
+}
+.dash .dash-details > summary,
+.dash .dash-details-row > details > summary {
+	color: var(--dash-accent);
+	cursor: pointer;
+}
+.dash .dash-details[open] {
+	flex-basis: 100%;
+}
+.dash .dash-details[open] > .dash-table-scroll {
+	margin-top: 10px;
+}
+.dash-section-gap {
+	margin-top: 36px;
+	padding-top: 22px;
+	border-top: 1px solid var(--dash-border);
+}
+.dash-toolbar-hint {
+	color: var(--dash-muted);
+	font-size: 13px;
+}
+.dash .dash-char-nav {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 14px;
+}
+.dash .dash-char-nav a {
+	padding: 4px 10px;
+	border: 1px solid var(--dash-border);
+	border-radius: 999px;
+	background: var(--dash-panel);
+	font-size: 13px;
+	text-decoration: none;
+}
+.dash .dash-char-nav a:hover {
+	border-color: var(--dash-border-strong);
+	background: var(--dash-panel-2);
+}
+.dash-raid-character {
+	scroll-margin-top: 80px;
+}
+.dash-boss-card {
+	margin-bottom: 16px;
+	border: 1px solid var(--dash-border);
+	border-radius: 12px;
+	background: var(--dash-panel);
+	overflow: hidden;
+}
+.dash-boss-card .dash-table-scroll {
+	border: 0;
+	border-top: 1px solid var(--dash-border);
+	border-radius: 0;
+}
+.dash-boss-card-header {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	flex-wrap: wrap;
+	padding: 12px 16px;
+}
+.dash-boss-card-header .dash-char-cell {
+	min-width: 180px;
+}
+.dash-boss-card-stats {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	flex: 1;
+}
+.dash-stat-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 10px;
+	border-radius: 999px;
+	border: 1px solid var(--dash-border-strong);
+	font-size: 13px;
+	color: var(--dash-muted);
+}
+.dash-stat-pill strong {
+	color: var(--dash-text);
+	font-weight: 650;
+}
+.dash-stat-pill.dash-heroic {
+	border-color: rgb(185 140 255 / 0.35);
+}
+.dash-stat-pill.dash-mythic {
+	border-color: rgb(255 157 77 / 0.35);
+}
+.dash-stat-pill .raid-percent {
+	font-weight: 650;
+}
+.dash-boss-card-links a {
+	padding: 4px 10px;
+	border: 1px solid var(--dash-border-strong);
+	border-radius: 6px;
+	font-size: 12px;
+	color: var(--dash-muted);
+	text-decoration: none;
+}
+.dash-boss-card-links a:hover {
+	color: #fff;
+	border-color: var(--dash-accent);
+}
+.dash-collection {
+	padding: 0 16px 10px;
+}
+.dash-collection .collection-notice {
+	margin: 4px 0;
+	padding: 6px 10px;
+	font-size: 12px;
+	border-left-color: #b69b5c;
+	background: #17140d;
+	color: #d8c79c;
+}
+.dash .dash-boss-table tbody th.dash-col-char {
+	font-weight: 500;
+}
+.dash-boss-name {
+	display: block;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.dash .dash-boss-group {
+	display: block;
+	font-size: 11px;
+	color: var(--dash-muted);
+}
+
+/* Raid TOC in dashboard colours. */
+.dash .desktop-raid-toc {
+	background: var(--dash-panel);
+	border-color: var(--dash-border);
+}
+.dash .desktop-raid-toc a[aria-current="location"] {
+	background: #1d2a3f;
 }
 
 /* ── Desktop: the shell no longer reserves TOC space; only the raid tab does. ── */
@@ -683,6 +945,48 @@
 	.dash .dash-table td.dash-mythic::before {
 		color: var(--dash-mythic) !important;
 	}
+	.dash .dash-roster-table tbody tr,
+	.dash .dash-raid-summary tbody tr,
+	.dash .dash-boss-table tbody tr {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+	.dash .dash-roster-table,
+	.dash .dash-raid-summary,
+	.dash .dash-boss-table {
+		min-width: 0;
+	}
+	.dash .dash-roster-table tbody td:nth-of-type(1),
+	.dash .dash-roster-table tbody td:nth-of-type(2) {
+		grid-column: span 2;
+	}
+	.dash .dash-roster-table tbody td:nth-of-type(3),
+	.dash .dash-raid-summary tbody td:nth-of-type(1) {
+		grid-column: 1 / -1;
+	}
+	.dash .dash-table tbody td.dash-group-start {
+		border-left: 0;
+	}
+	.dash .dash-raid-summary tbody td,
+	.dash .dash-boss-table tbody td,
+	.dash .dash-roster-table tbody td.dash-num {
+		padding: 6px 10px 8px;
+	}
+	.dash .dash-table tbody td.dash-num {
+		align-items: flex-start;
+	}
+	.dash-boss-card {
+		border: 0;
+		background: transparent;
+	}
+	.dash-boss-card-header {
+		padding: 10px 2px;
+	}
+	.dash-boss-card .dash-table-scroll {
+		border-top: 0;
+	}
+	.dash-collection {
+		padding: 0 0 8px;
+	}
 	.dash .dash-mplus-table tbody td.dash-col-score,
 	.dash .dash-mplus-table tbody td.dash-mplus-rank {
 		grid-column: span 2;
@@ -715,4 +1019,103 @@
 /* Character detail view shares the dashboard background. */
 :root[data-theme="dark"] {
 	--pico-background-color: #0b0f16;
+}
+
+/* Percentile columns read best centred under their difficulty group. */
+.dash .dash-roster-table td.dash-heroic,
+.dash .dash-roster-table td.dash-mythic,
+.dash .dash-roster-table th.dash-heroic,
+.dash .dash-roster-table th.dash-mythic,
+.dash .dash-raid-summary td.dash-heroic,
+.dash .dash-raid-summary td.dash-mythic,
+.dash .dash-raid-summary th.dash-heroic,
+.dash .dash-raid-summary th.dash-mythic,
+.dash .dash-boss-table td.dash-heroic,
+.dash .dash-boss-table td.dash-mythic,
+.dash .dash-boss-table th.dash-heroic,
+.dash .dash-boss-table th.dash-mythic {
+	text-align: center;
+}
+
+/* Pico styles <article>, <article> > header, <nav> and <details>; the dashboard owns these. */
+.dash article.dash-boss-card {
+	padding: 0;
+	box-shadow: none;
+	background: var(--dash-panel);
+}
+.dash article.dash-boss-card > header {
+	margin: 0;
+	border: 0;
+	background: transparent;
+}
+.dash nav.dash-char-nav {
+	justify-content: flex-start;
+}
+.dash nav.dash-char-nav a {
+	margin: 0;
+}
+.dash .dash-details-row > details {
+	padding: 0;
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+}
+.dash .dash-details-row > details > summary {
+	padding: 0;
+	font-size: 14px;
+}
+.dash .dash-details-row > details > :not(summary) {
+	color: var(--dash-muted);
+	font-size: 13px;
+}
+@media (max-width: 767px) {
+	.dash article.dash-boss-card {
+		background: transparent;
+	}
+}
+
+.dash .dash-roster-table {
+	min-width: 1100px;
+}
+.dash-inline-links {
+	display: inline-flex;
+	gap: 4px;
+	margin-left: -6px;
+}
+.dash .dash-inline-links a {
+	display: inline-flex;
+	align-items: center;
+	min-height: 24px;
+	min-width: 24px;
+	padding: 0 6px;
+	font-size: 11px;
+	color: var(--dash-muted);
+	text-decoration: none;
+	letter-spacing: 0.02em;
+}
+.dash .dash-inline-links a:hover {
+	color: var(--dash-accent);
+	text-decoration: underline;
+}
+.dash .dash-roster-table td.dash-num {
+	font-size: 14px;
+}
+@media (max-width: 767px) {
+	.dash .dash-roster-table {
+		min-width: 0;
+	}
+}
+
+.dash .dash-char-name {
+	min-height: 24px;
+	display: inline-flex;
+	align-items: center;
+}
+.dash-spec-icon {
+	display: inline-flex;
+}
+.dash .dash-char-sub > a {
+	display: inline-flex;
+	align-items: center;
+	min-height: 24px;
 }

@@ -5,7 +5,7 @@ import { kstTime, nextScheduledAt, raidLastSuccess } from "../../lib/refresh-tim
 import type { CharacterData, Snapshot } from "../../types/snapshot.js";
 import { NewBuildBanner } from "../chrome/NewBuildBanner.js";
 import { MythicPlusOverview } from "./MythicPlusOverview.js";
-import { RaidOverviewPage } from "./RaidOverviewPage.js";
+import { RaidLogTab } from "./RaidLogTab.js";
 import { RosterOverview } from "./RosterOverview.js";
 
 export type DashboardTab = "overview" | "raid" | "mplus";
@@ -27,12 +27,10 @@ export function tabFromHash(hash: string): DashboardTab | null {
 export function DashboardPage({
 	snapshot,
 	onOpenCharacter,
-	initialCharacterName,
 	initialTab = "overview",
 }: {
 	snapshot: Snapshot;
 	onOpenCharacter: (character: CharacterData) => void;
-	initialCharacterName?: string;
 	initialTab?: DashboardTab;
 }) {
 	const [tab, setTab] = useState<DashboardTab>(
@@ -53,6 +51,14 @@ export function DashboardPage({
 		} catch {}
 	};
 
+	const [mobile, setMobile] = useState(() => window.matchMedia("(max-width: 767px)").matches);
+	useEffect(() => {
+		const media = window.matchMedia("(max-width: 767px)");
+		const update = () => setMobile(media.matches);
+		media.addEventListener("change", update);
+		update();
+		return () => media.removeEventListener("change", update);
+	}, []);
 	const [now, setNow] = useState(Date.now);
 	useEffect(() => {
 		const timer = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -163,12 +169,7 @@ export function DashboardPage({
 					<RosterOverview snapshot={snapshot} onOpenCharacter={onOpenCharacter} />
 				)}
 				{tab === "raid" && (
-					<RaidOverviewPage
-						embedded
-						snapshot={snapshot}
-						onOpenCharacter={onOpenCharacter}
-						initialCharacterName={initialCharacterName}
-					/>
+					<RaidLogTab snapshot={snapshot} onOpenCharacter={onOpenCharacter} mobile={mobile} />
 				)}
 				{tab === "mplus" && (
 					<MythicPlusOverview snapshot={snapshot} onOpenCharacter={onOpenCharacter} />

@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CharactersConfig } from "../../../../scripts/config-validation.js";
 import { ALL_SPECS } from "../../../data/specs.js";
-import { bestRunByDungeon, sortRoster, specRaidValues } from "../../../lib/roster.js";
+import { bestRunByDungeon, sortRows, specRows } from "../../../lib/roster.js";
 import type {
 	CharacterData,
 	MythicPlusData,
@@ -106,7 +106,20 @@ function withData(): Snapshot {
 	if (!firstSpec || !secondSpec) throw new Error("fixture");
 	firstSpec.mythicPlus = mplus(2500, [run("Ara-Kara", 12, true), run("Ara-Kara", 14, false)]);
 	firstSpec.gear = { equippedIlvl: 701.4, items: [] };
-	firstSpec.raidPerformance = { dps: { Heroic: section(91.2, 80.5), Mythic: section(null, null) } };
+	const heroic = section(91.2, 80.5);
+	heroic.summary.allStars = [
+		{ spec: firstSpec.specName, partition: 2, points: 897.969, rank: 16 },
+		{ spec: firstSpec.specName, partition: 1, points: 1017.71, rank: 308 },
+	];
+	const bossHeroic = section(77.7, 60);
+	bossHeroic.metric = "bossdps";
+	bossHeroic.summary.allStars = [
+		{ spec: firstSpec.specName, partition: 2, points: 904.716, rank: 5 },
+	];
+	firstSpec.raidPerformance = {
+		dps: { Heroic: heroic, Mythic: section(null, null) },
+		bossdps: { Heroic: bossHeroic, Mythic: section(null, null) },
+	};
 	secondSpec.mythicPlus = mplus(3100, [run("City of Threads", 15, true)]);
 	secondSpec.gear = { equippedIlvl: 695, items: [] };
 	// Both tracked DH specs keep their own percentile.
@@ -132,30 +145,70 @@ beforeEach(() => {
 	);
 });
 
-describe("tabbed dashboard", () => {
-	it("opens on the overview with item level, Raider.IO score and WCL best/median per character", () => {
+function rowFor(key: string) {
+	return document.querySelector(`[data-roster-row="${key}"]`) as HTMLElement;
+}
+
+describe("overview tab", () => {
+	it("opens on the overview with item level, score, and four separate WCL percentile columns", () => {
 		const data = withData();
 		render(<DashboardPage snapshot={data} onOpenCharacter={vi.fn()} />);
 		expect(screen.getByRole("tab", { name: /종합 현황/ })).toHaveAttribute("aria-selected", "true");
-		const table = screen.getByRole("table", { name: /아이템 레벨, 쐐기 점수, 레이드 백분위/ });
-		expect(within(table).getAllByRole("row")).toHaveLength(data.characters.length + 1);
-		const first = data.characters[0]?.name ?? "";
-		const row = table.querySelector(`[data-roster-character="${first}"]`) as HTMLElement;
-		expect(within(row).getByText("701.4")).toBeInTheDocument();
-		expect(within(row).getByText("2,500")).toBeInTheDocument();
-		expect(within(row).getByText("91.2%")).toBeInTheDocument();
-		expect(within(row).getByText("80.5%")).toBeInTheDocument();
+		const first = data.characters[0] as CharacterData;
+		const row = rowFor(`${first.name}/${first.mainSpecSlug}`);
+		const cell = (label: string) => row.querySelector(`[data-label="${label}"]`) as HTMLElement;
+		expect(within(cell("템렙")).getByText("701.4")).toBeInTheDocument();
+		expect(within(cell("쐐기 점수")).getByText("2,500")).toBeInTheDocument();
+		expect(within(cell("영웅 최고")).getByText("91.2%")).toBeInTheDocument();
+		expect(within(cell("영웅 중앙")).getByText("80.5%")).toBeInTheDocument();
 		// A successful collection with no Mythic logs reads as "no records", not as a failure.
-		expect(within(row).getByText("기록 없음")).toBeInTheDocument();
+		expect(within(cell("신화 최고")).getByText("기록 없음")).toBeInTheDocument();
+		expect(within(cell("신화 중앙")).getByText("기록 없음")).toBeInTheDocument();
 	});
 
-	it("shows both tracked Demon Hunter specs side by side", () => {
-		render(<DashboardPage snapshot={withData()} onOpenCharacter={vi.fn()} />);
-		const row = document.querySelector('[data-roster-character="앙귀태"]') as HTMLElement;
-		expect(within(row).getByText("파멸")).toBeInTheDocument();
-		expect(within(row).getByText("포식")).toBeInTheDocument();
-		expect(within(row).getByText("60.0%")).toBeInTheDocument();
-		expect(within(row).getByText("70.0%")).toBeInTheDocument();
+	it("splits dealers, healers and tanks into separate tables", () => {
+		const data = withData();
+		render(<DashboardPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		const dps = screen.getByRole("table", { name: /^딜러 전문화별/ });
+		const healers = screen.getByRole("table", { name: /^힐러 전문화별/ });
+		const healerNames = data.characters.filter((c) => ["Evoker", "Paladin"].includes(c.class));
+		expect(within(healers).getAllByRole("row")).toHaveLength(healerNames.length + 2);
+		for (const healer of healerNames)
+			expect(within(dps).queryByRole("button", { name: healer.name })).not.toBeInTheDocument();
+		expect(screen.getByText(/등록된 탱커 전문화가 없습니다/)).toBeInTheDocument();
+	});
+
+	it("gives each tracked Demon Hunter spec its own row", () => {
+		const data = withData();
+		render(<DashboardPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		const dh = data.characters.find((c) => c.name === "앙귀태") as CharacterData;
+		expect(dh.specOrder).toHaveLength(2);
+		const [a, b] = dh.specOrder.map((slug) => rowFor(`앙귀태/${slug}`));
+		expect(within(a as HTMLElement).getByText("파멸")).toBeInTheDocument();
+		expect(within(a as HTMLElement).getByText("60.0%")).toBeInTheDocument();
+		expect(within(b as HTMLElement).getByText("포식")).toBeInTheDocument();
+		expect(within(b as HTMLElement).getByText("70.0%")).toBeInTheDocument();
+	});
+
+	it("shows All Stars points and rank for the selected patch and damage metric", () => {
+		const data = withData();
+		render(<DashboardPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		const first = data.characters[0] as CharacterData;
+		const row = () => rowFor(`${first.name}/${first.mainSpecSlug}`);
+		const cell = (label: string) => row().querySelector(`[data-label="${label}"]`) as HTMLElement;
+		expect(cell("영웅 점수")).toHaveTextContent("897.97");
+		expect(cell("영웅 순위")).toHaveTextContent("16위");
+		fireEvent.change(screen.getByRole("combobox", { name: "All Stars 점수 패치" }), {
+			target: { value: "1" },
+		});
+		expect(cell("영웅 점수")).toHaveTextContent("1,017.71");
+		expect(cell("영웅 순위")).toHaveTextContent("308위");
+		fireEvent.change(screen.getByRole("combobox", { name: "All Stars 점수 패치" }), {
+			target: { value: "2" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "우두머리 피해" }));
+		expect(cell("영웅 점수")).toHaveTextContent("904.72");
+		expect(cell("영웅 최고")).toHaveTextContent("77.7%");
 	});
 
 	it("sorts by score and opens the character detail from the name", () => {
@@ -170,16 +223,72 @@ describe("tabbed dashboard", () => {
 		fireEvent.click(screen.getByRole("button", { name: data.characters[0]?.name ?? "" }));
 		expect(onOpen).toHaveBeenCalledWith(data.characters[0]);
 	});
+});
 
-	it("switches to the Mythic+ and raid tabs", () => {
+describe("raid and Mythic+ tabs", () => {
+	it("switches tabs and renders one header", () => {
 		render(<DashboardPage snapshot={withData()} onOpenCharacter={vi.fn()} />);
 		fireEvent.click(screen.getByRole("tab", { name: /^쐐기/ }));
 		expect(screen.getByRole("table", { name: /던전 최고 단수/ })).toBeInTheDocument();
 		expect(window.location.hash).toBe("#mplus");
 		fireEvent.click(screen.getByRole("tab", { name: /레이드 로그/ }));
-		expect(screen.getByRole("table", { name: "영웅과 신화 전체 캐릭터 비교" })).toBeInTheDocument();
-		// The shell owns the page header; the embedded raid view does not repeat it.
+		expect(screen.getByRole("table", { name: /^딜러 영웅·신화 레이드 요약/ })).toBeInTheDocument();
 		expect(screen.getAllByRole("heading", { name: "와우 대시보드", level: 1 })).toHaveLength(1);
+	});
+
+	it("lists every boss with Heroic and Mythic side by side per spec, keeping missing states distinct", () => {
+		const data = withData();
+		data.raid = {
+			id: 53,
+			name: "Synthetic raid",
+			encounters: [
+				{ id: 1, name: "Boss A" },
+				{ id: 2, name: "Boss B" },
+			],
+		};
+		const first = data.characters[0] as CharacterData;
+		const spec = first.specs[first.mainSpecSlug];
+		const heroic = spec?.raidPerformance?.dps?.Heroic;
+		if (!heroic) throw new Error("fixture");
+		heroic.rows = [
+			{
+				encounterId: 1,
+				bossName: "Boss A",
+				state: "recorded",
+				specName: spec.specName,
+				bestPercent: 88.4,
+				bestAmount: 1234567,
+				kills: 3,
+				fastestKillMs: 200000,
+				medianPercent: 70.1,
+				allStarPoints: 100,
+				allStarRank: 10,
+			},
+			{
+				encounterId: 2,
+				bossName: "Boss B",
+				state: "no-kills",
+				specName: null,
+				bestPercent: null,
+				bestAmount: null,
+				kills: 0,
+				fastestKillMs: null,
+				medianPercent: null,
+				allStarPoints: null,
+				allStarRank: null,
+			},
+		];
+		render(<DashboardPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		fireEvent.click(screen.getByRole("tab", { name: /레이드 로그/ }));
+		const table = screen.getByRole("table", {
+			name: new RegExp(`^${first.name} ${spec.specName} 전체 피해 우두머리별`),
+		});
+		const rowA = within(table).getByRole("row", { name: /Boss A/ });
+		expect(within(rowA).getByText("88.4%")).toBeInTheDocument();
+		expect(within(rowA).getByText("1,234,567")).toBeInTheDocument();
+		const rowB = within(table).getByRole("row", { name: /Boss B/ });
+		expect(within(rowB).getAllByText("미처치").length).toBeGreaterThan(0);
+		expect(screen.getAllByRole("table", { name: /앙귀태 .* 우두머리별/ })).toHaveLength(2);
 	});
 });
 
@@ -201,10 +310,12 @@ describe("roster helpers", () => {
 
 	it("keeps unknown values last when sorting and uses HPS for healers", () => {
 		const data = withData();
-		const sorted = sortRoster(data.characters, "ilvl", "dps");
-		expect(sorted[0]?.name).toBe(data.characters[0]?.name);
-		expect(sorted[1]?.name).toBe(data.characters[1]?.name);
-		const healer = data.characters.find((c) => c.class === "Evoker") as CharacterData;
-		expect(specRaidValues(healer, "Heroic", "bossdps")[0]?.metric).toBe("hps");
+		const rows = specRows(data.characters);
+		const sorted = sortRows(rows, "ilvl", "dps");
+		expect(sorted[0]?.character.name).toBe(data.characters[0]?.name);
+		expect(sorted[1]?.character.name).toBe(data.characters[1]?.name);
+		const healer = rows.find((r) => r.character.class === "Evoker");
+		expect(healer?.role).toBe("healer");
+		expect(healer?.metric("bossdps")).toBe("hps");
 	});
 });
