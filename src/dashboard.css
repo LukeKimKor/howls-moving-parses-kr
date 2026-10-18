@@ -1155,3 +1155,35 @@
 .dash .dash-char-sub a:hover {
 	color: var(--dash-accent);
 }
+
+/* Class-colour row tint: a faint wash across the row, a little stronger at the character cell.
+   Mixed into the opaque panel colour so the sticky character column stays solid. */
+.dash .dash-table tbody tr.dash-class-row > * {
+	background: color-mix(in srgb, var(--class-color) 5%, var(--dash-panel));
+}
+.dash .dash-table tbody tr.dash-class-row > .dash-col-char {
+	background: linear-gradient(
+		90deg,
+		color-mix(in srgb, var(--class-color) 13%, var(--dash-panel)),
+		color-mix(in srgb, var(--class-color) 5%, var(--dash-panel))
+	);
+}
+.dash .dash-table tbody tr.dash-class-row:hover > * {
+	background: color-mix(in srgb, var(--class-color) 9%, var(--dash-panel));
+}
+.dash .dash-table tbody tr.dash-class-row:hover > .dash-col-char {
+	background: linear-gradient(
+		90deg,
+		color-mix(in srgb, var(--class-color) 18%, var(--dash-panel)),
+		color-mix(in srgb, var(--class-color) 9%, var(--dash-panel))
+	);
+}
+@media (max-width: 767px) {
+	.dash .dash-table tbody tr.dash-class-row {
+		background: color-mix(in srgb, var(--class-color) 5%, var(--dash-panel));
+		border-color: color-mix(in srgb, var(--class-color) 22%, var(--dash-border));
+	}
+	.dash .dash-table tbody tr.dash-class-row > * {
+		background: transparent;
+	}
+}

@@ -11,7 +11,7 @@ import {
 } from "../../lib/roster.js";
 import type { CharacterData, MythicPlusRun, Snapshot } from "../../types/snapshot.js";
 import { MissingValue } from "../primitives/MissingValue.js";
-import { CharacterCell, IlvlValue } from "./DashParts.js";
+import { CharacterCell, IlvlValue, classRow } from "./DashParts.js";
 
 function RunCell({ run }: { run: MythicPlusRun | undefined }) {
 	if (!run) return <span className="dash-run dash-run-none">—</span>;
@@ -112,7 +112,11 @@ export function MythicPlusOverview({
 							const runs = bestRunByDungeon(character);
 							const ilvl = characterIlvl(character);
 							return (
-								<tr key={character.name} data-mplus-character={character.name}>
+								<tr
+									key={character.name}
+									data-mplus-character={character.name}
+									{...classRow(character)}
+								>
 									<th scope="row" className="dash-col-char">
 										<CharacterCell
 											character={character}

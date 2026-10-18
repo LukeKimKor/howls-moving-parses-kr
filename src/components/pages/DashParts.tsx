@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { starPoints, starRank } from "../../lib/all-stars.js";
 import { classLabel, specLabel } from "../../lib/ko.js";
 import {
@@ -218,4 +218,12 @@ export function IlvlLegend() {
 			<span>· All Stars 순위 색은 WCL 상위 비율 기준</span>
 		</p>
 	);
+}
+
+/** Row props that tint a character's row with its class colour (strength is set in dashboard.css). */
+export function classRow(character: CharacterData): { className: string; style: CSSProperties } {
+	return {
+		className: "dash-class-row",
+		style: { "--class-color": CLASS_COLORS[character.class] ?? "#8e9bb0" } as CSSProperties,
+	};
 }

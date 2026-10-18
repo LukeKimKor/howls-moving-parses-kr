@@ -32,6 +32,7 @@ import {
 	SpecChip,
 	StarPointsValue,
 	StarRankValue,
+	classRow,
 } from "./DashParts.js";
 
 const SORT_LABELS: Record<RowSortKey, string> = {
@@ -199,7 +200,12 @@ function RoleTable({
 							const heroicStar = star(row, "Heroic");
 							const mythicStar = star(row, "Mythic");
 							return (
-								<tr key={row.key} data-roster-row={row.key} data-roster-character={character.name}>
+								<tr
+									key={row.key}
+									data-roster-row={row.key}
+									data-roster-character={character.name}
+									{...classRow(character)}
+								>
 									<th scope="row" className="dash-col-char">
 										<CharacterCell
 											character={character}

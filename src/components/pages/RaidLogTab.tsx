@@ -32,6 +32,7 @@ import {
 	SpecChip,
 	StarPointsValue,
 	StarRankValue,
+	classRow,
 } from "./DashParts.js";
 import { DesktopRaidToc } from "./DesktopRaidToc.js";
 
@@ -118,7 +119,7 @@ function SummaryTable({
 					</thead>
 					<tbody>
 						{rows.map((row) => (
-							<tr key={row.key} data-raid-summary-row={row.key}>
+							<tr key={row.key} data-raid-summary-row={row.key} {...classRow(row.character)}>
 								<th scope="row" className="dash-col-char">
 									<CharacterCell character={row.character} />
 								</th>
