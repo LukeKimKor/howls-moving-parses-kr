@@ -4,14 +4,14 @@ import { describe, expect, it } from "vitest";
 import { SpecIcon, specIconUrl } from "../SpecIcon.js";
 
 describe("WCL spec icon URLs (no image-host requests)", () => {
-	it("uses the documented icons directory for all fourteen registered specs", () => {
+	it("uses the documented icons directory for all fifteen registered specs", () => {
 		const config = JSON.parse(readFileSync("characters.config.json", "utf8")) as {
 			characters: Array<{ class: string; specs: Array<{ spec: string; role: string }> }>;
 		};
 		const urls = config.characters.flatMap((c) =>
 			c.specs.filter((s) => s.role !== "inactive").map((s) => specIconUrl(c.class, s.spec)),
 		);
-		expect(urls).toHaveLength(14);
+		expect(urls).toHaveLength(15);
 		for (const url of urls)
 			expect(url).toMatch(
 				/^https:\/\/assets\.rpglogs\.com\/img\/warcraft\/icons\/[A-Za-z]+-[A-Za-z]+\.jpg$/,

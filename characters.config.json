@@ -11,6 +11,10 @@
         {
           "spec": "Arcane",
           "role": "main"
+        },
+        {
+          "spec": "Frost",
+          "role": "offspec"
         }
       ]
     },

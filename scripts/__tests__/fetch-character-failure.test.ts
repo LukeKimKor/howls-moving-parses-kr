@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 describe("unexpected whole-spec collection failure (no live API calls)", () => {
-	it("creates all 52 expected raid panels as explicit failures without previous data", async () => {
+	it("creates all 56 expected raid panels as explicit failures without previous data", async () => {
 		vi.spyOn(raid, "fetchRaidPerformance").mockRejectedValue(
 			new Error("Synthetic unexpected collector exception"),
 		);
@@ -46,12 +46,12 @@ describe("unexpected whole-spec collection failure (no live API calls)", () => {
 				Object.values(s.raidPerformance ?? {}).flatMap((m) => Object.values(m)),
 			),
 		);
-		expect(sections).toHaveLength(52);
+		expect(sections).toHaveLength(56);
 		expect(sections.every((s) => s.collection.state === "failed")).toBe(true);
 		expect(sections.every((s) => s.collection.lastSuccessAt === undefined)).toBe(true);
 		expect(countCollections(sections.map((s) => [s.collection]))).toMatchObject({
-			tracked: 52,
-			failed: 52,
+			tracked: 56,
+			failed: 56,
 			skipped: 0,
 		});
 		expect(

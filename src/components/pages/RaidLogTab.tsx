@@ -68,7 +68,11 @@ function SummaryTable({
 			<RoleHeading
 				role={role}
 				count={rows.length}
-				note={role === "healer" ? "치유량 기준" : `${RAID_METRIC_LABELS[damageMetric]} 기준`}
+				note={
+					role === "healer"
+						? "치유량 기준 · 전문화별 기록"
+						: `${RAID_METRIC_LABELS[damageMetric]} 기준 · 전문화별 기록`
+				}
 			/>
 			<div className="dash-table-scroll">
 				<table
@@ -598,9 +602,9 @@ export function RaidLogTab({
 				</section>
 			))}
 			<p className="dash-note">
-				요약 값은 WCL 백분위 평균, 종합 점수·순위는 선택한 패치의 All Stars 값입니다. 보스 표의
-				처치는 기록된 처치 횟수, 초당 피해량·치유량은 해당 보스의 최고 기록입니다.
-				미처치·미조회·조회 실패는 서로 다른 상태입니다.
+				요약 값은 WCL 백분위 평균으로, 각 행의 전문화로 기록한 처치만 집계합니다. 종합 점수·순위는
+				선택한 패치의 All Stars 값입니다. 보스 표의 처치는 기록된 처치 횟수, 초당 피해량·치유량은
+				해당 보스의 최고 기록입니다. 미처치·미조회·조회 실패는 서로 다른 상태입니다.
 			</p>
 		</section>
 	);

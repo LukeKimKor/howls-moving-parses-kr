@@ -1,4 +1,5 @@
 import { type ReactNode, useMemo, useState } from "react";
+import { specLabel } from "../../lib/ko.js";
 import { RAID_METRIC_LABELS } from "../../lib/raid-overview.js";
 import { selectedSummaryStar, summaryPatchOptions } from "../../lib/raid-summary.js";
 import { characterProfileUrl } from "../../lib/regions.js";
@@ -59,15 +60,25 @@ type StarLookup = (
 	  }
 	| undefined;
 
-function CharacterLinks({ character }: { character: CharacterData }) {
+/** WCL opens filtered to this row's spec (and the current raid), so its numbers match the row. */
+function CharacterLinks({
+	character,
+	specName,
+	zoneId,
+}: { character: CharacterData; specName: string; zoneId?: number }) {
 	const realm = character.realmSlug ?? character.realm;
+	const wcl = new URL(characterProfileUrl("wcl", character.region, realm, character.name));
+	wcl.searchParams.set("spec", specName);
+	if (zoneId) wcl.searchParams.set("zone", String(zoneId));
+	const spec = specLabel(specName, character.class);
 	return (
 		<span className="dash-inline-links">
 			<a
-				href={characterProfileUrl("wcl", character.region, realm, character.name)}
+				href={wcl.href}
 				target="_blank"
 				rel="noopener noreferrer"
-				aria-label={`WCL · ${character.name} WarcraftLogs`}
+				aria-label={`WCL · ${character.name} ${spec} 기록`}
+				title={`WarcraftLogs에서 ${spec} 기록만 보기`}
 			>
 				WCL
 			</a>
@@ -102,7 +113,9 @@ function RoleTable({
 	maxScore,
 	onOpenCharacter,
 	star,
+	zoneId,
 }: {
+	zoneId?: number;
 	star: StarLookup;
 	role: SpecRole;
 	rows: SpecRow[];
@@ -113,7 +126,10 @@ function RoleTable({
 	onOpenCharacter: (character: CharacterData) => void;
 }) {
 	const roleLabel = ROLE_LABELS[role];
-	const metricNote = role === "healer" ? "치유량 기준" : `${RAID_METRIC_LABELS[damageMetric]} 기준`;
+	const metricNote =
+		role === "healer"
+			? "치유량 기준 · 전문화별 기록"
+			: `${RAID_METRIC_LABELS[damageMetric]} 기준 · 전문화별 기록`;
 	const sortProps = { current: sortKey, onSort };
 	return (
 		<section className="dash-role-section" aria-label={`${roleLabel} 현황`}>
@@ -210,7 +226,13 @@ function RoleTable({
 										<CharacterCell
 											character={character}
 											onOpen={onOpenCharacter}
-											sub={<CharacterLinks character={character} />}
+											sub={
+												<CharacterLinks
+													character={character}
+													specName={row.specName}
+													zoneId={zoneId}
+												/>
+											}
 										/>
 									</th>
 									<td data-label="전문화">
@@ -437,17 +459,19 @@ export function RosterOverview({
 						maxScore={maxScore}
 						onOpenCharacter={onOpenCharacter}
 						star={star}
+						zoneId={snapshot.raid?.id}
 					/>
 				);
 			})}
 
 			<IlvlLegend />
 			<p className="dash-note">
-				레이드 값은 WCL 요약 백분위입니다. 최고는 보스별 최고 기록의 평균, 중앙은 보스별 중앙값의
-				평균이에요. 딜러는 선택한 피해 지표, 힐러는 치유량 기준입니다. 쐐기 점수와 템렙은 캐릭터
-				전체 값이라 같은 캐릭터의 전문화 행에는 같은 값이 표시됩니다. 열 제목을 누르면 정렬되고,
-				캐릭터 이름을 누르면 상세 화면으로 이동합니다. All Stars 점수·순위는 선택한 패치의 WCL
-				값입니다.
+				레이드 값은 WCL 요약 백분위이며, 각 행의 전문화로 기록한 처치만 집계합니다(WCL의 전체 전문화
+				화면과 다를 수 있어요. WCL 링크는 해당 전문화로 걸러서 열립니다). 최고는 보스별 최고 기록의
+				평균, 중앙은 보스별 중앙값의 평균이에요. 딜러는 선택한 피해 지표, 힐러는 치유량 기준입니다.
+				쐐기 점수와 템렙은 캐릭터 전체 값이라 같은 캐릭터의 전문화 행에는 같은 값이 표시됩니다. 열
+				제목을 누르면 정렬되고, 캐릭터 이름을 누르면 상세 화면으로 이동합니다. All Stars 점수·순위는
+				선택한 패치의 WCL 값입니다.
 			</p>
 		</section>
 	);

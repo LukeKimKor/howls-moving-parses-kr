@@ -244,7 +244,10 @@ describe("overview tab", () => {
 		});
 		const rows = document.querySelectorAll("[data-roster-character]");
 		expect(rows[0]?.getAttribute("data-roster-character")).toBe(data.characters[1]?.name);
-		fireEvent.click(screen.getByRole("button", { name: data.characters[0]?.name ?? "" }));
+		// 오렌지크림피자 tracks Arcane and Frost, so its name appears on two rows.
+		const nameButtons = screen.getAllByRole("button", { name: data.characters[0]?.name ?? "" });
+		expect(nameButtons).toHaveLength(2);
+		fireEvent.click(nameButtons[0] as HTMLElement);
 		expect(onOpen).toHaveBeenCalledWith(data.characters[0]);
 	});
 });
@@ -346,8 +349,12 @@ describe("roster helpers", () => {
 		const data = withData();
 		const rows = specRows(data.characters);
 		const sorted = sortRows(rows, "ilvl", "dps");
-		expect(sorted[0]?.character.name).toBe(data.characters[0]?.name);
-		expect(sorted[1]?.character.name).toBe(data.characters[1]?.name);
+		// Both of the first character's spec rows share its item level and stay together.
+		expect(sorted.slice(0, 2).map((r) => r.character.name)).toEqual([
+			data.characters[0]?.name,
+			data.characters[0]?.name,
+		]);
+		expect(sorted[2]?.character.name).toBe(data.characters[1]?.name);
 		const healer = rows.find((r) => r.character.class === "Evoker");
 		expect(healer?.role).toBe("healer");
 		expect(healer?.metric("bossdps")).toBe("hps");
