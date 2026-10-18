@@ -146,6 +146,10 @@ export interface RaidDifficultyData {
 			partition?: number | null;
 			points: number | null;
 			rank: number | null;
+			/** WCL rank percentile (0–100, higher is better). Absent in snapshots collected before 2026-10-19. */
+			rankPercent?: number | null;
+			/** Number of ranked characters for this spec/partition. */
+			total?: number | null;
 		}>;
 	};
 	rows: RaidPerformanceRow[];

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { raidPatchLabel, scopedAllStars, starPoints, starRank } from "../../lib/all-stars.js";
+import { raidPatchLabel, scopedAllStars } from "../../lib/all-stars.js";
 import { formatNumber } from "../../lib/format.js";
 import { bossGroup, difficultyLabel, gameName, rateLabel } from "../../lib/ko.js";
 import { RAID_METRIC_LABELS, raidEncounters, raidSection } from "../../lib/raid-overview.js";
@@ -24,7 +24,15 @@ import { AllStarsHelp } from "../primitives/AllStarsSummary.js";
 import { CollectionNotice } from "../primitives/CollectionNotice.js";
 import { RaidPercent } from "../primitives/RaidPercent.js";
 import { CLASS_COLORS } from "../primitives/SpecIcon.js";
-import { CharacterCell, PctValue, RoleHeading, Segment, SpecChip } from "./DashParts.js";
+import {
+	CharacterCell,
+	PctValue,
+	RoleHeading,
+	Segment,
+	SpecChip,
+	StarPointsValue,
+	StarRankValue,
+} from "./DashParts.js";
 import { DesktopRaidToc } from "./DesktopRaidToc.js";
 
 const DIFFICULTIES: RaidDifficulty[] = ["Heroic", "Mythic"];
@@ -148,14 +156,18 @@ function SummaryTable({
 											className={`dash-num ${diffClass(d)}`}
 											data-label={`${label} 종합 점수`}
 										>
-											<StarValue text={starPoints(star?.points)} />
+											<StarPointsValue value={star?.points} />
 										</td>,
 										<td
 											key={`${d}-rank`}
 											className={`dash-num ${diffClass(d)}`}
 											data-label={`${label} 순위`}
 										>
-											<StarValue text={starRank(star?.rank)} />
+											<StarRankValue
+												rank={star?.rank}
+												rankPercent={star?.rankPercent}
+												total={star?.total}
+											/>
 										</td>,
 									];
 								})}
@@ -166,10 +178,6 @@ function SummaryTable({
 			</div>
 		</section>
 	);
-}
-
-function StarValue({ text }: { text: string }) {
-	return text === "—" ? <span className="dash-empty">—</span> : <span>{text}</span>;
 }
 
 function PatchHistory({
@@ -224,10 +232,14 @@ function PatchHistory({
 										{raidPatchLabel(snapshot.raid?.id, star.partition, snapshot.raidPatchMetadata)}
 									</td>
 									<td className="dash-num" data-label="종합 점수">
-										<StarValue text={starPoints(star.points)} />
+										<StarPointsValue value={star.points} />
 									</td>
 									<td className="dash-num" data-label="순위">
-										<StarValue text={starRank(star.rank)} />
+										<StarRankValue
+											rank={star.rank}
+											rankPercent={star.rankPercent}
+											total={star.total}
+										/>
 									</td>
 								</tr>
 							))}

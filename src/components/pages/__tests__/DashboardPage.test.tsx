@@ -108,7 +108,14 @@ function withData(): Snapshot {
 	firstSpec.gear = { equippedIlvl: 701.4, items: [] };
 	const heroic = section(91.2, 80.5);
 	heroic.summary.allStars = [
-		{ spec: firstSpec.specName, partition: 2, points: 897.969, rank: 16 },
+		{
+			spec: firstSpec.specName,
+			partition: 2,
+			points: 897.969,
+			rank: 16,
+			rankPercent: 99.6,
+			total: 4000,
+		},
 		{ spec: firstSpec.specName, partition: 1, points: 1017.71, rank: 308 },
 	];
 	const bossHeroic = section(77.7, 60);
@@ -211,6 +218,23 @@ describe("overview tab", () => {
 		expect(cell("영웅 최고")).toHaveTextContent("77.7%");
 	});
 
+	it("colours ranks by WCL rank percentile, points in the points colour, item level by crest band", () => {
+		const data = withData();
+		render(<DashboardPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		const first = data.characters[0] as CharacterData;
+		const row = rowFor(`${first.name}/${first.mainSpecSlug}`);
+		const cell = (label: string) => row.querySelector(`[data-label="${label}"]`) as HTMLElement;
+		expect(within(cell("영웅 순위")).getByText("16위")).toHaveClass("wcl-pink");
+		expect(within(cell("영웅 점수")).getByText("897.97")).toHaveClass("wcl-points");
+		// 701.4 is above every Season 2 band → Myth graduation colour.
+		expect(within(cell("템렙")).getByText("701.4")).toHaveClass("wcl-orange");
+		const second = data.characters[1] as CharacterData;
+		const secondIlvl = rowFor(`${second.name}/${second.mainSpecSlug}`).querySelector(
+			'[data-label="템렙"]',
+		) as HTMLElement;
+		expect(secondIlvl.querySelector(".dash-ilvl")).toHaveAttribute("title", "신화 문장 졸업");
+	});
+
 	it("sorts by score and opens the character detail from the name", () => {
 		const data = withData();
 		const onOpen = vi.fn();
@@ -293,6 +317,16 @@ describe("raid and Mythic+ tabs", () => {
 });
 
 describe("roster helpers", () => {
+	it("maps item levels to Season 2 crest graduation bands", async () => {
+		const { ilvlTier } = await import("../../../lib/roster.js");
+		expect(ilvlTier(331).label).toBe("신화 문장 졸업");
+		expect(ilvlTier(330.9).label).toBe("영웅 문장 졸업");
+		expect(ilvlTier(321).band).toBe("purple");
+		expect(ilvlTier(308).band).toBe("blue");
+		expect(ilvlTier(292).band).toBe("green");
+		expect(ilvlTier(280).band).toBe("grey");
+	});
+
 	it("maps URL hashes to tabs, keeping raid anchors on the raid tab", () => {
 		expect(tabFromHash("#mplus")).toBe("mplus");
 		expect(tabFromHash("#raid-character-3")).toBe("raid");

@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { formatClearTime } from "../../lib/format.js";
-import { tierLabelKo } from "../../lib/ko.js";
 import { characterProfileUrl } from "../../lib/regions.js";
 import {
 	bestRunByDungeon,
@@ -12,7 +11,7 @@ import {
 } from "../../lib/roster.js";
 import type { CharacterData, MythicPlusRun, Snapshot } from "../../types/snapshot.js";
 import { MissingValue } from "../primitives/MissingValue.js";
-import { CharacterCell } from "./DashParts.js";
+import { CharacterCell, IlvlValue } from "./DashParts.js";
 
 function RunCell({ run }: { run: MythicPlusRun | undefined }) {
 	if (!run) return <span className="dash-run dash-run-none">—</span>;
@@ -97,7 +96,7 @@ export function MythicPlusOverview({
 							<th scope="col" className="dash-num">
 								순위 (서버 / 한국)
 							</th>
-							<th scope="col" className="dash-num">
+							<th scope="col" className="dash-center">
 								템렙
 							</th>
 							{dungeons.map((d) => (
@@ -140,7 +139,6 @@ export function MythicPlusOverview({
 												<strong style={{ color: readableOnDark(mplus.scoreColor) }}>
 													{Math.round(mplus.score).toLocaleString("ko-KR")}
 												</strong>
-												{mplus.scoreTierLabel && <small>{tierLabelKo(mplus.scoreTierLabel)}</small>}
 											</div>
 										) : (
 											<MissingValue label="쐐기 점수 미확인" />
@@ -156,8 +154,8 @@ export function MythicPlusOverview({
 											<MissingValue />
 										)}
 									</td>
-									<td className="dash-num dash-mplus-ilvl" data-label="템렙">
-										{ilvl === null ? <MissingValue /> : ilvl.toFixed(1)}
+									<td className="dash-center dash-mplus-ilvl" data-label="템렙">
+										<IlvlValue value={ilvl} />
 									</td>
 									{dungeons.map((d) => (
 										<td key={d.key} className="dash-col-dungeon" data-label={d.shortName || d.name}>

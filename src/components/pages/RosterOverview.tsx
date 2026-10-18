@@ -1,5 +1,4 @@
 import { type ReactNode, useMemo, useState } from "react";
-import { starPoints, starRank } from "../../lib/all-stars.js";
 import { RAID_METRIC_LABELS } from "../../lib/raid-overview.js";
 import { selectedSummaryStar, summaryPatchOptions } from "../../lib/raid-summary.js";
 import { characterProfileUrl } from "../../lib/regions.js";
@@ -24,11 +23,15 @@ import { RaidPercent } from "../primitives/RaidPercent.js";
 import { CLASS_COLORS } from "../primitives/SpecIcon.js";
 import {
 	CharacterCell,
+	IlvlLegend,
+	IlvlValue,
 	PctValue,
 	RoleHeading,
 	Segment,
 	SortHeader,
 	SpecChip,
+	StarPointsValue,
+	StarRankValue,
 } from "./DashParts.js";
 
 const SORT_LABELS: Record<RowSortKey, string> = {
@@ -46,11 +49,14 @@ const SORT_LABELS: Record<RowSortKey, string> = {
 type StarLookup = (
 	row: SpecRow,
 	difficulty: RaidDifficulty,
-) => { points: number | null; rank: number | null } | undefined;
-
-function StarCell({ text }: { text: string }) {
-	return text === "—" ? <span className="dash-empty">—</span> : <span>{text}</span>;
-}
+) =>
+	| {
+			points: number | null;
+			rank: number | null;
+			rankPercent?: number | null;
+			total?: number | null;
+	  }
+	| undefined;
 
 function CharacterLinks({ character }: { character: CharacterData }) {
 	const realm = character.realmSlug ?? character.realm;
@@ -135,7 +141,7 @@ function RoleTable({
 							<th scope="col" rowSpan={2}>
 								전문화
 							</th>
-							<SortHeader sortKey="ilvl" rowSpan={2} className="dash-num" {...sortProps}>
+							<SortHeader sortKey="ilvl" rowSpan={2} className="dash-center" {...sortProps}>
 								템렙
 							</SortHeader>
 							<SortHeader sortKey="score" rowSpan={2} {...sortProps}>
@@ -204,8 +210,8 @@ function RoleTable({
 									<td data-label="전문화">
 										<SpecChip character={character} specName={row.specName} />
 									</td>
-									<td className="dash-num" data-label="템렙">
-										{ilvl === null ? <MissingValue label="아이템 레벨 미확인" /> : ilvl.toFixed(1)}
+									<td className="dash-center" data-label="템렙">
+										<IlvlValue value={ilvl} />
 									</td>
 									<td data-label="쐐기 점수">
 										{mplus ? (
@@ -233,10 +239,14 @@ function RoleTable({
 										<PctValue value={heroic.median} state={heroic.state} />
 									</td>
 									<td className="dash-num dash-heroic" data-label="영웅 점수">
-										<StarCell text={starPoints(heroicStar?.points)} />
+										<StarPointsValue value={heroicStar?.points} />
 									</td>
 									<td className="dash-num dash-heroic" data-label="영웅 순위">
-										<StarCell text={starRank(heroicStar?.rank)} />
+										<StarRankValue
+											rank={heroicStar?.rank}
+											rankPercent={heroicStar?.rankPercent}
+											total={heroicStar?.total}
+										/>
 									</td>
 									<td className="dash-num dash-mythic dash-group-start" data-label="신화 최고">
 										<PctValue value={mythic.best} state={mythic.state} emphasis />
@@ -245,10 +255,14 @@ function RoleTable({
 										<PctValue value={mythic.median} state={mythic.state} />
 									</td>
 									<td className="dash-num dash-mythic" data-label="신화 점수">
-										<StarCell text={starPoints(mythicStar?.points)} />
+										<StarPointsValue value={mythicStar?.points} />
 									</td>
 									<td className="dash-num dash-mythic" data-label="신화 순위">
-										<StarCell text={starRank(mythicStar?.rank)} />
+										<StarRankValue
+											rank={mythicStar?.rank}
+											rankPercent={mythicStar?.rankPercent}
+											total={mythicStar?.total}
+										/>
 									</td>
 								</tr>
 							);
@@ -421,6 +435,7 @@ export function RosterOverview({
 				);
 			})}
 
+			<IlvlLegend />
 			<p className="dash-note">
 				레이드 값은 WCL 요약 백분위입니다. 최고는 보스별 최고 기록의 평균, 중앙은 보스별 중앙값의
 				평균이에요. 딜러는 선택한 피해 지표, 힐러는 치유량 기준입니다. 쐐기 점수와 템렙은 캐릭터

@@ -238,3 +238,17 @@ export function readableOnDark(hex: string | undefined, mix = 0.35): string | un
 	};
 	return `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`;
 }
+
+// ── Item level bands (Midnight Season 2, Mistcrest upgrade tracks) ──
+// 331 and 321 are the owner's graduation targets for Myth and Hero Mistcrests; 308 is Champion 6/6.
+// Update these per season (see docs/admin-guidelines.md).
+export const ILVL_TIERS: Array<{ min: number; label: string; band: string }> = [
+	{ min: 331, label: "신화 문장 졸업", band: "orange" },
+	{ min: 321, label: "영웅 문장 졸업", band: "purple" },
+	{ min: 308, label: "챔피언 문장 졸업", band: "blue" },
+	{ min: 292, label: "챔피언 트랙", band: "green" },
+];
+
+export function ilvlTier(ilvl: number): { label: string; band: string } {
+	return ILVL_TIERS.find((tier) => ilvl >= tier.min) ?? { label: "챔피언 트랙 미만", band: "grey" };
+}

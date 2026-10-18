@@ -58,6 +58,25 @@ async function previousRaidPerformance() {
 }
 
 describe("raid metrics and difficulty collection", () => {
+	it("keeps WCL's All Stars rank percentile and total for rank colouring", () => {
+		const mapped = mapRaidDifficulty(
+			{
+				...raw,
+				allStars: [
+					{ spec: "Arcane", points: 101.25, rank: "12", rankPercent: "99.53", total: 4210 },
+				],
+			},
+			"dps",
+			"Heroic",
+			encounters,
+			status,
+		);
+		expect(mapped.summary.allStars[0]).toMatchObject({ rank: 12, rankPercent: 99.53, total: 4210 });
+		// Older payloads without the fields stay valid and simply carry no colour data.
+		const legacy = mapRaidDifficulty(raw, "dps", "Heroic", encounters, status);
+		expect(legacy.summary.allStars[0]?.rankPercent).toBeNull();
+	});
+
 	it("keeps completed Damage when later Boss Damage is deferred, then reuses fresh selections", async () => {
 		let calls = 0;
 		const query: RaidQuery = async () => {

@@ -1119,3 +1119,39 @@
 	align-items: center;
 	min-height: 24px;
 }
+
+/* WCL colours: All Stars points use WCL's fixed points colour; ranks and item level use percentile bands. */
+.dash .wcl-points {
+	color: #d1fa99;
+}
+.dash .dash-rank-plain {
+	color: var(--dash-text);
+}
+.dash .dash-table .dash-center {
+	text-align: center;
+	white-space: nowrap;
+}
+.dash .dash-ilvl {
+	font-weight: 600;
+	font-size: 14px;
+}
+.dash-legend {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px 14px;
+	margin: 10px 2px 0;
+	font-size: 12px;
+	color: var(--dash-muted);
+}
+.dash-legend .raid-percent {
+	font-weight: 600;
+	font-size: 12px;
+}
+.dash .dash-char-sub a {
+	color: var(--dash-muted);
+	text-decoration: none;
+}
+.dash .dash-char-sub a:hover {
+	color: var(--dash-accent);
+}

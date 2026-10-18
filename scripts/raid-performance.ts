@@ -26,6 +26,8 @@ export interface RaidZoneRaw {
 		partition?: number;
 		points: number | null;
 		rank: number | string | null;
+		rankPercent?: number | string | null;
+		total?: number | string | null;
 	}>;
 	rankings?: Array<{
 		encounter: { id: number; name: string };
@@ -90,6 +92,9 @@ export function mapRaidDifficulty(
 				partition: number(a.partition),
 				points: number(a.points),
 				rank: number(a.rank),
+				// WCL's own top-percent for this rank; it drives the rank colour like parse percentiles.
+				rankPercent: number(a.rankPercent),
+				total: number(a.total),
 			})),
 		},
 	};
