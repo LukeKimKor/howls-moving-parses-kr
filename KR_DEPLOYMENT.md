@@ -1,5 +1,7 @@
 # KR Azshara dashboard
 
+관리 기준과 결정 사항은 [docs/admin-guidelines.md](docs/admin-guidelines.md)를 먼저 확인한다. 첫 화면은 종합 현황 / 레이드 로그 / 쐐기 탭 구조다.
+
 This adaptation uses GitHub Actions → static Vite build → official Pages artifact deployment. It tracks the 13 KR Azshara characters in `characters.config.json`.
 
 ## Verified public data and limits

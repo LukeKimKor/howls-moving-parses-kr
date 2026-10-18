@@ -1,0 +1,718 @@
+/*
+ * Tabbed dashboard shell (종합 현황 / 레이드 로그 / 쐐기).
+ * Dark dashboard palette shared with the raid analysis view. Class colours carry character identity;
+ * WCL percentile colours and Raider.IO score colours carry performance.
+ */
+
+.dash {
+	--dash-bg: #0b0f16;
+	--dash-panel: #111824;
+	--dash-panel-2: #151e2c;
+	--dash-row-hover: #182335;
+	--dash-border: #222e40;
+	--dash-border-strong: #2f3e55;
+	--dash-text: #dde6f3;
+	--dash-muted: #8e9bb0;
+	--dash-accent: #a7c7f2;
+	--dash-heroic: #b98cff;
+	--dash-mythic: #ff9d4d;
+	--dash-good: #53d18b;
+	background: var(--dash-bg);
+	color: var(--dash-text);
+	min-height: 100vh;
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+
+.dash-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-end;
+	gap: 16px;
+	flex-wrap: wrap;
+	padding-bottom: 18px;
+	border-bottom: 1px solid var(--dash-border);
+}
+.dash .dash-header h1 {
+	margin: 2px 0 4px;
+}
+.dash-subtitle {
+	margin: 0;
+	color: var(--dash-muted);
+	font-size: 14px;
+}
+.dash-status {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 2px;
+	font-size: 14px;
+}
+.dash-status-row {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+.dash-status-row strong {
+	color: var(--dash-text);
+	font-weight: 650;
+}
+.dash-muted {
+	color: var(--dash-muted);
+}
+.dash-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--dash-good);
+	box-shadow: 0 0 0 3px rgb(83 209 139 / 0.18);
+}
+.dash-status-details {
+	margin: 4px 0 0;
+	text-align: right;
+}
+.dash-status-details summary {
+	color: var(--dash-accent);
+	font-size: 13px;
+	cursor: pointer;
+	list-style: none;
+}
+.dash-status-details summary::-webkit-details-marker {
+	display: none;
+}
+.dash-status-details summary::after {
+	display: none !important;
+}
+.dash-status-details .raid-refresh-info {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	margin-top: 6px;
+	color: var(--dash-muted);
+	font-size: 13px;
+	line-height: 1.7;
+}
+.dash-warnings {
+	margin: 12px 0 0;
+	font-size: 14px;
+}
+.dash-warnings summary {
+	color: #e3c27a;
+	cursor: pointer;
+}
+
+/* ── Tabs ───────────────────────────────────────────────────── */
+
+.dash-tabs {
+	position: sticky;
+	top: 0;
+	z-index: 30;
+	margin: 0 -24px;
+	padding: 12px 24px 0;
+	background: linear-gradient(var(--dash-bg) 85%, rgb(11 15 22 / 0));
+}
+.dash-tabs [role="tablist"] {
+	display: flex;
+	gap: 4px;
+	border-bottom: 1px solid var(--dash-border);
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+.dash .dash-tabs button[role="tab"] {
+	all: unset;
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	padding: 10px 18px 11px;
+	border-bottom: 2px solid transparent;
+	margin-bottom: -1px;
+	color: var(--dash-muted);
+	cursor: pointer;
+	white-space: nowrap;
+	transition: color 0.12s, border-color 0.12s;
+}
+.dash .dash-tabs button[role="tab"]:hover {
+	color: var(--dash-text);
+}
+.dash .dash-tabs button[role="tab"][aria-selected="true"] {
+	color: #fff;
+	border-bottom-color: var(--dash-accent);
+}
+.dash .dash-tabs button[role="tab"]:focus-visible {
+	outline: 2px solid var(--dash-accent);
+	outline-offset: -2px;
+	border-radius: 4px;
+}
+.dash-tab-label {
+	font-size: 16px;
+	font-weight: 650;
+}
+.dash-tab-hint {
+	font-size: 12px;
+	color: var(--dash-muted);
+}
+.dash-panel {
+	padding-top: 18px;
+}
+
+/* ── KPI strip ──────────────────────────────────────────────── */
+
+.dash-kpis {
+	display: grid;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+	gap: 10px;
+	margin-bottom: 22px;
+}
+.dash-kpi {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 14px 16px;
+	border: 1px solid var(--dash-border);
+	border-radius: 10px;
+	background: var(--dash-panel);
+	min-width: 0;
+}
+.dash-kpi-label {
+	font-size: 13px;
+	color: var(--dash-muted);
+}
+.dash-kpi-value {
+	font-size: 26px;
+	font-weight: 700;
+	letter-spacing: -0.5px;
+	color: #f3f6fb;
+	font-variant-numeric: tabular-nums;
+	line-height: 1.3;
+}
+.dash-kpi-value .raid-percent {
+	font-size: inherit;
+}
+.dash-kpi-sub {
+	font-size: 13px;
+	color: var(--dash-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* ── Toolbar ────────────────────────────────────────────────── */
+
+.dash-toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	flex-wrap: wrap;
+	margin-bottom: 12px;
+}
+.dash .dash-toolbar h2 {
+	margin: 0;
+	font-size: 20px;
+}
+.dash-toolbar-controls {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+}
+.dash .dash-segment {
+	display: inline-flex;
+	width: auto;
+	margin: 0;
+	padding: 3px;
+	border: 1px solid var(--dash-border-strong);
+	border-radius: 8px;
+	background: var(--dash-panel);
+}
+.dash .dash-segment button {
+	all: unset;
+	padding: 5px 12px;
+	border-radius: 6px;
+	font-size: 14px;
+	color: var(--dash-muted);
+	cursor: pointer;
+}
+.dash .dash-segment button[aria-pressed="true"] {
+	background: #263650;
+	color: #fff;
+	font-weight: 600;
+}
+.dash .dash-segment button:focus-visible {
+	outline: 2px solid var(--dash-accent);
+}
+.dash .dash-sort-select {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+	font-size: 14px;
+	color: var(--dash-muted);
+}
+.dash .dash-sort-select select {
+	margin: 0;
+	padding: 5px 32px 5px 10px;
+	height: auto;
+	font-size: 14px;
+	background-color: var(--dash-panel);
+	border-color: var(--dash-border-strong);
+	color: var(--dash-text);
+	width: auto;
+}
+.dash-chip {
+	padding: 5px 10px;
+	border: 1px solid var(--dash-border-strong);
+	border-radius: 999px;
+	font-size: 13px;
+	color: var(--dash-muted);
+}
+.dash-chip strong {
+	color: var(--dash-mythic);
+	margin-left: 4px;
+}
+
+/* ── Tables ─────────────────────────────────────────────────── */
+
+.dash-table-scroll {
+	overflow-x: auto;
+	border: 1px solid var(--dash-border);
+	border-radius: 10px;
+	background: var(--dash-panel);
+}
+.dash .dash-table {
+	width: 100%;
+	margin: 0;
+	border-collapse: separate;
+	border-spacing: 0;
+	font-size: 15px;
+	font-variant-numeric: tabular-nums;
+	--pico-background-color: transparent;
+}
+.dash .dash-table th,
+.dash .dash-table td {
+	padding: 10px 14px;
+	border-bottom: 1px solid var(--dash-border);
+	background: transparent;
+	color: var(--dash-text);
+	vertical-align: middle;
+	text-align: left;
+}
+.dash .dash-table thead th {
+	position: sticky;
+	top: 0;
+	padding-top: 9px;
+	padding-bottom: 9px;
+	background: var(--dash-panel-2);
+	color: var(--dash-muted);
+	font-size: 13px;
+	font-weight: 600;
+	white-space: nowrap;
+	border-bottom-color: var(--dash-border-strong);
+}
+.dash .dash-table tbody tr:last-child > * {
+	border-bottom: 0;
+}
+.dash .dash-table tbody tr:hover > * {
+	background: var(--dash-row-hover);
+}
+.dash .dash-table .dash-num {
+	text-align: right;
+	white-space: nowrap;
+}
+.dash .dash-table thead th.dash-heroic {
+	color: var(--dash-heroic);
+}
+.dash .dash-table thead th.dash-mythic {
+	color: var(--dash-mythic);
+}
+.dash .dash-sort {
+	all: unset;
+	cursor: pointer;
+	color: inherit;
+}
+.dash .dash-sort:hover,
+.dash .dash-sort[aria-pressed="true"] {
+	color: #fff;
+}
+.dash .dash-sort:focus-visible {
+	outline: 2px solid var(--dash-accent);
+	border-radius: 3px;
+}
+
+/* Character column */
+.dash .dash-table .dash-col-char {
+	position: sticky;
+	left: 0;
+	z-index: 1;
+	min-width: 210px;
+	background: var(--dash-panel);
+}
+.dash .dash-table thead .dash-col-char {
+	z-index: 2;
+	background: var(--dash-panel-2);
+}
+.dash .dash-table tbody th.dash-col-char {
+	font-weight: 400;
+}
+.dash-char-cell {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	font-weight: 400;
+}
+.dash-class-bar {
+	flex: none;
+	width: 3px;
+	align-self: stretch;
+	min-height: 34px;
+	border-radius: 2px;
+}
+.dash-char-text {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+.dash .dash-char-name {
+	all: unset;
+	cursor: pointer;
+	font-size: 16px;
+	font-weight: 650;
+	line-height: 1.35;
+}
+.dash .dash-char-name:hover {
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+.dash .dash-char-name:focus-visible {
+	outline: 2px solid var(--dash-accent);
+	border-radius: 3px;
+}
+.dash-char-specs {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px 10px;
+	font-size: 12px;
+	color: var(--dash-muted);
+}
+.dash-spec-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+.dash-spec-chip .spec-icon-slot,
+.dash-spec-chip .spec-icon-slot img {
+	width: 16px;
+	height: 16px;
+}
+.dash-spec-chip .spec-icon-fallback {
+	font-size: 10px;
+}
+.dash-class-label {
+	opacity: 0.75;
+}
+.dash .dash-char-sub {
+	font-size: 12px;
+	color: var(--dash-muted);
+	text-decoration: none;
+}
+.dash .dash-char-sub:hover {
+	color: var(--dash-accent);
+}
+
+/* Score */
+.dash .dash-table .dash-col-score {
+	min-width: 140px;
+}
+.dash-score {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	align-items: center;
+	column-gap: 10px;
+}
+.dash-score strong {
+	font-size: 17px;
+	font-weight: 700;
+}
+.dash-score small {
+	grid-column: 1 / -1;
+	font-size: 12px;
+	color: var(--dash-muted);
+}
+.dash-meter {
+	height: 4px;
+	min-width: 48px;
+	border-radius: 2px;
+	background: #1d283a;
+	overflow: hidden;
+}
+.dash-meter span {
+	display: block;
+	height: 100%;
+	border-radius: 2px;
+	opacity: 0.85;
+}
+
+/* Raid cells */
+.dash .dash-table .dash-col-raid {
+	white-space: nowrap;
+	min-width: 150px;
+}
+.dash .dash-table td.dash-heroic {
+	border-left: 1px solid rgb(185 140 255 / 0.14);
+}
+.dash .dash-table td.dash-mythic {
+	border-left: 1px solid rgb(255 157 77 / 0.14);
+}
+.dash-spec-line + .dash-spec-line {
+	margin-top: 4px;
+}
+.dash-pct-pair {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 6px;
+}
+.dash-pct-pair .raid-percent:first-child {
+	font-weight: 700;
+	font-size: 16px;
+}
+.dash-pct-pair .raid-percent:last-child {
+	font-size: 14px;
+	opacity: 0.85;
+}
+.dash-sep {
+	color: #4a5873;
+}
+
+/* Links column */
+.dash .dash-table .dash-col-links {
+	white-space: nowrap;
+	text-align: right;
+	width: 1%;
+}
+.dash .dash-col-links a {
+	display: inline-block;
+	margin-left: 6px;
+	padding: 3px 8px;
+	border: 1px solid var(--dash-border-strong);
+	border-radius: 6px;
+	font-size: 12px;
+	color: var(--dash-muted);
+	text-decoration: none;
+}
+.dash .dash-col-links a:hover {
+	color: #fff;
+	border-color: var(--dash-accent);
+}
+
+/* Mythic+ matrix */
+.dash .dash-mplus-table .dash-col-dungeon {
+	text-align: center;
+	min-width: 76px;
+	padding-left: 6px;
+	padding-right: 6px;
+}
+.dash-rank small {
+	color: var(--dash-muted);
+}
+.dash .dash-run {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: center;
+	min-width: 60px;
+	padding: 4px 6px;
+	border-radius: 6px;
+	text-decoration: none;
+	line-height: 1.25;
+}
+.dash .dash-run strong {
+	font-size: 16px;
+	font-weight: 700;
+}
+.dash .dash-run small {
+	font-size: 11px;
+}
+.dash .dash-run-timed {
+	background: rgb(83 209 139 / 0.12);
+	color: #e8fff2;
+}
+.dash .dash-run-timed small {
+	color: var(--dash-good);
+}
+.dash .dash-run-depleted {
+	background: rgb(142 155 176 / 0.08);
+	color: var(--dash-muted);
+}
+.dash .dash-run-none {
+	color: #3f4b60;
+}
+.dash a.dash-run:hover {
+	outline: 1px solid var(--dash-border-strong);
+}
+
+.dash-note {
+	margin: 12px 2px 0;
+	color: var(--dash-muted);
+	font-size: 13px;
+	line-height: 1.7;
+}
+
+/* The raid tab keeps its own layout; its header now lives in the shell. */
+.raid-embedded > .raid-character-nav {
+	padding-top: 0;
+}
+
+/* ── Desktop: the shell no longer reserves TOC space; only the raid tab does. ── */
+@media (min-width: 1440px) {
+	.raid-overview.dash {
+		padding-right: 24px;
+	}
+	/* Raid tab: the whole page (header included) leaves room for the fixed TOC. */
+	.raid-overview.dash[data-tab="raid"] {
+		padding-right: 252px;
+	}
+}
+
+/* ── Tablet / mobile ────────────────────────────────────────── */
+@media (max-width: 1100px) {
+	.dash-kpis {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+}
+@media (max-width: 767px) {
+	.dash-header {
+		align-items: flex-start;
+	}
+	.dash-status {
+		align-items: flex-start;
+	}
+	.dash-status-details,
+	.dash-status-details .raid-refresh-info {
+		text-align: left;
+		align-items: flex-start;
+	}
+	.dash-tabs {
+		margin: 0;
+		padding: 8px 0 0;
+	}
+	.dash .dash-tabs button[role="tab"] {
+		flex: 1;
+		align-items: center;
+		padding: 10px 8px;
+	}
+	.dash-tab-hint {
+		display: none;
+	}
+	.dash-kpis {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 8px;
+	}
+	.dash-kpi {
+		padding: 10px 12px;
+	}
+	.dash-kpi-value {
+		font-size: 21px;
+	}
+	/* Mobile: each character becomes a card with labelled values. */
+	.dash-table-scroll {
+		overflow: visible;
+		border: 0;
+		background: transparent;
+	}
+	.dash .dash-table {
+		display: block;
+		font-size: 14px;
+	}
+	.dash .dash-table tbody {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+	.dash .dash-table tbody tr {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0;
+		padding: 0;
+		border: 1px solid var(--dash-border);
+		border-radius: 10px;
+		background: var(--dash-panel);
+		overflow: hidden;
+	}
+	.dash .dash-mplus-table tbody tr {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+	.dash .dash-table tbody tr > * {
+		border-bottom: 0;
+		background: transparent;
+	}
+	.dash .dash-table tbody th.dash-col-char {
+		position: static;
+		grid-column: 1 / -1;
+		min-width: 0;
+		max-width: none;
+		padding: 12px 14px 8px;
+		border-bottom: 1px solid var(--dash-border);
+	}
+	.dash .dash-table tbody td {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		justify-content: flex-start;
+		gap: 2px;
+		padding: 8px 14px 10px;
+		text-align: left;
+		border-left: 0;
+		min-width: 0;
+	}
+	.dash .dash-table tbody td[data-label]::before {
+		content: attr(data-label);
+		font-size: 11px;
+		font-weight: 500;
+		letter-spacing: 0;
+		text-transform: none;
+		color: var(--dash-muted);
+		opacity: 1;
+		max-width: none;
+		padding: 0;
+	}
+	.dash .dash-table td.dash-heroic::before {
+		color: var(--dash-heroic) !important;
+	}
+	.dash .dash-table td.dash-mythic::before {
+		color: var(--dash-mythic) !important;
+	}
+	.dash .dash-mplus-table tbody td.dash-col-score,
+	.dash .dash-mplus-table tbody td.dash-mplus-rank {
+		grid-column: span 2;
+	}
+	.dash .dash-mplus-table tbody td.dash-mplus-ilvl {
+		display: none;
+	}
+	.dash .dash-mplus-table tbody td.dash-col-dungeon {
+		align-items: center;
+		padding: 6px 4px 10px;
+		min-width: 0;
+	}
+	.dash .dash-run {
+		min-width: 0;
+		width: 100%;
+	}
+	.dash-score {
+		width: 100%;
+	}
+	.dash .dash-table .dash-col-links {
+		display: none;
+	}
+}
+
+.dash-empty {
+	color: #56637a;
+	font-size: 13px;
+}
+
+/* Character detail view shares the dashboard background. */
+:root[data-theme="dark"] {
+	--pico-background-color: #0b0f16;
+}

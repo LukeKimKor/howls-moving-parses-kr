@@ -5,6 +5,7 @@ import "./styles.css";
 import "./raid-analysis.css";
 import "./pretendard-subsets.css";
 import "./typography.css";
+import "./dashboard.css";
 import App from "./App.js";
 
 const root = document.getElementById("root");

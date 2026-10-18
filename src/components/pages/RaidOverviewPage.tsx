@@ -222,10 +222,13 @@ export function RaidOverviewPage({
 	snapshot,
 	onOpenCharacter,
 	initialCharacterName,
+	embedded = false,
 }: {
 	snapshot: Snapshot;
 	onOpenCharacter: (character: CharacterData) => void;
 	initialCharacterName?: string;
+	/** Inside the tabbed dashboard: the shell owns the header, notices and footer. */
+	embedded?: boolean;
 }) {
 	const encounters = raidEncounters(snapshot);
 	const [mobile, setMobile] = useState(() => window.matchMedia("(max-width: 767px)").matches);
@@ -254,69 +257,8 @@ export function RaidOverviewPage({
 		navigator.serviceWorker.addEventListener("message", handler);
 		return () => navigator.serviceWorker.removeEventListener("message", handler);
 	}, []);
-	return (
-		<main className="raid-overview" data-theme="dark">
-			{!mobile && <DesktopRaidToc characters={snapshot.characters} />}
-			<header className="raid-overview-header">
-				<div>
-					<p className="raid-eyebrow">내캐릭 로그관리 · 한국 아즈샤라</p>
-					<h1>와우 대시보드</h1>
-					<p>
-						{raidGroups(encounters.map((e) => e.name)).length > 1
-							? "시즌 통합 공격대"
-							: gameName(snapshot.raid?.name ?? "기존 레이드 로그")}{" "}
-						· {snapshot.characters.length}개 캐릭터 · 영웅 &amp; 신화
-					</p>
-					{raidGroups(encounters.map((e) => e.name)).length > 1 && (
-						<p className="raid-scope-note">
-							{raidGroups(encounters.map((e) => e.name)).join(" · ")}
-						</p>
-					)}
-				</div>
-				<details className="raid-refresh-details" open={!mobile}>
-					<summary>수집 시각 · 갱신 일정</summary>
-					<div className="raid-refresh-info">
-						<small>
-							레이드 최근 수집 성공 {lastSuccess ? `${kstTime(lastSuccess)} KST` : "미확인"}
-						</small>
-						<small>최근 실행 {kstTime(snapshot.generatedAt)} KST</small>
-						<small>
-							{snapshot.refreshSchedule?.enabled
-								? `자동 갱신 하루 ${snapshot.refreshSchedule.utcHours.length}회 · ${snapshot.refreshSchedule.utcHours.map((h) => `${String((h + 9) % 24).padStart(2, "0")}:00`).join(" / ")} KST`
-								: "자동 갱신 일정 확인 대기"}
-						</small>
-						<small>
-							다음 실행 예정 {nextRun ? `${kstTime(nextRun)} KST` : "미확인"} · 완료 시각은 수집
-							상황에 따라 달라집니다.
-						</small>
-						{snapshot.refreshRuntime?.nextEligibleAt && (
-							<small>WCL 재시도 가능 {kstTime(snapshot.refreshRuntime.nextEligibleAt)} KST</small>
-						)}
-						<small>레이드 캐시 4시간 · 상세 12시간 · 메타/영역 정보 24시간</small>
-					</div>
-				</details>
-			</header>
-			<NewBuildBanner
-				visible={newBuild}
-				onRefresh={() => window.location.reload()}
-				onDismiss={() => setNewBuild(false)}
-			/>
-			{mobile && !!snapshot.warnings?.length ? (
-				<details className="mobile-data-notices">
-					<summary>수집 알림 {snapshot.warnings.length}개</summary>
-					{snapshot.warnings.map((warning) => (
-						<output className="data-notice" key={warning}>
-							{warning}
-						</output>
-					))}
-				</details>
-			) : (
-				snapshot.warnings?.map((warning) => (
-					<output className="data-notice" key={warning}>
-						{warning}
-					</output>
-				))
-			)}
+	const body = (
+		<>
 			{!snapshot.raidMetricSchema?.supported.includes("bossdps") && (
 				<p className="raid-schema-notice">
 					우두머리 피해 지표의 공식 지원 확인 대기 · 새 수집은 미조회로 표시하며, 이전 데이터가
@@ -435,6 +377,79 @@ export function RaidOverviewPage({
 					))}
 				</>
 			)}
+		</>
+	);
+	if (embedded)
+		return (
+			<div className="raid-embedded">
+				{!mobile && <DesktopRaidToc characters={snapshot.characters} />}
+				{body}
+			</div>
+		);
+	return (
+		<main className="raid-overview" data-theme="dark">
+			{!mobile && <DesktopRaidToc characters={snapshot.characters} />}
+			<header className="raid-overview-header">
+				<div>
+					<p className="raid-eyebrow">내캐릭 로그관리 · 한국 아즈샤라</p>
+					<h1>와우 대시보드</h1>
+					<p>
+						{raidGroups(encounters.map((e) => e.name)).length > 1
+							? "시즌 통합 공격대"
+							: gameName(snapshot.raid?.name ?? "기존 레이드 로그")}{" "}
+						· {snapshot.characters.length}개 캐릭터 · 영웅 &amp; 신화
+					</p>
+					{raidGroups(encounters.map((e) => e.name)).length > 1 && (
+						<p className="raid-scope-note">
+							{raidGroups(encounters.map((e) => e.name)).join(" · ")}
+						</p>
+					)}
+				</div>
+				<details className="raid-refresh-details" open={!mobile}>
+					<summary>수집 시각 · 갱신 일정</summary>
+					<div className="raid-refresh-info">
+						<small>
+							레이드 최근 수집 성공 {lastSuccess ? `${kstTime(lastSuccess)} KST` : "미확인"}
+						</small>
+						<small>최근 실행 {kstTime(snapshot.generatedAt)} KST</small>
+						<small>
+							{snapshot.refreshSchedule?.enabled
+								? `자동 갱신 하루 ${snapshot.refreshSchedule.utcHours.length}회 · ${snapshot.refreshSchedule.utcHours.map((h) => `${String((h + 9) % 24).padStart(2, "0")}:00`).join(" / ")} KST`
+								: "자동 갱신 일정 확인 대기"}
+						</small>
+						<small>
+							다음 실행 예정 {nextRun ? `${kstTime(nextRun)} KST` : "미확인"} · 완료 시각은 수집
+							상황에 따라 달라집니다.
+						</small>
+						{snapshot.refreshRuntime?.nextEligibleAt && (
+							<small>WCL 재시도 가능 {kstTime(snapshot.refreshRuntime.nextEligibleAt)} KST</small>
+						)}
+						<small>레이드 캐시 4시간 · 상세 12시간 · 메타/영역 정보 24시간</small>
+					</div>
+				</details>
+			</header>
+			<NewBuildBanner
+				visible={newBuild}
+				onRefresh={() => window.location.reload()}
+				onDismiss={() => setNewBuild(false)}
+			/>
+			{mobile && !!snapshot.warnings?.length ? (
+				<details className="mobile-data-notices">
+					<summary>수집 알림 {snapshot.warnings.length}개</summary>
+					{snapshot.warnings.map((warning) => (
+						<output className="data-notice" key={warning}>
+							{warning}
+						</output>
+					))}
+				</details>
+			) : (
+				snapshot.warnings?.map((warning) => (
+					<output className="data-notice" key={warning}>
+						{warning}
+					</output>
+				))
+			)}
+			{body}
 			<footer className="raid-overview-footer">
 				실제 WCL 공개 로그 스냅샷 · 원본 기능 제작 howlsome · 메타 상세는 별도 갱신
 			</footer>

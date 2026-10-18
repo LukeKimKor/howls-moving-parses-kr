@@ -3,8 +3,8 @@ import { CharacterSelect } from "./components/chrome/CharacterSelect.js";
 import { CharacterSpecToggle } from "./components/chrome/CharacterSpecToggle.js";
 import { NewBuildBanner } from "./components/chrome/NewBuildBanner.js";
 import { SpecSelect } from "./components/chrome/SpecSelect.js";
+import { DashboardPage, type DashboardTab, tabFromHash } from "./components/pages/DashboardPage.js";
 import { LandingPage } from "./components/pages/LandingPage.js";
-import { RaidOverviewPage } from "./components/pages/RaidOverviewPage.js";
 import { CharactersSummaryPanel } from "./components/panels/CharactersSummaryPanel.js";
 import { GearSnapshotPanel } from "./components/panels/GearSnapshotPanel.js";
 import { LogPerformancePanel } from "./components/panels/LogPerformancePanel.js";
@@ -238,15 +238,18 @@ function AppInner({ onSelectCharacter }: { onSelectCharacter: (name: string) => 
 /** Root application component. Imports snapshot.json and provides context. */
 export default function App() {
 	const [view, setView] = useState<"overview" | "detail">("overview");
+	const [lastTab, setLastTab] = useState<DashboardTab>("overview");
 	const [storedChar, setStoredChar] = useState<CharacterData | null>(() =>
 		getStoredCharacter(snapshot.characters),
 	);
 	if (view === "overview")
 		return (
-			<RaidOverviewPage
+			<DashboardPage
 				snapshot={snapshot}
 				initialCharacterName={storedChar?.name}
+				initialTab={lastTab}
 				onOpenCharacter={(character) => {
+					setLastTab(tabFromHash(window.location.hash) ?? lastTab);
 					saveCharacter(character.name);
 					setStoredChar(character);
 					setView("detail");
@@ -281,7 +284,7 @@ export default function App() {
 						window.scrollTo(0, 0);
 					}}
 				>
-					← 전체 캐릭터 레이드 성적
+					← 대시보드로 돌아가기
 				</button>
 			</div>
 			<AppInner onSelectCharacter={saveCharacter} />
