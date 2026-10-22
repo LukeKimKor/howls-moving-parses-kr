@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { starPoints, starRank } from "../../lib/all-stars.js";
-import { classLabel, specLabel } from "../../lib/ko.js";
+import { classLabel, difficultyLabel, specLabel } from "../../lib/ko.js";
+import type { KillProgress } from "../../lib/raid-overview.js";
 import {
 	ILVL_TIERS,
 	ROLE_LABELS,
@@ -76,6 +77,34 @@ export function PctValue({
 	return (
 		<span className={emphasis ? "dash-pct dash-pct-strong" : "dash-pct"}>
 			<RaidPercent value={value} />
+		</span>
+	);
+}
+
+/**
+ * Bosses killed with this spec at one difficulty ("6/10") plus a one-segment-per-boss bar.
+ * Sits first in each difficulty group so the percentiles beside it read with their sample size.
+ * A zero count is shown only when boss rows carry real data; otherwise the cell says why it is missing.
+ */
+export function KillValue({ progress }: { progress: KillProgress | undefined }) {
+	if (!progress || progress.total === 0) return <span className="dash-empty">—</span>;
+	const { killed, total, state, difficulty, known } = progress;
+	if (!known) return <span className="dash-empty">{missingRaidLabel(state)}</span>;
+	const partial = state === "partial" || state === "failed";
+	const title = `${difficultyLabel(difficulty)} 우두머리 ${total}개 중 ${killed}개 처치${partial ? " · 일부 조회 실패로 실제보다 적을 수 있음" : ""}`;
+	const tone = killed === total ? " dash-kills-full" : killed === 0 ? " dash-kills-none" : "";
+	return (
+		<span className={`dash-kills${tone}`} title={title}>
+			<span className="dash-kills-count">
+				<strong>{killed}</strong>
+				<span className="dash-kills-total">/{total}</span>
+			</span>
+			<span className="dash-kills-bar" aria-hidden="true">
+				{Array.from({ length: total }, (_, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: fixed-length decorative segments
+					<span key={i} className={i < killed ? "is-killed" : undefined} />
+				))}
+			</span>
 		</span>
 	);
 }

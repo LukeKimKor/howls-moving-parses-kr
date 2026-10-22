@@ -2,7 +2,13 @@ import { useMemo, useState } from "react";
 import { raidPatchLabel, scopedAllStars } from "../../lib/all-stars.js";
 import { formatNumber } from "../../lib/format.js";
 import { bossGroup, difficultyLabel, gameName, rateLabel } from "../../lib/ko.js";
-import { RAID_METRIC_LABELS, raidEncounters, raidSection } from "../../lib/raid-overview.js";
+import {
+	RAID_METRIC_LABELS,
+	killedBossCount,
+	raidBossNames,
+	raidEncounters,
+	raidSection,
+} from "../../lib/raid-overview.js";
 import { selectedSummaryStar, summaryPatchOptions } from "../../lib/raid-summary.js";
 import { characterProfileUrl } from "../../lib/regions.js";
 import {
@@ -348,12 +354,7 @@ function SpecBossCard({
 	const sections = DIFFICULTIES.map((d) =>
 		raidSection(spec, metric, d, encounters, snapshot.generatedAt),
 	);
-	const bossNames = [
-		...new Set([
-			...encounters.map((e) => e.name),
-			...sections.flatMap((s) => s.rows.map((r) => r.bossName)),
-		]),
-	];
+	const bossNames = raidBossNames(encounters, sections);
 	const url = new URL(
 		characterProfileUrl(
 			"wcl",
@@ -365,7 +366,6 @@ function SpecBossCard({
 	url.searchParams.set("metric", metric);
 	url.searchParams.set("spec", spec.specName);
 	if (snapshot.raid?.id) url.searchParams.set("zone", String(snapshot.raid.id));
-	const killed = (s: RaidDifficultyData) => s.rows.filter((r) => r.state === "recorded").length;
 
 	return (
 		<article
@@ -383,7 +383,7 @@ function SpecBossCard({
 						<span key={s.difficulty} className={`dash-stat-pill ${diffClass(s.difficulty)}`}>
 							{difficultyLabel(s.difficulty)}
 							<strong>
-								{killed(s)}/{bossNames.length}
+								{killedBossCount(s)}/{bossNames.length}
 							</strong>
 							{s.summary.bestPerformanceAverage !== null && (
 								<RaidPercent value={s.summary.bestPerformanceAverage} />

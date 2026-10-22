@@ -58,6 +58,27 @@ function section(best: number | null, median: number | null): RaidDifficultyData
 	};
 }
 
+function bossRow(
+	encounterId: number,
+	bossName: string,
+	state: "recorded" | "no-kills" | "unavailable",
+): RaidDifficultyData["rows"][number] {
+	const recorded = state === "recorded";
+	return {
+		encounterId,
+		bossName,
+		state,
+		specName: recorded ? "Synthetic" : null,
+		bestPercent: recorded ? 88.4 : null,
+		bestAmount: recorded ? 1234567 : null,
+		kills: recorded ? 3 : state === "no-kills" ? 0 : null,
+		fastestKillMs: recorded ? 200000 : null,
+		medianPercent: recorded ? 70.1 : null,
+		allStarPoints: recorded ? 100 : null,
+		allStarRank: recorded ? 10 : null,
+	};
+}
+
 function fixture(): Snapshot {
 	const config = JSON.parse(readFileSync("characters.config.json", "utf8")) as CharactersConfig;
 	return {
@@ -171,6 +192,78 @@ describe("overview tab", () => {
 		// A successful collection with no Mythic logs reads as "no records", not as a failure.
 		expect(within(cell("신화 최고")).getByText("기록 없음")).toBeInTheDocument();
 		expect(within(cell("신화 중앙")).getByText("기록 없음")).toBeInTheDocument();
+	});
+
+	it("puts a kill count first in each difficulty group, matching the raid log cards", () => {
+		const data = withData();
+		data.raid = {
+			id: 53,
+			name: "Synthetic raid",
+			encounters: [
+				{ id: 1, name: "Boss A" },
+				{ id: 2, name: "Boss B" },
+			],
+		};
+		const first = data.characters[0] as CharacterData;
+		const spec = first.specs[first.mainSpecSlug];
+		const heroic = spec?.raidPerformance?.dps?.Heroic;
+		const mythic = spec?.raidPerformance?.dps?.Mythic;
+		if (!heroic || !mythic) throw new Error("fixture");
+		heroic.rows = [bossRow(1, "Boss A", "recorded"), bossRow(2, "Boss B", "no-kills")];
+		// Retained cache: state "skipped" but real rows, so 0 kills is a real 0 and "no records".
+		mythic.difficulty = "Mythic";
+		mythic.collection = { ...ok, issues: [], state: "skipped", retainedAt: "2026-10-18T00:00:00Z" };
+		mythic.rows = [bossRow(1, "Boss A", "no-kills"), bossRow(2, "Boss B", "no-kills")];
+		render(<DashboardPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		const row = rowFor(`${first.name}/${first.mainSpecSlug}`);
+		const cell = (label: string) => row.querySelector(`[data-label="${label}"]`) as HTMLElement;
+		expect(cell("영웅 처치").textContent).toBe("1/2");
+		expect(cell("신화 처치").textContent).toBe("0/2");
+		expect(within(cell("신화 최고")).getByText("기록 없음")).toBeInTheDocument();
+		// The kill column sits before 최고 in both difficulty groups.
+		const labels = [...row.querySelectorAll("[data-label]")].map((td) =>
+			td.getAttribute("data-label"),
+		);
+		expect(labels.indexOf("영웅 처치")).toBe(labels.indexOf("영웅 최고") - 1);
+		expect(labels.indexOf("신화 처치")).toBe(labels.indexOf("신화 최고") - 1);
+		// A spec with nothing collected says why instead of showing 0.
+		const second = data.characters[1] as CharacterData;
+		const secondRow = rowFor(`${second.name}/${second.mainSpecSlug}`);
+		expect(secondRow.querySelector('[data-label="영웅 처치"]')?.textContent).toBe("미조회");
+		// Same count as the raid log card for this spec.
+		fireEvent.click(screen.getByRole("tab", { name: /레이드 로그/ }));
+		const card = screen.getByRole("article", {
+			name: `${first.name} ${spec?.specName} 보스별 기록`,
+		});
+		expect(within(card).getByText("1/2")).toBeInTheDocument();
+		expect(within(card).getByText("0/2")).toBeInTheDocument();
+	});
+
+	it("sorts by Mythic kills with unknown counts last", () => {
+		const data = withData();
+		data.raid = { id: 53, name: "Synthetic raid", encounters: [{ id: 1, name: "Boss A" }] };
+		const [a, b] = data.characters as [CharacterData, CharacterData];
+		const specA = a.specs[a.mainSpecSlug];
+		const specB = b.specs[b.mainSpecSlug];
+		if (!specA?.raidPerformance?.dps || !specB) throw new Error("fixture");
+		const mythicA = section(null, null);
+		mythicA.difficulty = "Mythic";
+		mythicA.rows = [bossRow(1, "Boss A", "no-kills")];
+		specA.raidPerformance.dps.Mythic = mythicA;
+		const mythicB = section(70, 60);
+		mythicB.difficulty = "Mythic";
+		mythicB.rows = [bossRow(1, "Boss A", "recorded")];
+		specB.raidPerformance = { dps: { Heroic: section(80, 70), Mythic: mythicB } };
+		render(<DashboardPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		fireEvent.change(screen.getByRole("combobox", { name: "종합 현황 정렬" }), {
+			target: { value: "mythicKills" },
+		});
+		const dps = screen.getByRole("table", { name: /^딜러 전문화별/ });
+		const names = [...dps.querySelectorAll("[data-roster-row]")].map((r) =>
+			r.getAttribute("data-roster-character"),
+		);
+		expect(names[0]).toBe(b.name);
+		expect(names[1]).toBe(a.name);
 	});
 
 	it("splits dealers, healers and tanks into separate tables", () => {

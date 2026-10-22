@@ -124,10 +124,14 @@ export function rowRaid(
 ): RaidPair {
 	const section =
 		row.character.specs[row.slug]?.raidPerformance?.[row.metric(damageMetric)]?.[difficulty];
+	let state: RaidPair["state"] = section?.collection.state ?? "unqueried";
+	// A TTL skip that kept real rows is retained data, not "not fetched": an all-"no-kills" section is "기록 없음".
+	if (state === "skipped" && section?.rows.some((r) => r.state !== "unavailable"))
+		state = section.rows.some((r) => r.state === "recorded") ? "ok" : "empty";
 	return {
 		best: section?.summary.bestPerformanceAverage ?? null,
 		median: section?.summary.medianPerformanceAverage ?? null,
-		state: section?.collection.state ?? "unqueried",
+		state,
 	};
 }
 
@@ -138,19 +142,23 @@ export type RowSortKey =
 	| "heroic"
 	| "heroicMedian"
 	| "heroicPoints"
+	| "heroicKills"
 	| "mythic"
 	| "mythicMedian"
-	| "mythicPoints";
+	| "mythicPoints"
+	| "mythicKills";
 
 /**
  * Stable descending sort; unknown values last; config order breaks ties.
- * All Stars points depend on the selected patch, so the caller supplies that lookup.
+ * All Stars points depend on the selected patch and kill counts on the raid's boss list,
+ * so the caller supplies those lookups.
  */
 export function sortRows(
 	rows: SpecRow[],
 	key: RowSortKey,
 	damageMetric: DamageMetric,
 	starPoints?: (row: SpecRow, difficulty: RaidDifficulty) => number | null,
+	kills?: (row: SpecRow, difficulty: RaidDifficulty) => number | null,
 ): SpecRow[] {
 	if (key === "config") return [...rows];
 	const value = (row: SpecRow): number | null => {
@@ -158,6 +166,7 @@ export function sortRows(
 		if (key === "score") return characterMythicPlus(row.character)?.score ?? null;
 		const difficulty: RaidDifficulty = key.startsWith("heroic") ? "Heroic" : "Mythic";
 		if (key.endsWith("Points")) return starPoints?.(row, difficulty) ?? null;
+		if (key.endsWith("Kills")) return kills?.(row, difficulty) ?? null;
 		const pair = rowRaid(row, difficulty, damageMetric);
 		return key.endsWith("Median") ? pair.median : pair.best;
 	};

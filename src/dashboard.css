@@ -503,19 +503,22 @@
 	min-width: 960px;
 }
 .dash-roster-table .dash-w-char {
-	width: 14%;
+	width: 13%;
 }
 .dash-roster-table .dash-w-spec {
-	width: 9%;
+	width: 8%;
 }
 .dash-roster-table .dash-w-num {
-	width: 7%;
+	width: 6%;
 }
 .dash-roster-table .dash-w-score {
-	width: 14%;
+	width: 11%;
 }
 .dash-roster-table .dash-w-pct {
-	width: 7%;
+	width: 6.25%;
+}
+.dash-roster-table .dash-w-kills {
+	width: 6%;
 }
 .dash-roster-table .dash-w-links {
 	width: 11%;
@@ -1075,7 +1078,7 @@
 }
 
 .dash .dash-roster-table {
-	min-width: 1100px;
+	min-width: 1200px;
 }
 .dash-inline-links {
 	display: inline-flex;
@@ -1185,5 +1188,75 @@
 	}
 	.dash .dash-table tbody tr.dash-class-row > * {
 		background: transparent;
+	}
+}
+
+/* Kill progress ("6/10" + one segment per boss): first column of each difficulty group,
+   so the percentiles beside it read with their sample size. Full clears take the difficulty colour. */
+.dash-kills {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 5px;
+	width: 100%;
+}
+.dash-kills-count {
+	font-variant-numeric: tabular-nums;
+	font-size: 14px;
+	line-height: 1;
+	white-space: nowrap;
+}
+.dash-kills-count strong {
+	font-weight: 700;
+	color: var(--dash-text);
+}
+.dash-kills-total {
+	color: var(--dash-muted);
+}
+.dash-kills-none .dash-kills-count strong {
+	color: var(--dash-muted);
+}
+.dash .dash-heroic .dash-kills-full .dash-kills-count strong {
+	color: var(--dash-heroic);
+}
+.dash .dash-mythic .dash-kills-full .dash-kills-count strong {
+	color: var(--dash-mythic);
+}
+.dash-kills-bar {
+	display: flex;
+	gap: 2px;
+	width: 100%;
+	max-width: 64px;
+}
+.dash-kills-bar > span {
+	flex: 1;
+	height: 4px;
+	border-radius: 1px;
+	background: var(--dash-border-strong);
+}
+.dash .dash-heroic .dash-kills-bar > .is-killed {
+	background: var(--dash-heroic);
+}
+.dash .dash-mythic .dash-kills-bar > .is-killed {
+	background: var(--dash-mythic);
+}
+@media (max-width: 767px) {
+	/* Mobile card: the kill count heads each difficulty block on its own line. */
+	.dash .dash-roster-table tbody td.dash-col-kills {
+		grid-column: 1 / -1;
+		flex-direction: row;
+		align-items: center;
+		gap: 10px;
+		padding: 10px 14px 4px;
+		border-top: 1px solid var(--dash-border);
+	}
+	.dash .dash-roster-table tbody td.dash-col-kills .dash-kills {
+		flex-direction: row;
+		gap: 10px;
+		width: auto;
+		flex: 1;
+	}
+	.dash .dash-roster-table tbody td.dash-col-kills .dash-kills-bar {
+		max-width: 120px;
 	}
 }

@@ -1,6 +1,11 @@
 import { type ReactNode, useMemo, useState } from "react";
 import { specLabel } from "../../lib/ko.js";
-import { RAID_METRIC_LABELS } from "../../lib/raid-overview.js";
+import {
+	type KillProgress,
+	RAID_METRIC_LABELS,
+	raidEncounters,
+	specKillProgress,
+} from "../../lib/raid-overview.js";
 import { selectedSummaryStar, summaryPatchOptions } from "../../lib/raid-summary.js";
 import { characterProfileUrl } from "../../lib/regions.js";
 import {
@@ -26,6 +31,7 @@ import {
 	CharacterCell,
 	IlvlLegend,
 	IlvlValue,
+	KillValue,
 	PctValue,
 	RoleHeading,
 	Segment,
@@ -43,9 +49,11 @@ const SORT_LABELS: Record<RowSortKey, string> = {
 	heroic: "영웅 최고",
 	heroicMedian: "영웅 중앙",
 	heroicPoints: "영웅 All Stars 점수",
+	heroicKills: "영웅 처치 수",
 	mythic: "신화 최고",
 	mythicMedian: "신화 중앙",
 	mythicPoints: "신화 All Stars 점수",
+	mythicKills: "신화 처치 수",
 };
 
 type StarLookup = (
@@ -59,6 +67,8 @@ type StarLookup = (
 			total?: number | null;
 	  }
 	| undefined;
+
+type KillLookup = (row: SpecRow, difficulty: RaidDifficulty) => KillProgress | undefined;
 
 /** WCL opens filtered to this row's spec (and the current raid), so its numbers match the row. */
 function CharacterLinks({
@@ -113,10 +123,12 @@ function RoleTable({
 	maxScore,
 	onOpenCharacter,
 	star,
+	kills,
 	zoneId,
 }: {
 	zoneId?: number;
 	star: StarLookup;
+	kills: KillLookup;
 	role: SpecRole;
 	rows: SpecRow[];
 	damageMetric: DamageMetric;
@@ -137,7 +149,7 @@ function RoleTable({
 			<div className="dash-table-scroll">
 				<table
 					className="dash-table dash-roster-table"
-					aria-label={`${roleLabel} 전문화별 아이템 레벨, 쐐기 점수, 레이드 백분위`}
+					aria-label={`${roleLabel} 전문화별 아이템 레벨, 쐐기 점수, 레이드 처치 수와 백분위`}
 				>
 					<colgroup>
 						<col className="dash-w-char" />
@@ -145,8 +157,8 @@ function RoleTable({
 						<col className="dash-w-num" />
 						<col className="dash-w-score" />
 						{["H", "M"].flatMap((d) =>
-							["best", "median", "points", "rank"].map((k) => (
-								<col key={`${d}-${k}`} className="dash-w-pct" />
+							["kills", "best", "median", "points", "rank"].map((k) => (
+								<col key={`${d}-${k}`} className={k === "kills" ? "dash-w-kills" : "dash-w-pct"} />
 							)),
 						)}
 					</colgroup>
@@ -164,19 +176,22 @@ function RoleTable({
 							<SortHeader sortKey="score" rowSpan={2} {...sortProps}>
 								쐐기 점수
 							</SortHeader>
-							<th scope="colgroup" colSpan={4} className="dash-group dash-heroic dash-group-start">
+							<th scope="colgroup" colSpan={5} className="dash-group dash-heroic dash-group-start">
 								영웅
 							</th>
-							<th scope="colgroup" colSpan={4} className="dash-group dash-mythic dash-group-start">
+							<th scope="colgroup" colSpan={5} className="dash-group dash-mythic dash-group-start">
 								신화
 							</th>
 						</tr>
 						<tr className="dash-subhead">
 							<SortHeader
-								sortKey="heroic"
-								className="dash-num dash-heroic dash-group-start"
+								sortKey="heroicKills"
+								className="dash-num dash-heroic dash-group-start dash-col-kills"
 								{...sortProps}
 							>
+								처치
+							</SortHeader>
+							<SortHeader sortKey="heroic" className="dash-num dash-heroic" {...sortProps}>
 								최고
 							</SortHeader>
 							<SortHeader sortKey="heroicMedian" className="dash-num dash-heroic" {...sortProps}>
@@ -189,10 +204,13 @@ function RoleTable({
 								순위
 							</th>
 							<SortHeader
-								sortKey="mythic"
-								className="dash-num dash-mythic dash-group-start"
+								sortKey="mythicKills"
+								className="dash-num dash-mythic dash-group-start dash-col-kills"
 								{...sortProps}
 							>
+								처치
+							</SortHeader>
+							<SortHeader sortKey="mythic" className="dash-num dash-mythic" {...sortProps}>
 								최고
 							</SortHeader>
 							<SortHeader sortKey="mythicMedian" className="dash-num dash-mythic" {...sortProps}>
@@ -215,6 +233,8 @@ function RoleTable({
 							const mythic = rowRaid(row, "Mythic", damageMetric);
 							const heroicStar = star(row, "Heroic");
 							const mythicStar = star(row, "Mythic");
+							const heroicKills = kills(row, "Heroic");
+							const mythicKills = kills(row, "Mythic");
 							return (
 								<tr
 									key={row.key}
@@ -260,7 +280,13 @@ function RoleTable({
 											<MissingValue label="쐐기 점수 미확인" />
 										)}
 									</td>
-									<td className="dash-num dash-heroic dash-group-start" data-label="영웅 최고">
+									<td
+										className="dash-num dash-heroic dash-group-start dash-col-kills"
+										data-label="영웅 처치"
+									>
+										<KillValue progress={heroicKills} />
+									</td>
+									<td className="dash-num dash-heroic" data-label="영웅 최고">
 										<PctValue value={heroic.best} state={heroic.state} emphasis />
 									</td>
 									<td className="dash-num dash-heroic" data-label="영웅 중앙">
@@ -276,7 +302,13 @@ function RoleTable({
 											total={heroicStar?.total}
 										/>
 									</td>
-									<td className="dash-num dash-mythic dash-group-start" data-label="신화 최고">
+									<td
+										className="dash-num dash-mythic dash-group-start dash-col-kills"
+										data-label="신화 처치"
+									>
+										<KillValue progress={mythicKills} />
+									</td>
+									<td className="dash-num dash-mythic" data-label="신화 최고">
 										<PctValue value={mythic.best} state={mythic.state} emphasis />
 									</td>
 									<td className="dash-num dash-mythic" data-label="신화 중앙">
@@ -323,7 +355,31 @@ export function RosterOverview({
 			difficulty,
 			patchId,
 		);
-	const sorted = sortRows(allRows, sortKey, damageMetric, (row, d) => star(row, d)?.points ?? null);
+	const encounters = useMemo(() => raidEncounters(snapshot), [snapshot]);
+	const killMap = useMemo(() => {
+		const map = new Map<string, Record<RaidDifficulty, KillProgress>>();
+		for (const row of allRows) {
+			const spec = row.character.specs[row.slug];
+			if (spec)
+				map.set(
+					row.key,
+					specKillProgress(spec, row.metric(damageMetric), encounters, snapshot.generatedAt),
+				);
+		}
+		return map;
+	}, [allRows, damageMetric, encounters, snapshot.generatedAt]);
+	const kills: KillLookup = (row, difficulty) => killMap.get(row.key)?.[difficulty];
+	const sorted = sortRows(
+		allRows,
+		sortKey,
+		damageMetric,
+		(row, d) => star(row, d)?.points ?? null,
+		(row, d) => {
+			const progress = kills(row, d);
+			if (!progress || progress.total === 0 || !progress.known) return null;
+			return progress.killed;
+		},
+	);
 	const toggleSort = (key: RowSortKey) => setSortKey(sortKey === key ? "config" : key);
 
 	const scores = snapshot.characters.map((c) => characterMythicPlus(c)?.score ?? null);
@@ -459,6 +515,7 @@ export function RosterOverview({
 						maxScore={maxScore}
 						onOpenCharacter={onOpenCharacter}
 						star={star}
+						kills={kills}
 						zoneId={snapshot.raid?.id}
 					/>
 				);
@@ -466,12 +523,13 @@ export function RosterOverview({
 
 			<IlvlLegend />
 			<p className="dash-note">
-				레이드 값은 WCL 요약 백분위이며, 각 행의 전문화로 기록한 처치만 집계합니다(WCL의 전체 전문화
-				화면과 다를 수 있어요. WCL 링크는 해당 전문화로 걸러서 열립니다). 최고는 보스별 최고 기록의
-				평균, 중앙은 보스별 중앙값의 평균이에요. 딜러는 선택한 피해 지표, 힐러는 치유량 기준입니다.
-				쐐기 점수와 템렙은 캐릭터 전체 값이라 같은 캐릭터의 전문화 행에는 같은 값이 표시됩니다. 열
-				제목을 누르면 정렬되고, 캐릭터 이름을 누르면 상세 화면으로 이동합니다. All Stars 점수·순위는
-				선택한 패치의 WCL 값입니다.
+				처치는 그 전문화로 처치 기록이 있는 우두머리 수 / 전체 우두머리 수로, 레이드 로그 화면과
+				같은 값입니다. 레이드 값은 WCL 요약 백분위이며, 각 행의 전문화로 기록한 처치만
+				집계합니다(WCL의 전체 전문화 화면과 다를 수 있어요. WCL 링크는 해당 전문화로 걸러서
+				열립니다). 최고는 보스별 최고 기록의 평균, 중앙은 보스별 중앙값의 평균이에요. 딜러는 선택한
+				피해 지표, 힐러는 치유량 기준입니다. 쐐기 점수와 템렙은 캐릭터 전체 값이라 같은 캐릭터의
+				전문화 행에는 같은 값이 표시됩니다. 열 제목을 누르면 정렬되고, 캐릭터 이름을 누르면 상세
+				화면으로 이동합니다. All Stars 점수·순위는 선택한 패치의 WCL 값입니다.
 			</p>
 		</section>
 	);
