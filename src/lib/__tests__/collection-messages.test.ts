@@ -70,6 +70,30 @@ describe("collector display messages", () => {
 		const current = deferredCollectionWarning(collectionMessages.wclDeferred, until);
 		expect(displayWarning(current)).toBe(current);
 	});
+	it("converts the current public budget warning to the new wording with a KST retry time", () => {
+		const shown = displayWarning(
+			"갱신 보류: WCL 포인트 예산 보류 (776.79 남음; 20% 안전 여유는 앱 정책) · 재시도 가능 시각 2026-10-23T04:10:05.751Z. 완료된 성적과 캐시는 보존했습니다.",
+		);
+		expect(shown).toContain(collectionMessages.pointBudgetDeferred(776.79));
+		expect(shown).toContain("재시도 가능 시각 10. 23. 13:10 KST");
+		expect(shown).not.toContain("2026-10-23T");
+	});
+	it("keeps warnings it cannot fully recognize verbatim", () => {
+		for (const warning of [
+			"알 수 없는 형식의 경고",
+			"갱신 보류: WCL unfamiliar reason. 완료된 성적과 캐시는 보존했습니다.",
+			"갱신 보류: WCL HTTP 503. 완료된 성적과 캐시는 보존했습니다.",
+			"갱신 보류: WCL 포인트 예산 보류 (776.79 남음; 20% 안전 여유는 앱 정책) · 재시도 가능 시각 2026-99-23T04:10:05.751Z. 완료된 성적과 캐시는 보존했습니다.",
+			deferredCollectionWarning(collectionMessages.pointBudgetDeferred(776.79), 1),
+			collectionMessages.publicOnly,
+		])
+			expect(displayWarning(warning)).toBe(warning);
+	});
+	it("keeps the collector fallback for unrecognized retained reasons", () => {
+		expect(retainedCooldownReason("WCL unfamiliar reason", 1, collectionMessages.wclDeferred)).toBe(
+			collectionMessages.wclDeferred,
+		);
+	});
 	it("covers every Korean glyph in representative messages with the committed core font", () => {
 		const manifest = JSON.parse(readFileSync("public/fonts/core-manifest.json", "utf8")) as {
 			unicodes: number[];
