@@ -196,6 +196,12 @@ describe("character checkpoints and query cache", () => {
 			0,
 		);
 		expect(cache.get(query, undefined, "meta", 100)?.data).not.toHaveProperty("collectorBudget");
+		const reloaded = new WclQueryCache();
+		reloaded.activate(JSON.parse(JSON.stringify(cache.entries)), () => undefined);
+		expect(reloaded.get(query, undefined, "detail", 100)).toEqual(
+			cache.get(query, undefined, "detail", 100),
+		);
+		expect(reloaded.get(query, undefined, "detail", 100)).toBeDefined();
 		expect(cache.get(query, undefined, "meta", 25 * 60 * 60_000)).toBeUndefined();
 		cache.put("failed", undefined, "meta", { worldData: { encounter: null } }, 0);
 		expect(cache.get("failed", undefined, "meta", 100)).toBeUndefined();

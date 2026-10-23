@@ -152,7 +152,7 @@ describe("retired detail payload compatibility (synthetic, no provider calls)", 
 				);
 			}),
 		);
-		await fetchCharacter(
+		const collected = await fetchCharacter(
 			char,
 			"synthetic-token",
 			53,
@@ -165,6 +165,24 @@ describe("retired detail payload compatibility (synthetic, no provider calls)", 
 			["dps", "bossdps"],
 		);
 		expect(queries).toHaveLength(4);
+		// main's detail stage reuses the completed raid stage, even after the cache reload.
+		queries.length = 0;
+		const reused = await fetchCharacter(
+			char,
+			"synthetic-token",
+			53,
+			55,
+			[],
+			{ score: 0, percentile: 1, region: "kr", updatedAt: at },
+			[],
+			collected,
+			at,
+			["dps", "bossdps"],
+			true,
+		);
+		expect(queries).toHaveLength(0);
+		for (const slug of collected.specOrder)
+			expect(reused.specs[slug]?.raidPerformance).toEqual(collected.specs[slug]?.raidPerformance);
 	});
 	it("renders identical output in each dashboard tab before and after trimming", () => {
 		const before = legacy();
