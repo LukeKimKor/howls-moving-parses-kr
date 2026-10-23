@@ -1,5 +1,6 @@
+import { collectionMessages } from "../src/lib/collection-messages.js";
 import type { CollectionStatus } from "../src/types/snapshot.js";
-import { WCL_POLICY, type WclRuntime } from "./wcl-runtime.js";
+import { WCL_POLICY, WclDeferredError, type WclRuntime } from "./wcl-runtime.js";
 
 export function freshStatus(
 	status: CollectionStatus | undefined,
@@ -39,13 +40,14 @@ export async function runCharacterBatches<T>(options: {
 				!options.runtime.currentBudget() &&
 				unknownBudgetCompleted >= WCL_POLICY.unknownBudgetCharacters
 			) {
-				reason = "포인트 예산 미확인 · 작은 묶음 완료, 나머지는 다음 실행으로 이월";
+				reason = collectionMessages.unknownBudgetBatch;
 				options.runtime.defer(reason);
 				break;
 			}
 			options.runtime.beforeQuery();
 		} catch (err) {
-			reason = err instanceof Error ? err.message : "WCL 갱신 보류";
+			if (!(err instanceof WclDeferredError)) console.warn("WCL scheduler deferred", err);
+			reason = err instanceof WclDeferredError ? err.message : collectionMessages.wclDeferred;
 			break;
 		}
 		items[index] = await options.refresh(item);

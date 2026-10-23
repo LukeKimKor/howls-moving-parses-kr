@@ -230,6 +230,7 @@ describe("raid metrics and difficulty collection", () => {
 			"2026-10-16T22:00:00Z",
 		);
 		expect(result.bossdps?.Mythic.collection.state).toBe("failed");
+		expect(result.bossdps?.Mythic.collection.issues).toEqual(["WCL 레이드 조회 실패"]);
 		expect(result.bossdps?.Mythic.collection.retainedAt).toBeTruthy();
 		expect(result.bossdps?.Mythic.rows[0]?.bestAmount).toBe(123456.7);
 	});

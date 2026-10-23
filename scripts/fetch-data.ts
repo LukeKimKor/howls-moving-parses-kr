@@ -3,6 +3,11 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import pLimit from "p-limit";
 import { ALL_SPECS, type SpecDefinition, metricForRole } from "../src/data/specs.js";
+import {
+	collectionMessages,
+	deferredCollectionWarning,
+	retainedCooldownReason,
+} from "../src/lib/collection-messages.js";
 import { type Region, characterProfileUrl } from "../src/lib/regions.js";
 import type {
 	CharacterData,
@@ -40,6 +45,7 @@ import {
 	type CharactersConfig,
 	validateConfig,
 } from "./config-validation.js";
+import { fetchRaidPatchMetadata, mergeRaidPatchMetadata } from "./raid-patch-metadata.js";
 import {
 	type GraphqlError,
 	deferredRaidPerformance,
@@ -48,7 +54,6 @@ import {
 	verifyRaidMetricSchema,
 } from "./raid-performance.js";
 import { toRealmSlug } from "./realm-slug.js";
-import { fetchRaidPatchMetadata, mergeRaidPatchMetadata } from "./raid-patch-metadata.js";
 import { readRefreshSchedule } from "./refresh-policy.js";
 import { freshStatus, runCharacterBatches } from "./refresh-scheduler.js";
 import { wclQueryCache } from "./wcl-query-cache.js";
@@ -346,8 +351,9 @@ async function wclQuery<T = Record<string, unknown>>(
 		}
 
 		if (json.errors && json.errors.length > 0) {
+			console.warn("WCL partial response errors", json.errors);
 			onErrors?.(json.errors);
-			recordRequest(true, "WCL GraphQL 부분 응답 오류");
+			recordRequest(true, collectionMessages.partialResponse);
 			recorded = true;
 			if (!json.data) {
 				throw new Error("WCL GraphQL returned errors with no data");
@@ -364,7 +370,8 @@ async function wclQuery<T = Record<string, unknown>>(
 			recordDeferral(err.message, err.retryAt);
 			throw err;
 		}
-		if (!recorded) recordRequest(true, err instanceof Error ? err.message : "WCL 조회 실패");
+		console.warn("WCL query failed", err);
+		if (!recorded) recordRequest(true, collectionMessages.wclFailed);
 		throw err;
 	}
 }
@@ -877,7 +884,7 @@ export async function fetchRioProfile(
 		return { mplus, gear, talents, thumbnailUrl: profile.thumbnail_url };
 	} catch (err) {
 		console.warn(`  Could not load RIO profile for ${name} (${realm}): ${err}`);
-		recordIssue("Raider.IO 캐릭터 조회 실패");
+		recordIssue(collectionMessages.rioCharacterFailed);
 		return { mplus: null, gear: null, talents: null };
 	}
 }
@@ -949,7 +956,7 @@ async function fetchRioPlayerData(
 
 		return { score, color, trinkets };
 	} catch {
-		recordIssue("Raider.IO 메타 점수·장신구 보강 조회 실패");
+		recordIssue(collectionMessages.rioMetaFailed);
 		return null;
 	}
 }
@@ -1004,7 +1011,7 @@ export async function fetchWclRaidRankings(
 		return data.characterData.character?.zoneRankings ?? null;
 	} catch (err) {
 		console.warn(`  WCL raid rankings failed for ${name} (difficulty ${difficulty}): ${err}`);
-		recordIssue(`레이드 난이도 ${difficulty} 조회 실패`);
+		recordIssue(collectionMessages.raidDifficultyFailed(difficulty));
 		return null;
 	}
 }
@@ -1054,7 +1061,7 @@ export async function fetchWclMplusRankings(
 		return data.characterData.character?.mythicPlusRankings ?? null;
 	} catch (err) {
 		console.warn(`  WCL M+ rankings failed for ${name}: ${err}`);
-		recordIssue("쐐기 로그 조회 실패");
+		recordIssue(collectionMessages.mplusFailed);
 		return null;
 	}
 }
@@ -1380,7 +1387,7 @@ async function fetchRaidParseDates(
 		}
 	} catch (err) {
 		console.warn(`  Could not fetch raid parse dates for ${name}:`, err);
-		recordIssue("레이드 기록 날짜 조회 실패");
+		recordIssue(collectionMessages.datesFailed);
 	}
 
 	return result;
@@ -1436,7 +1443,7 @@ export async function fetchEncounterRankings(
 		return data.worldData.encounter.characterRankings;
 	} catch (err) {
 		console.warn(`  WCL encounter ${encounterId} rankings failed for ${spec.specSlug}: ${err}`);
-		recordIssue(`WCL 전투 ${encounterId} 조회 실패`);
+		recordIssue(collectionMessages.encounterFailed(encounterId));
 		return null;
 	}
 }
@@ -1761,8 +1768,8 @@ export async function fetchCharacter(
 				mplus.status.cacheHits = 1;
 				mplus.status.issues = [
 					mplus.status.deferred
-						? "상세 로그 갱신 보류 · 캐시 보존"
-						: "12시간 상세 로그 캐시 재사용",
+						? collectionMessages.detailsDeferred
+						: collectionMessages.detailsCached,
 				];
 				mplus.status.retainedAt =
 					old.collection?.mythicPlus.retainedAt ??
@@ -1771,9 +1778,7 @@ export async function fetchCharacter(
 				dates.status.deferred = !freshStatus(old.collection?.raidDates, WCL_POLICY.detailTtlMs);
 				dates.status.cacheHits = 1;
 				dates.status.issues = [
-					dates.status.deferred
-						? "로그 날짜 갱신 보류 · 캐시 보존"
-						: "12시간 로그 날짜 캐시 재사용",
+					dates.status.deferred ? collectionMessages.datesDeferred : collectionMessages.datesCached,
 				];
 				if (wclRuntime.active) wclRuntime.telemetry.cacheHits += 2;
 				dates.status.retainedAt =
@@ -1922,7 +1927,7 @@ export async function fetchCharacter(
 							state: "failed",
 							attemptedRequests: 0,
 							failedRequests: 0,
-							issues: ["캐릭터 전문화 조회 실패"],
+							issues: [collectionMessages.specFailed],
 							retainedAt: old
 								? (old.collection?.[key]?.retainedAt ??
 									old.collection?.[key]?.lastSuccessAt ??
@@ -2303,7 +2308,11 @@ export async function main(): Promise<void> {
 		const stored = JSON.parse(readFileSync("cache/wcl-runtime.json", "utf8")) as WclRuntimeState;
 		state = {
 			cooldownUntil: Number.isFinite(stored.cooldownUntil) ? stored.cooldownUntil : undefined,
-			cooldownReason: typeof stored.cooldownReason === "string" ? stored.cooldownReason : undefined,
+			// Older runtime files may contain raw provider errors or UTC text.
+			cooldownReason:
+				typeof stored.cooldownReason === "string"
+					? retainedCooldownReason(stored.cooldownReason, stored.cooldownUntil)
+					: undefined,
 			nextCharacterKey:
 				typeof stored.nextCharacterKey === "string" ? stored.nextCharacterKey : undefined,
 			maxQueryCost: stored.maxQueryCost,
@@ -2317,7 +2326,7 @@ export async function main(): Promise<void> {
 	const inheritedCooldown = snapshotCooldown(previous);
 	if (inheritedCooldown && inheritedCooldown > (state.cooldownUntil ?? 0)) {
 		state.cooldownUntil = inheritedCooldown;
-		state.cooldownReason = "이전 실행의 서버 Retry-After · 다음 실행으로 이월";
+		state.cooldownReason = collectionMessages.previousCooldown;
 	}
 	const saveRuntime = () => {
 		mkdirSync("cache", { recursive: true });
@@ -2487,7 +2496,9 @@ export async function main(): Promise<void> {
 				}
 			}
 		} catch (error) {
-			const reason = error instanceof Error ? error.message : "WCL 초기화 조회 실패";
+			console.warn("WCL initialization failed", error);
+			const reason =
+				error instanceof WclDeferredError ? error.message : collectionMessages.bootstrapFailed;
 			wclRuntime.defer(reason, error instanceof WclDeferredError ? error.retryAt : undefined);
 			token = "";
 		}
@@ -2591,16 +2602,22 @@ export async function main(): Promise<void> {
 		};
 		snapshot.refreshRuntime = wclRuntime.summary;
 		snapshot.refreshSchedule = readRefreshSchedule();
-		snapshot.warnings = rioOnly
-			? ["실제 Raider.IO 공개 데이터입니다. WCL은 미조회 상태입니다."]
-			: [];
+		snapshot.warnings = rioOnly ? [collectionMessages.publicOnly] : [];
 		if (charactersCount.partial || charactersCount.failed || meta.partial || meta.failed)
 			snapshot.warnings.push(
-				`일부 항목 수집 실패: 캐릭터 ${charactersCount.partial + charactersCount.failed}/${charactersCount.tracked}, 메타 ${meta.partial + meta.failed}/${meta.tracked}. 이전 데이터 시각과 각 조회 상태를 확인하세요.`,
+				collectionMessages.partialWarning(
+					charactersCount.partial + charactersCount.failed,
+					charactersCount.tracked,
+					meta.partial + meta.failed,
+					meta.tracked,
+				),
 			);
 		if (wclRuntime.summary.deferredReason)
 			snapshot.warnings.push(
-				`갱신 보류: ${wclRuntime.summary.deferredReason}${wclRuntime.state.cooldownUntil ? ` · 재시도 가능 시각 ${new Date(wclRuntime.state.cooldownUntil).toISOString()}` : ""}. 완료된 성적과 캐시는 보존했습니다.`,
+				deferredCollectionWarning(
+					wclRuntime.summary.deferredReason,
+					wclRuntime.state.cooldownUntil,
+				),
 			);
 		saveRuntime();
 		if (!useful()) return;
@@ -2642,7 +2659,7 @@ export async function main(): Promise<void> {
 							c,
 							encounters,
 							compatible?.generatedAt,
-							wclRuntime.summary.deferredReason ?? "WCL 미조회 · 캐시 보존",
+							wclRuntime.summary.deferredReason ?? collectionMessages.wclRetained,
 						),
 			);
 		checkpoint();
@@ -2702,15 +2719,17 @@ export async function main(): Promise<void> {
 		for (const spec of definitions) {
 			const old = snapshot.specs[spec.specSlug] ?? emptySpecMeta(spec);
 			let reason: string | undefined =
-				!force && metaFresh(old) ? "24시간 전문화 메타 캐시 재사용" : undefined;
+				!force && metaFresh(old) ? collectionMessages.metaCached : undefined;
 			try {
 				if (!reason) {
 					if (!token || !mythicPlusZone || !raid)
-						throw new WclDeferredError("메타 조회 보류 · 인증/영역/예산 확인 대기");
+						throw new WclDeferredError(collectionMessages.metaWaiting);
 					wclRuntime.beforeQuery();
 				}
 			} catch (error) {
-				reason = error instanceof Error ? error.message : "메타 조회 보류";
+				console.warn("WCL meta deferred", error);
+				reason =
+					error instanceof WclDeferredError ? error.message : collectionMessages.metaDeferred;
 			}
 			if (reason) {
 				const skipped = (
@@ -2723,10 +2742,10 @@ export async function main(): Promise<void> {
 					retainedAt:
 						previousStatus?.retainedAt ?? previousStatus?.lastSuccessAt ?? compatible?.generatedAt,
 					issues: [
-						reason ?? "메타 캐시 재사용",
-						...(previousStatus?.issues ?? []).filter(
-							(s) => s.includes("HTTP") || s.includes("GraphQL"),
-						),
+						reason ?? collectionMessages.metaRetained,
+						...(previousStatus?.issues ?? [])
+							.filter((s) => s.includes("HTTP") || s.includes("GraphQL"))
+							.map(() => collectionMessages.wclFailed),
 					],
 				});
 				snapshot.specs[spec.specSlug] = {

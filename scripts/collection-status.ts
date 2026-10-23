@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { collectionMessages } from "../src/lib/collection-messages.js";
 import type { CollectionCounts, CollectionStatus } from "../src/types/snapshot.js";
 
 const scope = new AsyncLocalStorage<CollectionStatus>();
@@ -50,7 +51,7 @@ export async function collect<T>(
 		try {
 			data = await fn();
 		} catch {
-			recordIssue("조회 처리 실패");
+			recordIssue(collectionMessages.processingFailed);
 		}
 		const populated = hasData(data);
 		status.state =

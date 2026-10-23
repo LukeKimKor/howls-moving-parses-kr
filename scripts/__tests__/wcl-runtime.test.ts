@@ -40,7 +40,7 @@ describe("actual quota samples and persistent cooldown (synthetic, zero provider
 		now = 61_000;
 		expect(() => runtime.beforeQuery()).toThrow("미확인");
 		runtime.observeBudget({ limitPerHour: 100, pointsSpentThisHour: 80, pointsResetIn: 60 });
-		expect(() => runtime.beforeQuery()).toThrow("예산");
+		expect(() => runtime.beforeQuery()).toThrow("조회 한도");
 		expect(runtime.state.cooldownUntil).toBe(121_000);
 	});
 	it("learns weighted query cost only within the observed reset window", () => {

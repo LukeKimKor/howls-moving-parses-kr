@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Snapshot } from "../../src/types/snapshot.js";
-import type { RaidQuery } from "../raid-performance.js";
 import { fetchRaidPatchMetadata, mergeRaidPatchMetadata } from "../raid-patch-metadata.js";
+import type { RaidQuery } from "../raid-performance.js";
 import { WclRuntime } from "../wcl-runtime.js";
 
 // Synthetic API/schema fixtures. Patch names below are probes, not verified live mappings.
@@ -124,7 +124,7 @@ describe("official raid patch metadata (synthetic, no API)", () => {
 				runtime.beforeQuery();
 			};
 			await expect(fetchRaidPatchMetadata(query as RaidQuery, 53, guard)).rejects.toThrow(
-				/Budget|예산/,
+				/Budget|조회 한도/,
 			);
 			expect(query).toHaveBeenCalledTimes(1);
 		}

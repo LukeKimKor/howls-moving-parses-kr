@@ -1,3 +1,4 @@
+import { collectionMessages } from "../src/lib/collection-messages.js";
 import type {
 	CharacterSpecData,
 	CollectionStatus,
@@ -190,7 +191,8 @@ export async function fetchRaidPerformance(
 			character = data.characterData?.character ?? null;
 		} catch (error) {
 			if (error instanceof WclDeferredError) deferred = error;
-			failure = error instanceof Error ? error.message : "WCL 레이드 조회 실패";
+			if (!deferred) console.warn("WCL raid query failed", error);
+			failure = deferred?.message ?? collectionMessages.raidFailed;
 		}
 		for (const { alias } of pending) {
 			const targetPath = ["characterData", "character", alias];
@@ -203,11 +205,11 @@ export async function fetchRaidPerformance(
 						!e.path?.length ||
 						e.path.slice(0, targetPath.length).every((part, i) => part === targetPath[i]),
 				)
-					? "WCL GraphQL 부분 응답 오류"
+					? collectionMessages.partialResponse
 					: !character
-						? "WCL 캐릭터 응답 누락 · 기록 유무 확인 불가"
+						? collectionMessages.characterMissing
 						: !raw
-							? "WCL 레이드 순위 응답 누락 · 기록 유무 확인 불가"
+							? collectionMessages.rankingsMissing
 							: undefined);
 			outcomes.set(alias, {
 				raw,
@@ -233,7 +235,7 @@ export async function fetchRaidPerformance(
 						state: "skipped",
 						attemptedRequests: 0,
 						failedRequests: 0,
-						issues: ["4시간 캐릭터 레이드 캐시 재사용"],
+						issues: [collectionMessages.raidCached],
 						retainedAt:
 							outcome.cached.collection.retainedAt ??
 							outcome.cached.collection.lastSuccessAt ??
@@ -264,7 +266,7 @@ export async function fetchRaidPerformance(
 				issues: skipped
 					? [
 							outcome?.deferred?.message ??
-								(enabled ? "공식 metric 스키마 지원 미확인 · 미조회" : "WCL 미조회"),
+								(enabled ? collectionMessages.metricUnknown : collectionMessages.wclUnqueried),
 						]
 					: outcome?.issue
 						? [outcome.issue]
@@ -303,7 +305,7 @@ export function failedRaidPerformance(
 				state: "failed",
 				attemptedRequests: 0,
 				failedRequests: 0,
-				issues: ["캐릭터 전문화 조회 실패 · 기록 유무 확인 불가"],
+				issues: [collectionMessages.specUnknown],
 			};
 			const fresh = mapRaidDifficulty(null, metric, difficulty, encounters, collection);
 			const old = previous?.[metric]?.[difficulty];

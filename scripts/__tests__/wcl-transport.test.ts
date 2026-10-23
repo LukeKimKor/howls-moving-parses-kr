@@ -66,8 +66,8 @@ describe("WCL queue and server cooldown", () => {
 	});
 	it("does not shorten a long server cooldown or block CI indefinitely", async () => {
 		const s = setup([new Response(null, { status: 429, headers: { "Retry-After": "3600" } })]);
-		await expect(s.transport.request("a")).rejects.toThrow("2026-10-17T00:00:00.000Z");
-		await expect(s.transport.request("b")).rejects.toThrow("remaining requests deferred");
+		await expect(s.transport.request("a")).rejects.toThrow("10. 17. 09:00 KST");
+		await expect(s.transport.request("b")).rejects.toThrow("WCL 남은 조회 보류");
 		expect(s.request).toHaveBeenCalledTimes(1);
 		expect(s.waits).toEqual([]);
 	});

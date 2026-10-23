@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ALL_SPECS } from "../../src/data/specs.js";
+import { collectionMessages } from "../../src/lib/collection-messages.js";
 import { countCollections } from "../collection-status.js";
 import { fetchSpecMeta } from "../fetch-data.js";
 import { wclTransport } from "../wcl-transport.js";
@@ -27,6 +28,8 @@ describe("real collector failure propagation (synthetic responses, no API calls)
 		expect(request).toHaveBeenCalledTimes(2);
 		expect(result.mythicPlus.collection).toMatchObject({ state: "failed", failedRequests: 1 });
 		expect(result.raid.collection).toMatchObject({ state: "failed", failedRequests: 1 });
+		expect(result.raid.collection?.issues).toContain(collectionMessages.wclFailed);
+		expect(JSON.stringify(result.raid.collection?.issues)).not.toContain("WCL HTTP 429");
 		expect(
 			countCollections([[result.mythicPlus.collection, result.raid.collection]]),
 		).toMatchObject({ failed: 1, complete: 0 });
@@ -99,7 +102,7 @@ describe("real collector failure propagation (synthetic responses, no API calls)
 		expect(result.mythicPlus.collection).toMatchObject({
 			state: "failed",
 			failedRequests: 1,
-			issues: expect.arrayContaining(["WCL GraphQL 부분 응답 오류"]),
+			issues: expect.arrayContaining([collectionMessages.partialResponse]),
 		});
 	});
 });

@@ -1,3 +1,4 @@
+import { collectionMessages } from "../src/lib/collection-messages.js";
 /** Application policies, not advertised WCL service limits. */
 export const WCL_POLICY = {
 	reserveRatio: 0.2,
@@ -110,12 +111,12 @@ export class WclRuntime {
 		if (!this.active) return;
 		if (this.stopReason || (this.state.cooldownUntil ?? 0) > this.now())
 			throw new WclDeferredError(
-				this.stopReason ?? this.state.cooldownReason ?? "WCL 서버 대기 시간 · 다음 실행으로 이월",
+				this.stopReason ?? this.state.cooldownReason ?? collectionMessages.serverWaiting,
 				this.state.cooldownUntil,
 			);
 		if (this.now() - this.startedAt > WCL_POLICY.maxRunMs) {
-			this.defer("애플리케이션 실행 시간 예산 · 다음 실행으로 이월");
-			throw new WclDeferredError(this.stopReason ?? "실행 시간 예산");
+			this.defer(collectionMessages.runTimeDeferred);
+			throw new WclDeferredError(this.stopReason ?? collectionMessages.runTimeLimit);
 		}
 	}
 	currentBudget() {
@@ -128,7 +129,7 @@ export class WclRuntime {
 		const b = this.currentBudget();
 		if (!b) {
 			if (this.stage === "detail" || this.stage === "meta")
-				throw new WclDeferredError("포인트 예산 미확인 · 낮은 우선순위 수집 이월");
+				throw new WclDeferredError(collectionMessages.unknownBudgetDetail);
 			return; // Bootstrap/core may obtain a fresh sample; the scheduler bounds unknown-budget characters.
 		}
 		const remaining = b.limitPerHour - b.pointsSpentThisHour;
@@ -137,11 +138,8 @@ export class WclRuntime {
 		const estimated = Math.max(0, this.state.maxCostPerSelection ?? 0) * this.selectionWeight;
 		if (remaining <= reserve + estimated) {
 			const until = b.observedAt + b.pointsResetIn * 1000;
-			this.defer(
-				`WCL 포인트 예산 보류 (${remaining.toFixed(2)} 남음; 20% 안전 여유는 앱 정책)`,
-				until,
-			);
-			throw new WclDeferredError(this.stopReason ?? "포인트 예산 보류", until);
+			this.defer(collectionMessages.pointBudgetDeferred(remaining), until);
+			throw new WclDeferredError(this.stopReason ?? collectionMessages.budgetDeferred, until);
 		}
 	}
 	observeBudget(value: unknown) {

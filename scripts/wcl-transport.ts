@@ -1,3 +1,4 @@
+import { collectionMessages } from "../src/lib/collection-messages.js";
 import { WclDeferredError, wclRuntime } from "./wcl-runtime.js";
 /** One queue for OAuth and GraphQL; server cooldowns defer the run instead of a retry storm. */
 export class WclHttpError extends Error {
@@ -59,7 +60,7 @@ export class WclTransport {
 		// A deferred run must not start a fresh retry storm for the next queued query.
 		if (this.stoppedUntil) {
 			throw new WclDeferredError(
-				`WCL remaining requests deferred; retry after ${new Date(this.stoppedUntil).toISOString()}`,
+				collectionMessages.queuedDeferred(this.stoppedUntil),
 				this.stoppedUntil,
 			);
 		}
@@ -109,7 +110,7 @@ export class WclTransport {
 			await response?.body?.cancel();
 			if (limited || (retryable && delay > 30_000)) {
 				this.stoppedUntil = now() + delay;
-				const reason = `WCL HTTP ${status ?? "network"}: 다음 실행으로 이월; retry after ${new Date(this.stoppedUntil).toISOString()}`;
+				const reason = collectionMessages.transportDeferred(status, this.stoppedUntil);
 				this.options.onDeferred?.(reason, this.stoppedUntil);
 				throw new WclDeferredError(reason, this.stoppedUntil, true);
 			}
