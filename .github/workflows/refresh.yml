@@ -9,8 +9,7 @@ on:
       - 'docs/**'
       - '**.md'
   schedule:
-    - cron: '0 4 * * *'
-    - cron: '0 10,16,22 * * *'
+    - cron: '0 4,10,16,22 * * *'
   workflow_dispatch:
     inputs:
       mode:
@@ -38,18 +37,19 @@ jobs:
   build-and-deploy:
     # Both flags default to disabled. Enable only after the owner approves setup.
     if: github.event_name != 'schedule' || vars.ENABLE_SCHEDULED_REFRESH == 'true'
-    runs-on: ubuntu-latest
+    # Keep the OS stable across ubuntu-latest migrations (Chrome/Lighthouse).
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           # Full history so a push can be diffed against its previous head.
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: 'pnpm'
@@ -60,7 +60,7 @@ jobs:
         run: pnpm test
 
       - name: Restore previous public snapshot cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             cache/last-snapshot.json
@@ -130,7 +130,7 @@ jobs:
 
       - name: Save snapshot for the next refresh
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             cache/last-snapshot.json
@@ -156,7 +156,7 @@ jobs:
 
           scores=()
           for i in 1 2 3; do
-            pnpm dlx lighthouse "http://localhost:3000${DEPLOY_BASE_PATH}" \
+            pnpm dlx lighthouse@13.5.0 "http://localhost:3000${DEPLOY_BASE_PATH}" \
               --chrome-flags="--headless --no-sandbox" \
               --only-categories=performance,accessibility,best-practices,seo \
               --output=json \
@@ -192,14 +192,14 @@ jobs:
 
       - name: Upload Lighthouse reports
         if: always() && github.event_name != 'schedule'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lighthouse-report
           path: lighthouse-report-*.json
           retention-days: 30
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           name: github-pages
           path: dist/
@@ -207,7 +207,7 @@ jobs:
   deploy:
     needs: build-and-deploy
     if: vars.ENABLE_PUBLIC_DEPLOY == 'true' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       pages: write
       id-token: write
@@ -217,6 +217,6 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
         with:
           artifact_name: github-pages

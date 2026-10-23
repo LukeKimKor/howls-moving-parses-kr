@@ -61,6 +61,7 @@
   - `pnpm test` / `pnpm test:snapshot` / `pnpm typecheck` / `pnpm lint` / `pnpm build` / `pnpm preview`
   - 프로젝트 Pages 경로에 맞추려면 빌드·미리보기 모두 `DEPLOY_BASE_PATH=/howls-moving-parses-kr/`.
 - GitHub Actions `Refresh Data & Deploy` (`.github/workflows/refresh.yml`):
+  - 실행 환경: 두 잡 모두 `ubuntu-24.04`, 액션 런타임은 Node 24 지원 버전. 앱 빌드는 Node 22·pnpm 9.15.0을 유지하고 Lighthouse는 `13.5.0`으로 고정한다. OS 이미지의 Chrome 등 도구는 계속 갱신된다.
   - 트리거와 수집 모드(`Select refresh scope` 단계에서 결정):
 
     | 트리거 | 모드 | 외부 API |
