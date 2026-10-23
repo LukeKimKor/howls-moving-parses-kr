@@ -1392,9 +1392,51 @@
 		border-radius: 10px;
 		background: var(--dash-panel);
 	}
+	/* Compact header: name·spec with the metric on the right, then Heroic | Mythic, then WCL | toggle. */
 	.dash .dash-boss-card.is-collapsible .dash-boss-card-header {
-		gap: 8px 12px;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		grid-template-areas:
+			"char char"
+			"heroic mythic"
+			"links links";
+		align-items: center;
+		gap: 6px 8px;
 		padding: 10px 12px;
+	}
+	.dash .dash-boss-card.is-collapsible .dash-char-cell {
+		grid-area: char;
+		min-width: 0;
+		gap: 8px;
+		/* Room for the metric pill that shares this row (widest: "우두머리 피해"). */
+		padding-right: 112px;
+	}
+	.dash .dash-boss-card.is-collapsible .dash-class-bar {
+		min-height: 20px;
+	}
+	.dash .dash-boss-card.is-collapsible .dash-char-text {
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0 8px;
+	}
+	.dash .dash-boss-card.is-collapsible .dash-boss-card-stats {
+		display: contents;
+	}
+	.dash .dash-boss-card.is-collapsible .dash-stat-pill {
+		justify-content: center;
+		min-width: 0;
+		white-space: nowrap;
+	}
+	.dash .dash-boss-card.is-collapsible .dash-stat-pill.dash-heroic {
+		grid-area: heroic;
+	}
+	.dash .dash-boss-card.is-collapsible .dash-stat-pill.dash-mythic {
+		grid-area: mythic;
+	}
+	.dash .dash-boss-card.is-collapsible .dash-metric-pill {
+		grid-area: char;
+		justify-self: end;
 	}
 	.dash .dash-boss-card.is-collapsible .dash-collection {
 		padding: 0 12px 8px;
@@ -1403,6 +1445,7 @@
 		padding: 0 8px 10px;
 	}
 	.dash .dash-boss-card.is-collapsible .dash-boss-card-links {
+		grid-area: links;
 		width: 100%;
 	}
 	.dash .dash-boss-card.is-collapsible .dash-boss-toggle {
