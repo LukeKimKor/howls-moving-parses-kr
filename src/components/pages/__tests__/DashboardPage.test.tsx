@@ -180,7 +180,7 @@ function rowFor(key: string) {
 describe("overview tab", () => {
 	it("opens on the overview with item level, score, and four separate WCL percentile columns", () => {
 		const data = withData();
-		render(<DashboardPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		render(<DashboardPage snapshot={data} />);
 		expect(screen.getByRole("tab", { name: /종합 현황/ })).toHaveAttribute("aria-selected", "true");
 		const first = data.characters[0] as CharacterData;
 		const row = rowFor(`${first.name}/${first.mainSpecSlug}`);
@@ -214,7 +214,7 @@ describe("overview tab", () => {
 		mythic.difficulty = "Mythic";
 		mythic.collection = { ...ok, issues: [], state: "skipped", retainedAt: "2026-10-18T00:00:00Z" };
 		mythic.rows = [bossRow(1, "Boss A", "no-kills"), bossRow(2, "Boss B", "no-kills")];
-		render(<DashboardPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		render(<DashboardPage snapshot={data} />);
 		const row = rowFor(`${first.name}/${first.mainSpecSlug}`);
 		const cell = (label: string) => row.querySelector(`[data-label="${label}"]`) as HTMLElement;
 		expect(cell("영웅 처치").textContent).toBe("1/2");
@@ -254,7 +254,7 @@ describe("overview tab", () => {
 		mythicB.difficulty = "Mythic";
 		mythicB.rows = [bossRow(1, "Boss A", "recorded")];
 		specB.raidPerformance = { dps: { Heroic: section(80, 70), Mythic: mythicB } };
-		render(<DashboardPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		render(<DashboardPage snapshot={data} />);
 		fireEvent.change(screen.getByRole("combobox", { name: "종합 현황 정렬" }), {
 			target: { value: "mythicKills" },
 		});
@@ -268,7 +268,7 @@ describe("overview tab", () => {
 
 	it("splits dealers, healers and tanks into separate tables", () => {
 		const data = withData();
-		render(<DashboardPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		render(<DashboardPage snapshot={data} />);
 		const dps = screen.getByRole("table", { name: /^딜러 전문화별/ });
 		const healers = screen.getByRole("table", { name: /^힐러 전문화별/ });
 		const healerNames = data.characters.filter((c) => ["Evoker", "Paladin"].includes(c.class));
@@ -280,7 +280,7 @@ describe("overview tab", () => {
 
 	it("gives each tracked Demon Hunter spec its own row", () => {
 		const data = withData();
-		render(<DashboardPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		render(<DashboardPage snapshot={data} />);
 		const dh = data.characters.find((c) => c.name === "앙귀태") as CharacterData;
 		expect(dh.specOrder).toHaveLength(2);
 		const [a, b] = dh.specOrder.map((slug) => rowFor(`앙귀태/${slug}`));
@@ -292,7 +292,7 @@ describe("overview tab", () => {
 
 	it("shows All Stars points and rank for the selected patch and damage metric", () => {
 		const data = withData();
-		render(<DashboardPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		render(<DashboardPage snapshot={data} />);
 		const first = data.characters[0] as CharacterData;
 		const row = () => rowFor(`${first.name}/${first.mainSpecSlug}`);
 		const cell = (label: string) => row().querySelector(`[data-label="${label}"]`) as HTMLElement;
@@ -313,7 +313,7 @@ describe("overview tab", () => {
 
 	it("colours ranks by WCL rank percentile, points in the points colour, item level by crest band", () => {
 		const data = withData();
-		render(<DashboardPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		render(<DashboardPage snapshot={data} />);
 		const first = data.characters[0] as CharacterData;
 		const row = rowFor(`${first.name}/${first.mainSpecSlug}`);
 		const cell = (label: string) => row.querySelector(`[data-label="${label}"]`) as HTMLElement;
@@ -328,26 +328,28 @@ describe("overview tab", () => {
 		expect(secondIlvl.querySelector(".dash-ilvl")).toHaveAttribute("title", "신화 문장 졸업");
 	});
 
-	it("sorts by score and opens the character detail from the name", () => {
+	it("sorts by score and shows character names as plain text", () => {
 		const data = withData();
-		const onOpen = vi.fn();
-		render(<DashboardPage snapshot={data} onOpenCharacter={onOpen} />);
+		render(<DashboardPage snapshot={data} />);
 		fireEvent.change(screen.getByRole("combobox", { name: "종합 현황 정렬" }), {
 			target: { value: "score" },
 		});
 		const rows = document.querySelectorAll("[data-roster-character]");
 		expect(rows[0]?.getAttribute("data-roster-character")).toBe(data.characters[1]?.name);
 		// 오렌지크림피자 tracks Arcane and Frost, so its name appears on two rows.
-		const nameButtons = screen.getAllByRole("button", { name: data.characters[0]?.name ?? "" });
-		expect(nameButtons).toHaveLength(2);
-		fireEvent.click(nameButtons[0] as HTMLElement);
-		expect(onOpen).toHaveBeenCalledWith(data.characters[0]);
+		const name = data.characters[0]?.name ?? "";
+		expect(screen.queryAllByRole("button", { name })).toHaveLength(0);
+		const names = Array.from(document.querySelectorAll(".dash-char-name")).filter(
+			(el) => el.textContent === name,
+		);
+		expect(names).toHaveLength(2);
+		for (const el of names) expect(el.tagName).toBe("SPAN");
 	});
 });
 
 describe("raid and Mythic+ tabs", () => {
 	it("switches tabs and renders one header", () => {
-		render(<DashboardPage snapshot={withData()} onOpenCharacter={vi.fn()} />);
+		render(<DashboardPage snapshot={withData()} />);
 		fireEvent.click(screen.getByRole("tab", { name: /^쐐기/ }));
 		expect(screen.getByRole("table", { name: /던전 최고 단수/ })).toBeInTheDocument();
 		expect(window.location.hash).toBe("#mplus");
@@ -398,7 +400,7 @@ describe("raid and Mythic+ tabs", () => {
 				allStarRank: null,
 			},
 		];
-		render(<DashboardPage snapshot={data} onOpenCharacter={vi.fn()} />);
+		render(<DashboardPage snapshot={data} />);
 		fireEvent.click(screen.getByRole("tab", { name: /레이드 로그/ }));
 		const table = screen.getByRole("table", {
 			name: new RegExp(`^${first.name} ${spec.specName} 전체 피해 우두머리별`),

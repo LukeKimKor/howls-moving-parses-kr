@@ -1,11 +1,5 @@
 import type { CollectionStatus } from "../../types/snapshot.js";
 
-export function collectionFailureMessage(status?: CollectionStatus): string | undefined {
-	if (status?.deferred) return "갱신 보류 · 아직 기록 유무를 확인하지 못했습니다.";
-	if (status?.state !== "partial" && status?.state !== "failed") return undefined;
-	return "조회에 실패한 항목이 있습니다. 공개 기록 없음으로 판단할 수 없습니다.";
-}
-
 export function CollectionNotice({ label, status }: { label: string; status?: CollectionStatus }) {
 	if (!status || (status.state === "ok" && !status.retainedAt)) return null;
 	const text = {

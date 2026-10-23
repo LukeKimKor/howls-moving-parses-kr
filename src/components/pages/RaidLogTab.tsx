@@ -340,13 +340,11 @@ function SpecBossCard({
 	row,
 	damageMetric,
 	encounters,
-	onOpenCharacter,
 }: {
 	snapshot: Snapshot;
 	row: SpecRow;
 	damageMetric: DamageMetric;
 	encounters: Array<{ id: number; name: string }>;
-	onOpenCharacter: (character: CharacterData) => void;
 }) {
 	const spec = row.character.specs[row.slug];
 	if (!spec) return null;
@@ -375,7 +373,6 @@ function SpecBossCard({
 			<header className="dash-boss-card-header">
 				<CharacterCell
 					character={row.character}
-					onOpen={onOpenCharacter}
 					sub={<SpecChip character={row.character} specName={row.specName} />}
 				/>
 				<div className="dash-boss-card-stats">
@@ -488,11 +485,9 @@ function SpecBossCard({
 
 export function RaidLogTab({
 	snapshot,
-	onOpenCharacter,
 	mobile,
 }: {
 	snapshot: Snapshot;
-	onOpenCharacter: (character: CharacterData) => void;
 	mobile: boolean;
 }) {
 	const [damageMetric, setDamageMetric] = useState<DamageMetric>("dps");
@@ -596,7 +591,6 @@ export function RaidLogTab({
 								row={row}
 								damageMetric={damageMetric}
 								encounters={encounters}
-								onOpenCharacter={onOpenCharacter}
 							/>
 						))}
 				</section>

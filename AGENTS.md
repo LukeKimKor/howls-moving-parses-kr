@@ -19,7 +19,7 @@
 ## 화면·데이터 핵심 규칙
 
 - **종합 현황판 핵심 지표**: WCL 최고 % / 중앙 %, Raider.IO 쐐기 점수, 아이템 레벨. (그 밖에 영웅·신화 처치 수, All Stars 점수·순위도 표시 중 — 세부는 admin-guidelines)
-- **화면은 탭으로 분리**: 종합 현황(`#overview`, 기본) / 레이드 로그(`#raid`) / 쐐기(`#mplus`). 새 화면도 탭 구조 안에 둔다.
+- **화면은 탭으로 분리**: 종합 현황(`#overview`, 기본) / 레이드 로그(`#raid`) / 쐐기(`#mplus`). 새 화면도 탭 구조 안에 둔다. 캐릭터 상세 화면은 없다(이름은 일반 글자, 자세한 기록은 WCL·RIO 링크).
 - **다크 대시보드 디자인 유지**: 배경 `#0b0f16`, 패널 `#111824`, 테두리 `#222e40`. 토큰은 `src/dashboard.css`의 `.dash`. 표 부품은 `src/components/pages/DashParts.tsx`를 재사용한다.
 - **앙귀태(악마사냥꾼)는 파멸(Havoc)·포식(Devourer) 두 전문화를 동등하게 표시**한다. `mainSpecPending: true`, 두 전문화 모두 `tracked`. 어느 화면에서도 하나를 주 전문화로 취급하거나, 숨기거나, 두 값을 평균 내지 않는다.
 - 없는 값을 지어내지 않는다. "기록 없음"(성공·빈 결과) / "조회 실패" / "미조회"를 구분한다.
@@ -37,7 +37,7 @@
 |---|---|
 | `characters.config.json` | 추적 캐릭터 13명(KR 아즈샤라, `realmSlug: azshara`)과 전문화. 캐릭터 추가·삭제·전문화 변경은 이 파일만 고친다 |
 | `scripts/` | 빌드 시 데이터 수집기(Node + tsx). `fetch-data.ts`(수집 본체), `refresh-data.ts`(WCL Secret 유무로 모드 선택), `wcl-transport.ts`·`wcl-runtime.ts`·`wcl-query-cache.ts`(WCL 요청 큐·한도·캐시), `raid-performance.ts`, `raid-patch-metadata.ts`, `restore-snapshot.ts`(이전 공개 스냅샷 복원), `fonts/`(코어 폰트 생성) |
-| `src/` | React 18 + TypeScript 앱. `App.tsx`, `components/pages/`(탭 화면: `RosterOverview`, `RaidLogTab`, `MythicPlusOverview`, 상세 `DashboardPage`), `components/panels/`, `components/primitives/`, `lib/`(`roster.ts`, `raid-overview.ts`, `all-stars.ts`, `ko.ts` 한글 라벨 등), `types/snapshot.ts`(스냅샷 스키마), `sw.ts`(새 빌드 알림 서비스 워커) |
+| `src/` | React 18 + TypeScript 앱. `App.tsx`, `components/pages/`(`DashboardPage` 탭 틀과 탭 화면 `RosterOverview`, `RaidLogTab`, `MythicPlusOverview`, 공통 표 부품 `DashParts`), `components/chrome/`(`NewBuildBanner`), `components/primitives/`, `lib/`(`roster.ts`, `raid-overview.ts`, `all-stars.ts`, `ko.ts` 한글 라벨 등), `types/snapshot.ts`(스냅샷 스키마), `sw.ts`(새 빌드 알림 서비스 워커) |
 | `src/data/snapshot.json` | 수집 결과(빌드에 포함). **git 제외**, 커밋하지 않는다 |
 | `docs/` | 관리 지침과 세부 정책(refresh-policy, all-stars, performance, typography 등) |
 | `.github/workflows/refresh.yml` | 수집·검증·빌드·배포 워크플로 |

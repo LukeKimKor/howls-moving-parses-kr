@@ -18,11 +18,9 @@ import { CLASS_COLORS, SpecIcon } from "../primitives/SpecIcon.js";
 
 export function CharacterCell({
 	character,
-	onOpen,
 	sub,
 }: {
 	character: CharacterData;
-	onOpen?: (character: CharacterData) => void;
 	sub?: ReactNode;
 }) {
 	const color = CLASS_COLORS[character.class];
@@ -30,21 +28,9 @@ export function CharacterCell({
 		<div className="dash-char-cell">
 			<span className="dash-class-bar" aria-hidden="true" style={{ background: color }} />
 			<div className="dash-char-text">
-				{onOpen ? (
-					<button
-						type="button"
-						className="dash-char-name"
-						style={{ color }}
-						onClick={() => onOpen(character)}
-						title="쐐기·장비·특성 상세 보기"
-					>
-						{character.name}
-					</button>
-				) : (
-					<span className="dash-char-name" style={{ color }}>
-						{character.name}
-					</span>
-				)}
+				<span className="dash-char-name" style={{ color }}>
+					{character.name}
+				</span>
 				<span className="dash-char-sub">{sub ?? classLabel(character.class)}</span>
 			</div>
 		</div>

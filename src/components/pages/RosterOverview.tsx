@@ -121,7 +121,6 @@ function RoleTable({
 	sortKey,
 	onSort,
 	maxScore,
-	onOpenCharacter,
 	star,
 	kills,
 	zoneId,
@@ -135,7 +134,6 @@ function RoleTable({
 	sortKey: RowSortKey;
 	onSort: (key: RowSortKey) => void;
 	maxScore: number;
-	onOpenCharacter: (character: CharacterData) => void;
 }) {
 	const roleLabel = ROLE_LABELS[role];
 	const metricNote =
@@ -245,7 +243,6 @@ function RoleTable({
 									<th scope="row" className="dash-col-char">
 										<CharacterCell
 											character={character}
-											onOpen={onOpenCharacter}
 											sub={
 												<CharacterLinks
 													character={character}
@@ -336,10 +333,8 @@ function RoleTable({
 
 export function RosterOverview({
 	snapshot,
-	onOpenCharacter,
 }: {
 	snapshot: Snapshot;
-	onOpenCharacter: (character: CharacterData) => void;
 }) {
 	const [damageMetric, setDamageMetric] = useState<DamageMetric>("dps");
 	const [sortKey, setSortKey] = useState<RowSortKey>("config");
@@ -513,7 +508,6 @@ export function RosterOverview({
 						sortKey={sortKey}
 						onSort={toggleSort}
 						maxScore={maxScore}
-						onOpenCharacter={onOpenCharacter}
 						star={star}
 						kills={kills}
 						zoneId={snapshot.raid?.id}

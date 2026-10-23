@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { gameName, raidGroups } from "../../lib/ko.js";
 import { raidEncounters } from "../../lib/raid-overview.js";
 import { kstTime, nextScheduledAt, raidLastSuccess } from "../../lib/refresh-time.js";
-import type { CharacterData, Snapshot } from "../../types/snapshot.js";
+import type { Snapshot } from "../../types/snapshot.js";
 import { NewBuildBanner } from "../chrome/NewBuildBanner.js";
 import { MythicPlusOverview } from "./MythicPlusOverview.js";
 import { RaidLogTab } from "./RaidLogTab.js";
@@ -26,15 +26,11 @@ export function tabFromHash(hash: string): DashboardTab | null {
 
 export function DashboardPage({
 	snapshot,
-	onOpenCharacter,
-	initialTab = "overview",
 }: {
 	snapshot: Snapshot;
-	onOpenCharacter: (character: CharacterData) => void;
-	initialTab?: DashboardTab;
 }) {
 	const [tab, setTab] = useState<DashboardTab>(
-		() => tabFromHash(window.location.hash) ?? initialTab,
+		() => tabFromHash(window.location.hash) ?? "overview",
 	);
 	useEffect(() => {
 		const onHash = () => {
@@ -165,15 +161,9 @@ export function DashboardPage({
 				aria-labelledby={`dash-tab-${tab}`}
 				className="dash-panel"
 			>
-				{tab === "overview" && (
-					<RosterOverview snapshot={snapshot} onOpenCharacter={onOpenCharacter} />
-				)}
-				{tab === "raid" && (
-					<RaidLogTab snapshot={snapshot} onOpenCharacter={onOpenCharacter} mobile={mobile} />
-				)}
-				{tab === "mplus" && (
-					<MythicPlusOverview snapshot={snapshot} onOpenCharacter={onOpenCharacter} />
-				)}
+				{tab === "overview" && <RosterOverview snapshot={snapshot} />}
+				{tab === "raid" && <RaidLogTab snapshot={snapshot} mobile={mobile} />}
+				{tab === "mplus" && <MythicPlusOverview snapshot={snapshot} />}
 			</div>
 
 			<footer className="raid-overview-footer">

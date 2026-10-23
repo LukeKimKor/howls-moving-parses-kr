@@ -45,10 +45,8 @@ function RunCell({ run }: { run: MythicPlusRun | undefined }) {
 
 export function MythicPlusOverview({
 	snapshot,
-	onOpenCharacter,
 }: {
 	snapshot: Snapshot;
-	onOpenCharacter: (character: CharacterData) => void;
 }) {
 	const [byScore, setByScore] = useState(true);
 	const rows = useMemo(
@@ -120,7 +118,6 @@ export function MythicPlusOverview({
 									<th scope="row" className="dash-col-char">
 										<CharacterCell
 											character={character}
-											onOpen={onOpenCharacter}
 											sub={
 												<a
 													href={characterProfileUrl(

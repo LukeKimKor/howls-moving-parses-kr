@@ -258,16 +258,6 @@
 	}
 }
 
-.page-wrap table th,
-.page-wrap table td {
-	font-size: 16px;
-	line-height: 1.55;
-}
-
-.page-wrap .meta-source-note {
-	font-size: 15px;
-}
-
 /* Keep whole-raid points separate from boss points and preserve each source scope. */
 .raid-all-stars {
 	display: grid;

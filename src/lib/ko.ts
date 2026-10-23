@@ -62,11 +62,7 @@ export function specLabel(name: string, className?: string) {
 }
 export const difficultyLabel = (name: string) =>
 	({ Heroic: "영웅", Mythic: "신화", Normal: "일반" })[name] ?? name;
-export const metricLabel = (name: string) =>
-	({ dps: "전체 피해", bossdps: "우두머리 피해", hps: "치유량" })[name] ?? name;
 export const rateLabel = (metric: string) => (metric === "hps" ? "초당 치유량" : "초당 피해량");
-export const regionLabel = (region: string) =>
-	({ kr: "한국", eu: "유럽", us: "북미", tw: "대만", cn: "중국" })[region.toLowerCase()] ?? region;
 
 // Verified official Korean names; see docs/korean-labels.md. English keys are intentionally preserved.
 export const BOSS_KO: Record<string, string> = {
@@ -106,46 +102,3 @@ export const hasSummaryPercent = (
 ) =>
 	!!summary &&
 	(hasValue(summary.bestPerformanceAverage) || hasValue(summary.medianPerformanceAverage));
-export const SLOT_KO: Record<string, string> = {
-	head: "머리",
-	neck: "목",
-	shoulder: "어깨",
-	back: "등",
-	chest: "가슴",
-	shirt: "속옷",
-	tabard: "휘장",
-	wrist: "손목",
-	hands: "손",
-	waist: "허리",
-	legs: "다리",
-	feet: "발",
-	finger1: "손가락 1",
-	finger2: "손가락 2",
-	trinket1: "장신구 1",
-	trinket2: "장신구 2",
-	mainhand: "주장비",
-	offhand: "보조장비",
-};
-export const slotLabel = (slot: string) => SLOT_KO[slot] ?? slot;
-export const rankLabelKo = (label: string) =>
-	({
-		Legendary: "전설",
-		Epic: "영웅",
-		Rare: "희귀",
-		Uncommon: "고급",
-		Common: "일반",
-		Poor: "하급",
-	})[label] ?? label;
-export const tierLabelKo = (label: string) =>
-	({
-		Myth: "신화",
-		Legend: "전설",
-		Celestial: "천상",
-		Ethereal: "에테르",
-		Immortal: "불멸",
-		Awakened: "각성",
-		"Keystone Master": "쐐기돌 장인",
-		"Keystone Hero": "쐐기돌 영웅",
-		"Keystone Conqueror": "쐐기돌 정복자",
-		"Keystone Challenger": "쐐기돌 도전자",
-	})[label] ?? label;
