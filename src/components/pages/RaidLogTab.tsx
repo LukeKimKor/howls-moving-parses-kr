@@ -388,12 +388,16 @@ function SpecBossCard({
 	const bodyId = `raid-boss-${row.characterIndex}-${row.slug}`;
 	const expanded = !collapsible || open;
 	const notices = sections
-		.map((s, i) => ({ d: DIFFICULTIES[i] as RaidDifficulty, s }))
+		.map((s, i) => ({
+			d: DIFFICULTIES[i] as RaidDifficulty,
+			s,
+			hasData: s.rows.some((r) => r.state !== "unavailable"),
+		}))
 		.filter(({ s }) => s.collection.state !== "ok" || s.collection.retainedAt);
 	// Folded cards keep failures and deferrals in view; routine notices fold with the table.
 	const shownNotices = expanded
 		? notices
-		: notices.filter(({ s }) => collectionNeedsAttention(s.collection));
+		: notices.filter(({ s, hasData }) => collectionNeedsAttention(s.collection, hasData));
 	const toggleText = open ? "보스 표 접기" : "보스 표 펼치기";
 
 	return (
@@ -444,11 +448,12 @@ function SpecBossCard({
 			</header>
 			{shownNotices.length > 0 && (
 				<div className="dash-collection">
-					{shownNotices.map(({ d, s }) => (
+					{shownNotices.map(({ d, s, hasData }) => (
 						<CollectionNotice
 							key={d}
 							label={`${difficultyLabel(d)} ${RAID_METRIC_LABELS[metric]}`}
 							status={s.collection}
+							hasData={hasData}
 						/>
 					))}
 				</div>

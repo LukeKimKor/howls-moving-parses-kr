@@ -528,6 +528,33 @@ describe("mobile raid boss cards", () => {
 		for (const button of buttons) expect(button).toHaveAttribute("aria-expanded", "true");
 		expect(document.querySelectorAll('.dash-boss-toggle[aria-expanded="true"]')).toHaveLength(2);
 	});
+	it("folds a TTL reuse with real rows away but keeps a truly unfetched section in view", () => {
+		mockViewport(true);
+		const data = withData();
+		data.raid = { id: 53, name: "Synthetic raid", encounters: [{ id: 1, name: "Boss A" }] };
+		const first = data.characters[0] as CharacterData;
+		const perf = first.specs[first.mainSpecSlug]?.raidPerformance?.dps;
+		if (!perf?.Mythic || !perf.Heroic) throw new Error("fixture");
+		const ttl = { ...ok, attemptedRequests: 0, state: "skipped" as const, cacheHits: 1 };
+		perf.Heroic.collection = { ...ttl, issues: [], retainedAt: "2026-10-18T00:00:00Z" };
+		perf.Heroic.rows = [bossRow(1, "Boss A", "recorded")];
+		perf.Mythic.collection = { ...ttl, issues: [] };
+		perf.Mythic.rows = [bossRow(1, "Boss A", "unavailable")];
+		window.history.replaceState(null, "", "/#raid");
+		render(<DashboardPage snapshot={data} />);
+		const card = screen.getByRole("article", { name: `${first.name} 비전 보스별 기록` });
+		expect(within(card).queryByText(/이전에 받은 데이터 사용/)).not.toBeInTheDocument();
+		const folded = card.querySelectorAll(".collection-notice");
+		expect(folded).toHaveLength(1);
+		expect(folded[0]).toHaveTextContent("신화 전체 피해: 미조회");
+		expect(folded[0]).toHaveClass("is-attention");
+		fireEvent.click(within(card).getByRole("button", { name: /^보스 표 펼치기/ }));
+		expect(
+			within(card)
+				.getByText(/이전에 받은 데이터 사용/)
+				.closest(".collection-notice"),
+		).toHaveClass("is-neutral");
+	});
 });
 
 describe("status marks", () => {
