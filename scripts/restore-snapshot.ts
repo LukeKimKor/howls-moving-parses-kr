@@ -2,6 +2,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
 import type { Snapshot } from "../src/types/snapshot.js";
+import type { CharactersConfig } from "./config-validation.js";
+import { toRealmSlug } from "./realm-slug.js";
 
 /** Bootstrap older deployments that embedded the public snapshot only in JS. Never execute bundle code. */
 export function extractPublishedSnapshot(source: string): Snapshot {
@@ -104,17 +106,44 @@ export async function restoreSnapshot(): Promise<void> {
 					? "full"
 					: "raiderio-only";
 		}
-		const config = JSON.parse(readFileSync("characters.config.json", "utf8")) as {
-			characters: Array<{ name: string; region: string }>;
-		};
+		const config = JSON.parse(readFileSync("characters.config.json", "utf8")) as CharactersConfig;
 		if (
 			!Array.isArray(snapshot.characters) ||
 			!Number.isFinite(Date.parse(snapshot.generatedAt)) ||
-			!config.characters.every((c) =>
-				snapshot.characters.some((p) => p.name === c.name && p.region === c.region),
+			typeof snapshot.buildHash !== "string" ||
+			(snapshot.region !== undefined &&
+				!config.characters.every((c) => c.region === snapshot.region)) ||
+			!snapshot.characters.every(
+				(c) =>
+					c &&
+					typeof c.name === "string" &&
+					typeof c.region === "string" &&
+					typeof c.realm === "string" &&
+					(c.realmSlug === undefined || typeof c.realmSlug === "string") &&
+					Array.isArray(c.specOrder) &&
+					c.specOrder.every((slug) => typeof slug === "string") &&
+					c.specs &&
+					typeof c.specs === "object" &&
+					!Array.isArray(c.specs) &&
+					Object.values(c.specs).every((spec) => spec && typeof spec === "object"),
 			)
 		)
 			throw new Error("Published snapshot identity/shape mismatch");
+		// A renamed or newly configured character must not discard the other
+		// characters' retained records, nor be guessed from an old name.
+		snapshot = {
+			...snapshot,
+			characters: snapshot.characters.filter((p) =>
+				config.characters.some(
+					(c) =>
+						p.name === c.name &&
+						p.region === c.region &&
+						(p.realmSlug ?? toRealmSlug(p.realm)) === (c.realmSlug ?? toRealmSlug(c.realm)),
+				),
+			),
+		};
+		if (!snapshot.characters.length)
+			throw new Error("Published snapshot has no matching characters");
 		mkdirSync("cache", { recursive: true });
 		if (cached && Date.parse(cached.generatedAt) >= Date.parse(snapshot.generatedAt)) return;
 		writeFileSync("cache/last-snapshot.json", JSON.stringify(snapshot));
