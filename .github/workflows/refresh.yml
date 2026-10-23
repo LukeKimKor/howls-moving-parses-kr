@@ -14,18 +14,13 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'characters / spec meta / all / cache (no API) / patches (raid patch metadata only)'
+        description: 'characters / cache (no API) / patches (raid patch metadata only)'
         type: choice
-        options: [characters, meta, all, cache, patches]
+        options: [characters, cache, patches]
         default: characters
         required: true
       force_refresh:
         description: 'Ignore application cache TTL; server cooldown and point budget still apply'
-        type: boolean
-        default: false
-      refresh_meta:
-        description: 'Also refresh regional spec meta (characters are always refreshed)'
-        required: true
         type: boolean
         default: false
 
@@ -71,7 +66,6 @@ jobs:
             cache/last-snapshot.json
             cache/wcl-runtime.json
             cache/wcl-query-cache.json
-            cache/parse-dates.json
           key: public-snapshot-v1-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: public-snapshot-v1-${{ github.ref_name }}-
 
@@ -86,7 +80,6 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           INPUT_MODE: ${{ inputs.mode }}
-          SCHEDULE: ${{ github.event.schedule }}
           BEFORE: ${{ github.event.before }}
         run: |
           # Exit 0 when every configured character is in the restored snapshot.
@@ -103,8 +96,7 @@ jobs:
           }
           case "$EVENT" in
             workflow_dispatch) scope="$INPUT_MODE" ;;
-            schedule)
-              if [ "$SCHEDULE" = '0 4 * * *' ]; then scope=all; else scope=characters; fi ;;
+            schedule) scope=characters ;;
             push)
               # A cache build cannot fill in new or renamed characters, so fetch
               # data when the character config changed in this push, the previous
@@ -127,7 +119,6 @@ jobs:
           REFRESH_SCOPE: ${{ steps.scope.outputs.scope }}
           FORCE_REFRESH: ${{ inputs.force_refresh }}
           SCHEDULED_REFRESH_ENABLED: ${{ vars.ENABLE_SCHEDULED_REFRESH }}
-          REFRESH_META: ${{ (github.event_name == 'workflow_dispatch' && inputs.refresh_meta) || github.event.schedule == '0 4 * * *' }}
           WCL_CLIENT_ID: ${{ secrets.WCL_CLIENT_ID }}
           WCL_CLIENT_SECRET: ${{ secrets.WCL_CLIENT_SECRET }}
           WCL_CURRENT_RAID_ZONE_ID: ${{ secrets.WCL_CURRENT_RAID_ZONE_ID }}
@@ -145,7 +136,6 @@ jobs:
             cache/last-snapshot.json
             cache/wcl-runtime.json
             cache/wcl-query-cache.json
-            cache/parse-dates.json
           key: public-snapshot-v1-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Typecheck

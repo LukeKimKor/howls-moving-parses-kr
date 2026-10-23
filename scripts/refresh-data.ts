@@ -1,14 +1,12 @@
 /** CI-only selector. Never logs or serializes credentials. */
 export {};
-const scope =
-	process.env.REFRESH_SCOPE || (process.env.REFRESH_META === "true" ? "all" : "characters");
-if (!["characters", "meta", "all", "cache", "patches"].includes(scope))
-	throw new Error("Unknown refresh scope");
+// Legacy meta/all scopes safely refresh characters; regional meta is retired.
+const requested = process.env.REFRESH_SCOPE || "characters";
+const scope = ["meta", "all"].includes(requested) ? "characters" : requested;
+if (!["characters", "cache", "patches"].includes(scope)) throw new Error("Unknown refresh scope");
 if (scope === "cache") process.argv.push("--cache-only");
 else if (scope === "patches") process.argv.push("--patch-metadata-only");
-else if (scope === "meta") process.argv.push("--meta-only");
-else if (scope === "characters" && process.env.REFRESH_META !== "true")
-	process.argv.push("--characters-only");
+else if (scope === "characters") process.argv.push("--characters-only");
 if (process.env.FORCE_REFRESH === "true") process.argv.push("--force-refresh");
 // Cache builds do not inspect credentials and cannot make provider requests.
 if (scope !== "cache") {
@@ -28,7 +26,7 @@ if (scope !== "cache") {
 			);
 		process.argv.push("--raiderio-only");
 		console.log(
-			"WCL is not configured: refreshing real public Raider.IO data only. Logs and meta remain explicitly unqueried.",
+			"WCL is not configured: refreshing real public Raider.IO data only. Raid logs remain explicitly unqueried.",
 		);
 	}
 }

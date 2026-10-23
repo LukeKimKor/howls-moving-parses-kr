@@ -19,6 +19,7 @@ export interface Snapshot {
 	raidPatchMetadata?: RaidPatchMetadata;
 	refreshSchedule?: { utcHours: number[]; enabled: boolean };
 	mythicPlusZone?: { id: number; name: string; encounters: Array<{ id: number; name: string }> };
+	/** Legacy detail-page metadata, accepted only when reading old snapshots. */
 	wclMetadataAt?: string;
 	refreshRuntime?: {
 		httpAttempts: number;
@@ -47,7 +48,7 @@ export interface Snapshot {
 	collectionSummary?: {
 		characters: CollectionCounts;
 		raidTables?: CollectionCounts;
-		metaSpecs: CollectionCounts & { withData: number };
+		metaSpecs?: CollectionCounts & { withData: number };
 	};
 	dataMode?: "full" | "raiderio-only";
 	region?: Region;
@@ -55,7 +56,8 @@ export interface Snapshot {
 	generatedAt: string; // ISO 8601 UTC
 	buildHash: string; // must match dist/build-hash.json
 	characters: CharacterData[];
-	specs: Record<string, SpecMetaData>; // key: "elemental-shaman", "frost-death-knight", etc.
+	/** Legacy regional meta, no longer collected. */
+	specs?: Record<string, SpecMetaData>; // key: "elemental-shaman", "frost-death-knight", etc.
 }
 
 export interface CollectionStatus {
@@ -83,7 +85,7 @@ export interface CollectionCounts {
 
 /**
  * A character entry in the snapshot. Identity fields live at the top.
- * Per-spec data (M+ score, logs, gear, talents) is nested under `specs`,
+ * Per-spec data (M+ score, logs, gear) is nested under `specs`,
  * keyed by spec slug. Only `main` and `offspec` entries from the config
  * appear here — `inactive` specs are filtered out by validateConfig.
  */
@@ -116,10 +118,10 @@ export interface CharacterSpecData {
 	collection?: {
 		raiderio: CollectionStatus;
 		raid: CollectionStatus;
-		mythicPlus: CollectionStatus;
-		raidDates: CollectionStatus;
+		mythicPlus?: CollectionStatus;
+		raidDates?: CollectionStatus;
 	};
-	specSlug: string; // e.g. "elemental-shaman" — matches key in top-level specs map
+	specSlug: string; // e.g. "elemental-shaman" — matches the configured spec definition
 	specName: string; // e.g. "Elemental"
 	role: "main" | "offspec" | "tracked";
 	gear?: GearData | null;
@@ -180,7 +182,7 @@ export interface MythicPlusData {
 	regionRank: number;
 	worldRank: number;
 	titleCutoff: TitleCutoff;
-	recentRuns: MythicPlusRun[];
+	recentRuns?: MythicPlusRun[];
 	bestRuns: MythicPlusRun[];
 }
 
@@ -209,8 +211,8 @@ export interface MythicPlusRun {
 /** Log performance data from WarcraftLogs for a character spec. */
 export interface LogData {
 	raidParses: RaidParse[];
-	recentDungeonLogs: DungeonLog[];
-	latestLogDamageBreakdown: DamageSource[];
+	recentDungeonLogs?: DungeonLog[];
+	latestLogDamageBreakdown?: DamageSource[];
 }
 
 /** A single boss parse from WarcraftLogs. */
@@ -222,8 +224,8 @@ export interface RaidParse {
 	rankLabel: string;
 	/** Best DPS or HPS for this encounter (matches the metric used for the spec). */
 	bestAmount: number;
-	/** Date of the best log for this encounter (ISO 8601), empty string if unavailable. */
-	date: string;
+	/** Legacy date of the best log (no longer collected). */
+	date?: string;
 }
 
 /** A single Mythic+ dungeon log entry. */

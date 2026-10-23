@@ -2,38 +2,28 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import pLimit from "p-limit";
-import { ALL_SPECS, type SpecDefinition, metricForRole } from "../src/data/specs.js";
+import { ALL_SPECS, metricForRole } from "../src/data/specs.js";
 import {
 	collectionMessages,
 	deferredCollectionWarning,
 	retainedCooldownReason,
 } from "../src/lib/collection-messages.js";
-import { type Region, characterProfileUrl } from "../src/lib/regions.js";
+import type { Region } from "../src/lib/regions.js";
 import type {
 	CharacterData,
 	CharacterSpecData,
-	DamageSource,
-	DungeonLog,
 	GearData,
 	LogData,
-	MetaItem,
 	MythicPlusData,
-	MythicPlusLeaderboardEntry,
-	MythicPlusMeta,
 	MythicPlusRun,
-	RaidLeaderboardEntry,
-	RaidMeta,
 	RaidParse,
 	Snapshot,
-	SpecMetaData,
-	TalentData,
 	TitleCutoff,
 } from "../src/types/snapshot.js";
 import {
 	collect,
 	combineCollectionStatuses,
 	countCollections,
-	failed,
 	recordCached,
 	recordDeferral,
 	recordIssue,
@@ -45,6 +35,7 @@ import {
 	type CharactersConfig,
 	validateConfig,
 } from "./config-validation.js";
+import { dashboardCharacter, dashboardSnapshot } from "./dashboard-snapshot.js";
 import { fetchRaidPatchMetadata, mergeRaidPatchMetadata } from "./raid-patch-metadata.js";
 import {
 	type GraphqlError,
@@ -78,96 +69,6 @@ function httpFetch(url: string, init?: RequestInit): Promise<Response> {
 
 // ── WCL raw response shapes ────────────────────────────────
 
-interface ZoneRankingsRaw {
-	bestPerformanceAverage: number | null;
-	medianPerformanceAverage: number | null;
-	difficulty: number;
-	metric: "dps" | "hps";
-	partition: number;
-	zone: number;
-	size: number;
-	allStars: AllStarsEntry[];
-	rankings: Array<{
-		encounter: { id: number; name: string };
-		rankPercent: number | null;
-		medianPercent: number | null;
-		allStars: {
-			points: number;
-			rank: number | string;
-			regionRank: number | string;
-			serverRank: number | string;
-			rankPercent: number | string;
-			total: number;
-			possiblePoints: number;
-			partition: number;
-			rankTooltip?: string;
-		} | null;
-		lockedIn: boolean;
-		totalKills: number;
-		fastestKill: number;
-		bestAmount: number;
-		spec: string | null;
-		bestSpec?: string;
-		bestRank?: null;
-		rankTooltip?: string;
-		/** Present when the character has an actual parse for this encounter. */
-		report?: { code: string; fightID: number; startTime: number } | null;
-	}>;
-}
-
-interface AllStarsEntry {
-	partition: number;
-	spec: string;
-	points: number;
-	possiblePoints: number;
-	rank: number | string;
-	regionRank: number | string;
-	serverRank: number | string;
-	rankPercent: number | string;
-	total: number;
-}
-
-interface CharacterRankingsRaw {
-	page: number;
-	hasMorePages: boolean;
-	count: number;
-	rankings: Array<{
-		name: string;
-		class: string;
-		spec: string;
-		amount: number;
-		hardModeLevel: number;
-		duration: number;
-		startTime: number;
-		report: { code: string; fightID: number; startTime: number } | null;
-		guild: { id: number; name: string; faction: number } | null;
-		server: { id: number; name: string; region: "EU" | "US" | "KR" | "CN" | "TW" };
-		bracketData: number;
-		faction: number;
-	}>;
-}
-
-interface DamageBreakdownTable {
-	data: {
-		entries: Array<{
-			name: string;
-			guid: number;
-			type: number;
-			total: number;
-			abilityIcon: string;
-			composite: boolean;
-			uptime: number;
-			uses: number;
-			hitCount: number;
-			tickCount: number;
-		}>;
-		totalTime: number;
-		logVersion: number;
-		gameVersion: number;
-		exploitDetails: unknown[];
-	};
-}
-
 interface WclZone {
 	id: number;
 	name: string;
@@ -182,34 +83,6 @@ function loadConfig(): CharactersConfig {
 	const configPath = new URL("../characters.config.json", import.meta.url);
 	return JSON.parse(readFileSync(configPath, "utf-8")) as CharactersConfig;
 }
-
-// ── Raid parse date cache ───────────────────────────────────
-
-const DATES_CACHE_PATH = "cache/parse-dates.json";
-
-/**
- * Loads the persisted raid parse date cache.
- * Key: `"CharacterName@Realm-encounterId-difficultyId"` → ISO date string.
- * The cache is stored in `cache/` (gitignored) and persisted between CI runs
- * via `actions/cache`, eliminating redundant encounterRankings queries.
- */
-function loadDatesCache(): Record<string, string> {
-	try {
-		return JSON.parse(readFileSync(DATES_CACHE_PATH, "utf-8")) as Record<string, string>;
-	} catch {
-		return {};
-	}
-}
-
-function saveDatesCache(cache: Record<string, string>): void {
-	try {
-		mkdirSync("cache", { recursive: true });
-		writeFileSync(DATES_CACHE_PATH, JSON.stringify(cache, null, 2));
-	} catch {
-		// non-fatal — next run will re-fetch missing dates
-	}
-}
-
 // ── HTTP helpers ────────────────────────────────────────────
 
 /**
@@ -565,45 +438,12 @@ interface RioProfileResponse {
 		spec_2?: { realm: number; region: number; world: number };
 		spec_3?: { realm: number; region: number; world: number };
 	};
-	mythic_plus_recent_runs?: RioRun[];
 	mythic_plus_best_runs?: RioRun[];
 	gear?: {
 		item_level_equipped: number;
 		item_level_total: number;
 		artifact_traits_total: number;
 		items: Record<string, RioGearItem>;
-	};
-	talentLoadout?: {
-		loadout_spec_id: number;
-		loadout_text: string;
-		loadout: Array<{
-			rank: number;
-			entryIndex: number;
-			node: { entries: Array<{ spell?: { name: string } }> };
-		}>;
-	};
-	talents?: Array<{
-		talent: { name: string; id: number };
-		spell_tooltip: {
-			spell: { name: string; id: number };
-			description: string;
-			cast_time: string;
-			power_cost: string | null;
-			attack_power_coefficient: string | null;
-			range: string;
-			cooldown: string;
-		};
-		talent_tree: string;
-	}>;
-	covenant?: {
-		id: number;
-		name: string;
-		description: string;
-		renown_level: number;
-		soulbind?: {
-			id: number;
-			name: string;
-		};
 	};
 }
 
@@ -789,22 +629,19 @@ export async function fetchRioProfile(
 	name: string,
 	realm: string,
 	region: string,
-	specName: string,
+	_specName: string,
 	tiers: RioScoreTier[],
 	titleCutoff: TitleCutoff,
 ): Promise<{
 	mplus: MythicPlusData | null;
 	gear: GearData | null;
-	talents: TalentData | null;
 	thumbnailUrl?: string;
 }> {
 	const fields = [
 		"mythic_plus_scores_by_season:current",
 		"mythic_plus_ranks",
-		"mythic_plus_recent_runs",
 		"mythic_plus_best_runs",
 		"gear",
-		"talents",
 	].join(",");
 
 	try {
@@ -837,7 +674,6 @@ export async function fetchRioProfile(
 		const scoreColor = segments?.all?.color ?? "#ffffff";
 		const scoreTierLabel = getTierLabel(score, tiers);
 
-		const recentRuns: MythicPlusRun[] = (profile.mythic_plus_recent_runs ?? []).map(mapRioRun);
 		const bestRuns: MythicPlusRun[] = (profile.mythic_plus_best_runs ?? []).map(mapRioRun);
 
 		const mplus: MythicPlusData = {
@@ -850,7 +686,6 @@ export async function fetchRioProfile(
 			regionRank: ranks?.overall?.region ?? 0,
 			worldRank: ranks?.overall?.world ?? 0,
 			titleCutoff,
-			recentRuns,
 			bestRuns,
 		};
 
@@ -866,26 +701,11 @@ export async function fetchRioProfile(
 					})),
 				}
 			: null;
-		// Raider.IO returns ONLY the currently equipped talent loadout. Never copy it to another spec.
-		const loadout = profile.talentLoadout;
-		const talents: TalentData | null =
-			profile.active_spec_name === specName && loadout
-				? {
-						talents: loadout.loadout
-							.filter((node) => node.rank > 0)
-							.flatMap((node) => {
-								const name = node.node.entries[node.entryIndex]?.spell?.name;
-								return name ? [name] : [];
-							}),
-						loadoutString: loadout.loadout_text,
-						wowheadUrl: null,
-					}
-				: null;
-		return { mplus, gear, talents, thumbnailUrl: profile.thumbnail_url };
+		return { mplus, gear, thumbnailUrl: profile.thumbnail_url };
 	} catch (err) {
 		console.warn(`  Could not load RIO profile for ${name} (${realm}): ${err}`);
 		recordIssue(collectionMessages.rioCharacterFailed);
-		return { mplus: null, gear: null, talents: null };
+		return { mplus: null, gear: null };
 	}
 }
 
@@ -922,256 +742,6 @@ function qualityLabel(quality: number): string {
 	return labels[quality] ?? "Unknown";
 }
 
-/**
- * Fetches the current-season M+ score, Raider.IO colour, and equipped trinket names
- * for a single player. A single profile request covers all three — no extra cost.
- *
- * @returns Score, hex colour, and trinket names, or null if the player cannot be found
- */
-async function fetchRioPlayerData(
-	name: string,
-	realm: string,
-	region: string,
-): Promise<{ score: number; color: string; trinkets: string[] } | null> {
-	try {
-		const res = await retry(async () => {
-			const url = `${RIO_BASE_URL}/characters/profile?region=${region}&realm=${encodeURIComponent(realm)}&name=${encodeURIComponent(name)}&fields=mythic_plus_scores_by_season:current,gear`;
-			const r = await httpFetch(url);
-			if (!r.ok) throw new Error(`HTTP ${r.status}`);
-			return r;
-		}, `RIO data ${name}`);
-
-		const data = (await res.json()) as RioProfileResponse;
-		const season = data.mythic_plus_scores_by_season?.[0];
-		const score = season?.scores?.all ?? 0;
-		const color = season?.segments?.all?.color ?? "";
-
-		const trinkets: string[] = [];
-		if (data.gear?.items) {
-			const t1 = data.gear.items.trinket1;
-			const t2 = data.gear.items.trinket2;
-			if (t1?.name) trinkets.push(t1.name);
-			if (t2?.name) trinkets.push(t2.name);
-		}
-
-		return { score, color, trinkets };
-	} catch {
-		recordIssue(collectionMessages.rioMetaFailed);
-		return null;
-	}
-}
-
-// ── WCL character data fetching ─────────────────────────────
-
-/**
- * Fetches a character's raid parse data from WarcraftLogs for a specific difficulty.
- *
- * @param name - Character name
- * @param realmSlug - Realm slug (lowercase-hyphenated)
- * @param region - Region in uppercase (e.g. "EU")
- * @param zoneId - Current raid zone ID
- * @param difficulty - 3=Normal, 4=Heroic, 5=Mythic
- * @param metric - "dps" or "hps"
- * @param token - WarcraftLogs bearer token
- * @returns ZoneRankingsRaw or null on failure
- */
-export async function fetchWclRaidRankings(
-	name: string,
-	realmSlug: string,
-	region: string,
-	zoneId: number,
-	difficulty: number,
-	metric: "dps" | "hps",
-	token: string,
-	specName?: string,
-): Promise<ZoneRankingsRaw | null> {
-	try {
-		// zoneRankings uses CharacterPageRankingMetricType — inline the value to avoid type mismatch
-		const data = await wclQuery<{
-			characterData: { character: { zoneRankings: ZoneRankingsRaw } | null };
-		}>(
-			token,
-			`query GetCharacterRaidParses($name: String!, $serverSlug: String!, $serverRegion: String!, $zoneID: Int!, $difficulty: Int!, $specName: String) {
-        characterData {
-          character(name: $name, serverSlug: $serverSlug, serverRegion: $serverRegion) {
-            zoneRankings(zoneID: $zoneID, difficulty: $difficulty, metric: ${metric}, specName: $specName)
-          }
-        }
-      }`,
-			{
-				name,
-				specName,
-				serverSlug: realmSlug,
-				serverRegion: region.toUpperCase(),
-				zoneID: zoneId,
-				difficulty,
-			},
-		);
-
-		return data.characterData.character?.zoneRankings ?? null;
-	} catch (err) {
-		console.warn(`  WCL raid rankings failed for ${name} (difficulty ${difficulty}): ${err}`);
-		recordIssue(collectionMessages.raidDifficultyFailed(difficulty));
-		return null;
-	}
-}
-
-/**
- * Fetches a character's M+ log data from WarcraftLogs.
- *
- * @param name - Character name
- * @param realmSlug - Realm slug
- * @param region - Region in uppercase
- * @param mplusZoneId - Current M+ season zone ID
- * @param metric - "dps" or "hps"
- * @param token - WarcraftLogs bearer token
- * @returns ZoneRankingsRaw or null on failure
- */
-export async function fetchWclMplusRankings(
-	name: string,
-	realmSlug: string,
-	region: string,
-	mplusZoneId: number,
-	metric: "dps" | "hps",
-	token: string,
-	specName?: string,
-): Promise<ZoneRankingsRaw | null> {
-	try {
-		const data = await wclQuery<{
-			characterData: { character: { mythicPlusRankings: ZoneRankingsRaw } | null };
-		}>(
-			token,
-			// zoneRankings uses CharacterPageRankingMetricType — inline the value
-			`query GetCharacterMythicPlusLogs($name: String!, $serverSlug: String!, $serverRegion: String!, $mplusZoneId: Int!, $specName: String) {
-        characterData {
-          character(name: $name, serverSlug: $serverSlug, serverRegion: $serverRegion) {
-            mythicPlusRankings: zoneRankings(zoneID: $mplusZoneId, metric: ${metric}, specName: $specName)
-          }
-        }
-      }`,
-			{
-				name,
-				specName,
-				serverSlug: realmSlug,
-				serverRegion: region.toUpperCase(),
-				mplusZoneId,
-			},
-		);
-
-		return data.characterData.character?.mythicPlusRankings ?? null;
-	} catch (err) {
-		console.warn(`  WCL M+ rankings failed for ${name}: ${err}`);
-		recordIssue(collectionMessages.mplusFailed);
-		return null;
-	}
-}
-
-/**
- * Fetches the damage breakdown for the character's best raid parse.
- *
- * Selects the raid entry with the highest bestAmount where rankPercent is non-null.
- * If no such entry exists, returns an empty array (no parses = no breakdown).
- *
- * @param name - Character name
- * @param mythicRankings - Mythic zoneRankings response (preferred)
- * @param heroicRankings - Heroic zoneRankings response (fallback)
- * @param token - WarcraftLogs bearer token
- * @returns Top-5 damage sources by percentage, or empty array
- */
-async function fetchDamageBreakdownIfPossible(
-	name: string,
-	mythicRankings: ZoneRankingsRaw | null,
-	heroicRankings: ZoneRankingsRaw | null,
-	token: string,
-): Promise<DamageSource[]> {
-	// Find best entry with actual parses
-	const rankings = mythicRankings ?? heroicRankings;
-	if (!rankings) return [];
-
-	const withParses = rankings.rankings.filter(
-		(r) => r.rankPercent !== null && r.bestAmount > 0 && r.report !== undefined,
-	);
-
-	if (withParses.length === 0) return [];
-
-	const best = withParses.reduce((a, b) => (b.bestAmount > a.bestAmount ? b : a));
-	if (!best) return [];
-
-	// The report is available on raid rankings via the encounter's best parse
-	// WCL zoneRankings doesn't include report details; we need to get them from
-	// the character's best report separately. Since the v2.3 PRD notes that
-	// the rankings from zoneRankings don't include report.code directly (only
-	// characterRankings does), we attempt a characterRankings query for the specific encounter.
-	// If unavailable, return empty.
-	return [];
-}
-
-/**
- * Maps WarcraftLogs zoneRankings data to our RaidParse[] format.
- *
- * @param rankings - ZoneRankingsRaw response
- * @param difficulty - Difficulty label string
- * @returns Array of RaidParse entries (only entries with actual parses)
- */
-function mapRaidParses(
-	rankings: ZoneRankingsRaw,
-	difficulty: "Heroic" | "Mythic",
-	parseDates: Map<string, string>,
-): RaidParse[] {
-	const difficultyId = difficulty === "Mythic" ? 5 : 4;
-	return rankings.rankings
-		.filter((r) => r.rankPercent !== null)
-		.map((r) => ({
-			bossName: r.encounter.name,
-			difficulty,
-			bestPercent: r.rankPercent ?? 0,
-			ilvlAdjustedPercent: r.rankPercent ?? 0,
-			rankLabel: rankLabel(r.rankPercent ?? 0),
-			bestAmount: r.bestAmount,
-			date: parseDates.get(`${r.encounter.id}-${difficultyId}`) ?? "",
-		}));
-}
-
-/**
- * Maps WCL M+ zoneRankings to DungeonLog[] entries for a specific spec.
- *
- * WCL's `bestAmount` for M+ zoneRankings is the total damage/healing done, not the
- * average DPS/HPS rate. To get the rate, divide by the run time in seconds. The run
- * time comes from Raider.IO's `clearTimeMs` on the matching bestRun entry.
- *
- * Date is also sourced from Raider.IO since `fastestKill` is a timer delta, not a timestamp.
- */
-function mapDungeonLogs(
-	rankings: ZoneRankingsRaw,
-	specName: string,
-	rioRuns: MythicPlusRun[],
-): DungeonLog[] {
-	const dateByDungeon = new Map(rioRuns.map((r) => [r.dungeon, r.completedAt]));
-	const clearMsByDungeon = new Map(rioRuns.map((r) => [r.dungeon, r.clearTimeMs]));
-
-	return rankings.rankings
-		.filter((r) => r.rankPercent !== null && (r.spec === specName || r.bestSpec === specName))
-		.map((r) => {
-			const clearMs = clearMsByDungeon.get(r.encounter.name);
-			// Average DPS = total damage ÷ run duration in seconds
-			const avgDps = clearMs && clearMs > 0 ? r.bestAmount / (clearMs / 1000) : r.bestAmount;
-			return {
-				dungeon: r.encounter.name,
-				dps: Math.round(avgDps),
-				rankPercent: r.rankPercent ?? 0,
-				ilvlAdjustedPercent: r.rankPercent ?? 0,
-				ilvl: 0,
-				date: dateByDungeon.get(r.encounter.name) ?? "",
-			};
-		})
-		.sort((a, b) => {
-			if (!a.date && !b.date) return 0;
-			if (!a.date) return 1;
-			if (!b.date) return -1;
-			return new Date(b.date).getTime() - new Date(a.date).getTime();
-		});
-}
-
 function rankLabel(percent: number): string {
 	if (percent >= 99) return "Legendary";
 	if (percent >= 95) return "Epic";
@@ -1181,465 +751,9 @@ function rankLabel(percent: number): string {
 	return "Poor";
 }
 
-// ── Raider.IO M+ spec leaderboard ──────────────────────────
+// ── Build identifier ──────────────────────────
 
-interface RioSpecRankingsResponse {
-	rankings: Array<{
-		rank: number;
-		score: number;
-		character: {
-			name: string;
-			realm: { slug: string; name: string; altName: string | null };
-			region: { short_name: string; slug: string; name: string };
-			thumbnailUrl: string;
-			class: { id: number; slug: string; name: string };
-			spec: { id: number; slug: string; name: string };
-		};
-		guild: null | { name: string; realm: { slug: string } };
-		season_score: number;
-		color: string;
-	}>;
-}
-
-/**
- * Builds an EU-only M+ leaderboard for a spec by aggregating characterRankings
- * across all M+ dungeon encounters in the current season zone (zone 47).
- *
- * Uses the same strategy as the raid leaderboard: fetch up to 100 rankings per
- * dungeon, filter to EU, deduplicate by name+server, take the best amount per
- * player across all dungeons, sort descending, return top 20.
- *
- * The Raider.IO public API v1 does not expose a spec rankings endpoint (returns HTML),
- * so WCL is the authoritative source for both M+ and raid leaderboards.
- *
- * @param spec - The spec definition
- * @param mplusEncounters - M+ dungeon encounter list from the current season zone
- * @param token - WarcraftLogs bearer token
- * @returns Leaderboard entries (sorted by M+ score) and aggregated trinket usage
- */
-export async function fetchWclMplusLeaderboard(
-	spec: SpecDefinition,
-	mplusEncounters: Array<{ id: number; name: string }>,
-	token: string,
-	region: Region = "eu",
-): Promise<{ leaderboard: MythicPlusLeaderboardEntry[]; trinkets: MetaItem[] }> {
-	const allRankings = await Promise.allSettled(
-		mplusEncounters.map((enc) => fetchEncounterRankings(enc.id, spec, 10, token, region)),
-	);
-
-	const playerBest = new Map<
-		string,
-		{ name: string; realm: string; realmSlug: string; bestAmount: number }
-	>();
-
-	for (const result of allRankings) {
-		if (result.status !== "fulfilled" || !result.value) continue;
-		for (const r of result.value.rankings) {
-			if (r.name === "Anonymous" || !r.report) continue;
-			if (r.server.region.toLowerCase() !== region) continue;
-			const key = `${r.name}@${r.server.name}`;
-			const existing = playerBest.get(key);
-			if (!existing || r.amount > existing.bestAmount) {
-				playerBest.set(key, {
-					name: r.name,
-					realm: r.server.name,
-					realmSlug: toRealmSlug(r.server.name),
-					bestAmount: r.amount,
-				});
-			}
-		}
-	}
-
-	const top10 = [...playerBest.values()].sort((a, b) => b.bestAmount - a.bestAmount).slice(0, 10);
-
-	// Single RIO request per player: score + gear (trinkets). Same cost as before.
-	const rioData = await Promise.allSettled(
-		top10.map((p) => fetchRioPlayerData(p.name, toRealmSlug(p.realm), region)),
-	);
-
-	// Enrich, re-sort by M+ score descending (DPS as tiebreaker).
-	const enriched = top10.map((p, idx) => {
-		const result = rioData[idx];
-		const rio = result?.status === "fulfilled" ? result.value : null;
-		return {
-			name: p.name,
-			realm: p.realm,
-			realmSlug: p.realmSlug,
-			bestAmount: p.bestAmount,
-			score: rio?.score ?? 0,
-			scoreColor: rio?.color ?? "",
-			trinkets: rio?.trinkets ?? [],
-		};
-	});
-
-	enriched.sort((a, b) => b.score - a.score || b.bestAmount - a.bestAmount);
-
-	// Aggregate trinket usage across players who had data.
-	const playersWithData = enriched.filter((p) => p.trinkets.length > 0).length;
-	const counts = new Map<string, number>();
-	for (const p of enriched) {
-		for (const name of p.trinkets) {
-			counts.set(name, (counts.get(name) ?? 0) + 1);
-		}
-	}
-	const trinkets: MetaItem[] = [...counts.entries()]
-		.sort((a, b) => b[1] - a[1])
-		.map(([name, count]) => ({
-			name,
-			source: "—",
-			usagePercent: Math.round((count / Math.max(playersWithData, 1)) * 100),
-		}));
-
-	const leaderboard = enriched.map((p, idx) => ({
-		rank: idx + 1,
-		name: p.name,
-		realm: p.realm,
-		region,
-		score: p.score,
-		scoreColor: p.scoreColor,
-		bestPerformance: Math.round(p.bestAmount),
-		trinkets: p.trinkets,
-		profileUrl: characterProfileUrl("wcl", region, p.realmSlug, p.name),
-		rioProfileUrl: characterProfileUrl("rio", region, p.realmSlug, p.name),
-	}));
-
-	return { leaderboard, trinkets };
-}
-
-/**
- * Fetches the date of the character's best log for each raid encounter, using a
- * persistent cache to skip encounters already recorded.
- *
- * Cache key: `"Name@Realm-encounterId-difficultyId"` (written to `cache/parse-dates.json`).
- * If all encounters are cached, no WCL query is made — saves ~1 WCL point/character/build.
- * Only the missing encounters are fetched; results are merged back into the cache.
- *
- * @param parseDatesCache - Mutable shared cache object (read + updated in place)
- * @returns Map of `"encounterId-difficultyId"` → ISO date string
- */
-async function fetchRaidParseDates(
-	name: string,
-	realmSlug: string,
-	region: string,
-	metric: "dps" | "hps",
-	encounters: Array<{ id: number; name: string }>,
-	token: string,
-	parseDatesCache: Record<string, string>,
-	specName: string,
-): Promise<Map<string, string>> {
-	const result = new Map<string, string>();
-	const missing: Array<{ enc: { id: number; name: string }; diffId: 4 | 5; prefix: string }> = [];
-
-	// Populate from cache first
-	for (const enc of encounters) {
-		for (const [prefix, diffId] of [
-			["h", 4],
-			["m", 5],
-		] as const) {
-			const cacheKey = `${region}/${name}@${realmSlug}/${specName}-${enc.id}-${diffId}`;
-			const cached = parseDatesCache[cacheKey];
-			if (cached) {
-				result.set(`${enc.id}-${diffId}`, cached);
-			} else {
-				missing.push({ enc, diffId, prefix });
-			}
-		}
-	}
-
-	if (missing.length === 0) return result;
-
-	// Fetch only the missing encounters in one batched query
-	const aliases = missing
-		.map(
-			({ enc, diffId, prefix }) =>
-				`${prefix}${enc.id}: encounterRankings(encounterID: ${enc.id}, difficulty: ${diffId}, metric: ${metric}, specName: $specName)`,
-		)
-		.join("\n");
-
-	try {
-		const data = await wclQuery<Record<string, unknown>>(
-			token,
-			`query GetRaidParseDates($name: String!, $serverSlug: String!, $serverRegion: String!, $specName: String!) {
-        characterData {
-          character(name: $name, serverSlug: $serverSlug, serverRegion: $serverRegion) {
-            ${aliases}
-          }
-        }
-      }`,
-			{ name, serverSlug: realmSlug, serverRegion: region.toUpperCase(), specName },
-		);
-
-		const char = (data as unknown as { characterData: { character: Record<string, unknown> } })
-			.characterData.character;
-		if (!char) return result;
-
-		for (const { enc, diffId, prefix } of missing) {
-			const raw = char[`${prefix}${enc.id}`] as
-				| { ranks?: Array<{ report?: { startTime?: number } }> }
-				| undefined;
-			const ts = raw?.ranks?.[0]?.report?.startTime;
-			if (ts) {
-				const iso = new Date(ts).toISOString();
-				result.set(`${enc.id}-${diffId}`, iso);
-				// Update the shared cache
-				parseDatesCache[`${region}/${name}@${realmSlug}/${specName}-${enc.id}-${diffId}`] = iso;
-			}
-		}
-	} catch (err) {
-		console.warn(`  Could not fetch raid parse dates for ${name}:`, err);
-		recordIssue(collectionMessages.datesFailed);
-	}
-
-	return result;
-}
-
-// ── WCL spec meta (raid leaderboard) ───────────────────────
-
-/**
- * Fetches up to 100 character rankings for a specific encounter and spec from WCL.
- *
- * @param encounterId - WCL encounter ID
- * @param spec - Spec definition
- * @param difficulty - 4=Heroic, 5=Mythic
- * @param token - Bearer token
- * @returns CharacterRankingsRaw or null on failure
- */
-export async function fetchEncounterRankings(
-	encounterId: number,
-	spec: SpecDefinition,
-	difficulty: number,
-	token: string,
-	region: Region = "eu",
-): Promise<CharacterRankingsRaw | null> {
-	try {
-		const data = await wclQuery<{
-			worldData: { encounter: { characterRankings: CharacterRankingsRaw } };
-		}>(
-			token,
-			// Inline metric to avoid enum type ambiguity (CharacterRankingMetricType vs CharacterPageRankingMetricType)
-			`query GetEncounterRankings($encounterId: Int!, $className: String!, $specName: String!, $difficulty: Int!, $region: String!) {
-        worldData {
-          encounter(id: $encounterId) {
-            characterRankings(
-              className: $className
-              specName: $specName
-              difficulty: $difficulty
-              serverRegion: $region
-              metric: ${metricForRole(spec.role)}
-              page: 1
-            )
-          }
-        }
-      }`,
-			{
-				encounterId,
-				className: spec.className,
-				specName: spec.specName,
-				difficulty,
-				region: region.toUpperCase(),
-			},
-		);
-
-		return data.worldData.encounter.characterRankings;
-	} catch (err) {
-		console.warn(`  WCL encounter ${encounterId} rankings failed for ${spec.specSlug}: ${err}`);
-		recordIssue(collectionMessages.encounterFailed(encounterId));
-		return null;
-	}
-}
-
-/**
- * Builds an EU-only raid leaderboard for a spec by aggregating across all raid encounters.
- *
- * Strategy: for each player, take their best rankPercent across all encounters,
- * deduplicate by name+server, sort descending, take top 20.
- *
- * @param spec - Spec definition
- * @param encounters - All encounters in the current raid tier
- * @param token - WarcraftLogs bearer token
- * @returns Array of up to 20 EU leaderboard entries
- */
-async function fetchRaidLeaderboard(
-	spec: SpecDefinition,
-	encounters: Array<{ id: number; name: string }>,
-	token: string,
-	region: Region = "eu",
-): Promise<RaidLeaderboardEntry[]> {
-	const allRankings = await Promise.allSettled(
-		encounters.map((enc) => fetchEncounterRankings(enc.id, spec, 5, token, region)),
-	);
-
-	// Aggregate: player key → best rankPercent
-	const playerBest = new Map<
-		string,
-		{
-			name: string;
-			realm: string;
-			region: string;
-			bestPercent: number;
-			bracketData: number;
-		}
-	>();
-
-	for (const result of allRankings) {
-		if (result.status !== "fulfilled" || !result.value) continue;
-		const { rankings } = result.value;
-
-		for (const r of rankings) {
-			if (r.name === "Anonymous" || !r.report) continue;
-			if (r.server.region.toLowerCase() !== region) continue;
-
-			const key = `${r.name}@${r.server.name}`;
-			const existing = playerBest.get(key);
-			if (!existing || r.amount > existing.bestPercent) {
-				playerBest.set(key, {
-					name: r.name,
-					realm: r.server.name,
-					region: r.server.region,
-					bestPercent: r.amount,
-					bracketData: r.bracketData,
-				});
-			}
-		}
-	}
-
-	const sorted = [...playerBest.values()].sort((a, b) => b.bestPercent - a.bestPercent);
-	return sorted.slice(0, 10).map((p, idx) => ({
-		rank: idx + 1,
-		name: p.name,
-		realm: p.realm,
-		region: p.region,
-		bestPercent: p.bestPercent,
-		ilvlAdjustedPercent: p.bestPercent,
-		rankLabel: rankLabel(p.bestPercent),
-		wclProfileUrl: characterProfileUrl("wcl", region, p.realm, p.name),
-	}));
-}
-
-/**
- * Fetches the top 10 EU raid players for a spec and returns aggregated trinket usage.
- * Uses the same WCL encounter rankings as the (now-hidden) raid leaderboard, but only
- * to identify the players — the gear is then fetched from Raider.IO.
- *
- * @param spec - Spec definition
- * @param raidEncounters - Current raid tier encounter list
- * @param token - WarcraftLogs bearer token
- * @returns Aggregated trinket usage across the top 10 EU raid players
- */
-async function fetchRaidTopTrinkets(
-	spec: SpecDefinition,
-	raidEncounters: Array<{ id: number; name: string }>,
-	token: string,
-	region: Region = "eu",
-): Promise<MetaItem[]> {
-	const allRankings = await Promise.allSettled(
-		raidEncounters.map((enc) => fetchEncounterRankings(enc.id, spec, 5, token, region)),
-	);
-
-	const playerBest = new Map<string, { name: string; realm: string; bestAmount: number }>();
-	for (const result of allRankings) {
-		if (result.status !== "fulfilled" || !result.value) continue;
-		for (const r of result.value.rankings) {
-			if (r.name === "Anonymous" || !r.report) continue;
-			if (r.server.region.toLowerCase() !== region) continue;
-			const key = `${r.name}@${r.server.name}`;
-			const existing = playerBest.get(key);
-			if (!existing || r.amount > existing.bestAmount) {
-				playerBest.set(key, { name: r.name, realm: r.server.name, bestAmount: r.amount });
-			}
-		}
-	}
-
-	const top10 = [...playerBest.values()].sort((a, b) => b.bestAmount - a.bestAmount).slice(0, 10);
-	if (top10.length === 0) return [];
-
-	const rioData = await Promise.allSettled(
-		top10.map((p) => fetchRioPlayerData(p.name, toRealmSlug(p.realm), region)),
-	);
-
-	const playersWithData = rioData.filter(
-		(r) => r.status === "fulfilled" && r.value?.trinkets.length,
-	).length;
-	const counts = new Map<string, number>();
-	for (const result of rioData) {
-		if (result.status !== "fulfilled" || !result.value) continue;
-		for (const name of result.value.trinkets) {
-			counts.set(name, (counts.get(name) ?? 0) + 1);
-		}
-	}
-
-	return [...counts.entries()]
-		.sort((a, b) => b[1] - a[1])
-		.map(([name, count]) => ({
-			name,
-			source: "—",
-			usagePercent: Math.round((count / Math.max(playersWithData, 1)) * 100),
-		}));
-}
-
-// ── Meta stubs (deferred to v2) ────────────────────────────
-
-/**
- * Aggregates talent builds from top-N player reports.
- *
- * @remarks Deferred to v2. See "Meta gear and meta talents (DEFERRED)" in the PRD.
- * In v2, this will fetch playerDetails from each top player's report to extract
- * talent loadout strings, group by exact match, and return the top 3 builds.
- */
-// biome-ignore lint/suspicious/noExplicitAny: stub returns empty array
-function aggregateTalents(_rankings: any): [] {
-	return [];
-}
-
-/**
- * Aggregates meta gear (trinkets, enchants) from top-N player reports.
- *
- * @remarks Deferred to v2. See "Meta gear and meta talents (DEFERRED)" in the PRD.
- * In v2, this will fetch playerDetails from each top player's report to extract
- * equipped trinkets and enchants, group by item, and return usage percentages.
- */
-// biome-ignore lint/suspicious/noExplicitAny: stub returns empty object
-function aggregateGear(_rankings: any): { trinkets: []; weaponEnchants: []; ringEnchants: [] } {
-	return { trinkets: [], weaponEnchants: [], ringEnchants: [] };
-}
-
-/**
- * Returns an empty SpecMetaData shell for specs not tracked in characters.config.json.
- * These specs still appear in the snapshot so the right-panel dropdown works, but
- * their leaderboard and trinket panels render the "no data" empty state.
- */
-function emptySpecMeta(spec: SpecDefinition): SpecMetaData {
-	return {
-		specSlug: spec.specSlug,
-		specName: spec.specName,
-		className: spec.className,
-		mythicPlus: emptyMplusMeta(),
-		raid: emptyRaidMeta(),
-	};
-}
-
-function emptyMplusMeta(): MythicPlusMeta {
-	return {
-		leaderboard: [],
-		metaBuilds: [],
-		metaGear: { trinkets: [], weaponEnchants: [], ringEnchants: [] },
-	};
-}
-
-function emptyRaidMeta(): RaidMeta {
-	return {
-		leaderboard: [],
-		metaBuilds: [],
-		metaGear: { trinkets: [], weaponEnchants: [], ringEnchants: [] },
-	};
-}
-
-// ── Build hash ──────────────────────────────────────────────
-
-/**
- * Returns a short build identifier.
- * Uses git short SHA if available, falls back to base-36 timestamp.
- */
+/** Return a fresh build identifier. */
 export function getBuildHash(): string {
 	return createHash("sha256")
 		.update(new Date().toISOString())
@@ -1666,16 +780,14 @@ export async function fetchCharacter(
 	char: CharacterConfig,
 	token: string,
 	raidZoneId: number,
-	mplusZoneId: number,
+	_mplusZoneId: number,
 	rioTiers: RioScoreTier[],
 	titleCutoff: TitleCutoff,
 	raidEncounters: Array<{ id: number; name: string }>,
-	parseDatesCache: Record<string, string>,
 	previous?: CharacterData,
 	previousAt?: string,
 	supportedRaidMetrics: Array<"dps" | "bossdps" | "hps"> = ["dps", "hps"],
 	reuseRaid = false,
-	reuseWclDetails = false,
 ): Promise<CharacterData> {
 	const activeSpecs = char.specs.filter((s) => s.role !== "inactive");
 	const mainSpec =
@@ -1691,25 +803,8 @@ export async function fetchCharacter(
 			);
 			if (!specDef) throw new Error(`Unknown spec ${specEntry.spec} for class ${char.class}`);
 			const metric = metricForRole(specDef.role);
-			const old = previous?.specs[specDef.specSlug];
-			const dates = await collect(
-				() =>
-					fetchRaidParseDates(
-						char.name,
-						realmSlug,
-						char.region,
-						metric,
-						raidEncounters,
-						token,
-						parseDatesCache,
-						specEntry.spec,
-					),
-				(data) => data.size > 0,
-				new Map<string, string>(),
-				!!token && !reuseWclDetails,
-			);
-
-			const [rio, raidPerformance, mplus] = await Promise.all([
+			const old = previous ? dashboardCharacter(previous).specs[specDef.specSlug] : undefined;
+			const [rio, raidPerformance] = await Promise.all([
 				collect(
 					() =>
 						fetchRioProfile(
@@ -1721,7 +816,7 @@ export async function fetchCharacter(
 							titleCutoff,
 						),
 					(data) => data.mplus !== null,
-					{ mplus: null, gear: null, talents: null },
+					{ mplus: null, gear: null },
 				),
 				reuseRaid && old?.raidPerformance
 					? Promise.resolve(old.raidPerformance)
@@ -1737,65 +832,21 @@ export async function fetchCharacter(
 							previousAt,
 							!!token,
 						),
-				collect(
-					() =>
-						fetchWclMplusRankings(
-							char.name,
-							realmSlug,
-							char.region,
-							mplusZoneId,
-							metric,
-							token,
-							specEntry.spec,
-						),
-					(data) => (data?.rankings ?? []).some((r) => r.rankPercent !== null && r.bestAmount > 0),
-					null,
-					!!token && !reuseWclDetails,
-				),
 			]);
 			const rioData = retain(
 				rio.data,
 				rio.status,
-				old
-					? { mplus: old.mythicPlus, gear: old.gear ?? null, talents: old.talents ?? null }
-					: undefined,
+				old ? { mplus: old.mythicPlus, gear: old.gear ?? null } : undefined,
 				old?.collection?.raiderio,
 				previousAt,
 				(d) => d.mplus !== null,
 			);
-			if (reuseWclDetails && old) {
-				mplus.status.deferred = !freshStatus(old.collection?.mythicPlus, WCL_POLICY.detailTtlMs);
-				mplus.status.cacheHits = 1;
-				mplus.status.issues = [
-					mplus.status.deferred
-						? collectionMessages.detailsDeferred
-						: collectionMessages.detailsCached,
-				];
-				mplus.status.retainedAt =
-					old.collection?.mythicPlus.retainedAt ??
-					old.collection?.mythicPlus.lastSuccessAt ??
-					previousAt;
-				dates.status.deferred = !freshStatus(old.collection?.raidDates, WCL_POLICY.detailTtlMs);
-				dates.status.cacheHits = 1;
-				dates.status.issues = [
-					dates.status.deferred ? collectionMessages.datesDeferred : collectionMessages.datesCached,
-				];
-				if (wclRuntime.active) wclRuntime.telemetry.cacheHits += 2;
-				dates.status.retainedAt =
-					old.collection?.raidDates.retainedAt ??
-					old.collection?.raidDates.lastSuccessAt ??
-					previousAt;
-			}
 			const primaryRaid = raidPerformance[metric];
 			const raids = {
 				status: combineCollectionStatuses(
 					primaryRaid ? Object.values(primaryRaid).map((d) => d.collection) : [],
 				),
 			};
-			const mplusRankings = mplus.data;
-			const parseDates = dates.data;
-
-			const damageBreakdown: DamageSource[] = []; // Upstream damage breakdown remains deferred.
 			const freshRaidParses: RaidParse[] = primaryRaid
 				? Object.values(primaryRaid).flatMap((d) =>
 						d.rows
@@ -1807,14 +858,10 @@ export async function fetchCharacter(
 								ilvlAdjustedPercent: r.bestPercent ?? 0,
 								rankLabel: rankLabel(r.bestPercent ?? 0),
 								bestAmount: r.bestAmount ?? 0,
-								date: parseDates.get(`${r.encounterId}-${d.difficulty === "Mythic" ? 5 : 4}`) ?? "",
 							})),
 					)
 				: [];
 
-			const freshDungeonLogs: DungeonLog[] = mplusRankings
-				? mapDungeonLogs(mplusRankings, specEntry.spec, rioData.mplus?.bestRuns ?? [])
-				: [];
 			const raidParses = retain(
 				freshRaidParses,
 				raids.status,
@@ -1823,53 +870,20 @@ export async function fetchCharacter(
 				previousAt,
 				(d) => d.length > 0,
 			);
-			const dungeonLogs = retain(
-				freshDungeonLogs,
-				mplus.status,
-				old?.logs?.recentDungeonLogs,
-				old?.collection?.mythicPlus,
-				previousAt,
-				(d) => d.length > 0,
-			);
-			if (failed(dates.status) || dates.status.deferred || dates.status.cacheHits) {
-				for (const parse of raidParses) {
-					const oldParse = old?.logs?.raidParses.find(
-						(p) =>
-							p.bossName === parse.bossName &&
-							p.difficulty === parse.difficulty &&
-							p.bestAmount === parse.bestAmount,
-					);
-					if (!parse.date && oldParse?.date) {
-						parse.date = oldParse.date;
-						dates.status.retainedAt =
-							old?.collection?.raidDates.retainedAt ??
-							old?.collection?.raidDates.lastSuccessAt ??
-							previousAt;
-					}
-				}
-			}
-
-			const logs: LogData = {
-				raidParses,
-				recentDungeonLogs: dungeonLogs,
-				latestLogDamageBreakdown: damageBreakdown,
-			};
+			const logs: LogData = { raidParses };
 
 			const specData: CharacterSpecData = {
 				raidPerformance,
 				collection: {
 					raiderio: rio.status,
 					raid: raids.status,
-					mythicPlus: mplus.status,
-					raidDates: dates.status,
 				},
 				specSlug: specDef.specSlug,
 				specName: specDef.specName,
 				role: specEntry.role as "main" | "offspec" | "tracked",
 				mythicPlus: rioData.mplus,
 				gear: rioData.gear,
-				talents: rioData.talents,
-				logs: raidParses.length > 0 || dungeonLogs.length > 0 ? logs : null,
+				logs: raidParses.length > 0 ? logs : null,
 			};
 
 			return specData;
@@ -1911,7 +925,7 @@ export async function fetchCharacter(
 			if (result?.status === "rejected") {
 				console.error(`  Failed to fetch spec ${specEntry.spec} for ${char.name}:`, result.reason);
 			}
-			const old = previous?.specs[specDef.specSlug];
+			const old = previous ? dashboardCharacter(previous).specs[specDef.specSlug] : undefined;
 			specsMap[specDef.specSlug] = {
 				...old,
 				raidPerformance: failedRaidPerformance(
@@ -1921,7 +935,7 @@ export async function fetchCharacter(
 					previousAt,
 				),
 				collection: Object.fromEntries(
-					(["raiderio", "raid", "mythicPlus", "raidDates"] as const).map((key) => [
+					(["raiderio", "raid"] as const).map((key) => [
 						key,
 						{
 							state: "failed",
@@ -1973,95 +987,6 @@ export async function fetchCharacter(
 		specs: specsMap,
 	};
 }
-
-// ── Spec meta fetching ──────────────────────────────────────
-
-/**
- * Fetches all meta data for a single spec:
- * - M+ leaderboard + trinket usage (top 10 EU, WCL + Raider.IO)
- * - Raid trinket usage (top 10 EU raid, WCL + Raider.IO — no leaderboard table shown)
- *
- * @param spec - Spec definition
- * @param token - WarcraftLogs bearer token
- * @param mplusEncounters - Current M+ season encounter list
- * @param raidEncounters - Current raid tier encounter list
- * @returns SpecMetaData for the snapshot
- */
-export async function fetchSpecMeta(
-	spec: SpecDefinition,
-	token: string,
-	mplusEncounters: Array<{ id: number; name: string }>,
-	raidEncounters: Array<{ id: number; name: string }>,
-	region: Region = "eu",
-	previous?: SpecMetaData,
-	previousAt?: string,
-): Promise<SpecMetaData> {
-	const [mplusResult, raidTrinkets] = await Promise.all([
-		collect(
-			() => fetchWclMplusLeaderboard(spec, mplusEncounters, token, region),
-			(d) => d.leaderboard.length > 0,
-			{ leaderboard: [], trinkets: [] },
-		),
-		collect(
-			() => fetchRaidTopTrinkets(spec, raidEncounters, token, region),
-			(d) => d.length > 0,
-			[],
-		),
-	]);
-
-	const mplusData = retain(
-		mplusResult.data,
-		mplusResult.status,
-		previous
-			? {
-					leaderboard: previous.mythicPlus.leaderboard,
-					trinkets: previous.mythicPlus.metaGear.trinkets,
-				}
-			: undefined,
-		previous?.mythicPlus.collection,
-		previousAt,
-		(d) => d.leaderboard.length > 0,
-	);
-	const raidData = retain(
-		raidTrinkets.data,
-		raidTrinkets.status,
-		previous?.raid.metaGear.trinkets,
-		previous?.raid.collection,
-		previousAt,
-		(d) => d.length > 0,
-	);
-
-	const mplus: MythicPlusMeta = {
-		collection: mplusResult.status,
-		leaderboard: mplusData.leaderboard,
-		metaBuilds: aggregateTalents(null),
-		metaGear: { trinkets: mplusData.trinkets, weaponEnchants: [], ringEnchants: [] },
-	};
-
-	const raid: RaidMeta = {
-		collection: raidTrinkets.status,
-		leaderboard: [],
-		metaBuilds: aggregateTalents(null),
-		metaGear: {
-			trinkets: raidData,
-			weaponEnchants: [],
-			ringEnchants: [],
-		},
-	};
-
-	return {
-		region,
-		sourceNote:
-			"WCL regional logged-player sample; M+ sample sorted by character overall Raider.IO score. Not the complete regional score ranking.",
-		specSlug: spec.specSlug,
-		specName: spec.specName,
-		className: spec.className,
-		mythicPlus: mplus,
-		raid,
-	};
-}
-
-// ── Entry point ─────────────────────────────────────────────
 
 export function characterShell(char: CharacterConfig, old?: CharacterData): CharacterData {
 	const active = char.specs.filter((s) => s.role !== "inactive");
@@ -2127,27 +1052,13 @@ function coreFresh(char: CharacterData) {
 		statuses.length === expected && statuses.every((s) => freshStatus(s, WCL_POLICY.coreTtlMs))
 	);
 }
-function detailsFresh(char: CharacterData) {
-	return Object.values(char.specs).every(
-		(s) =>
-			freshStatus(s.collection?.mythicPlus, WCL_POLICY.detailTtlMs) &&
-			freshStatus(s.collection?.raidDates, WCL_POLICY.detailTtlMs),
-	);
-}
-function metaFresh(spec: SpecMetaData | undefined) {
-	return (
-		!!spec &&
-		freshStatus(spec.mythicPlus.collection, WCL_POLICY.metaTtlMs) &&
-		freshStatus(spec.raid.collection, WCL_POLICY.metaTtlMs)
-	);
-}
-
 export function deferCharacterRaid(
-	char: CharacterData,
+	input: CharacterData,
 	encounters: Array<{ id: number; name: string }>,
 	at: string | undefined,
 	reason: string,
 ): CharacterData {
+	const char = dashboardCharacter(input);
 	return {
 		...char,
 		specs: Object.fromEntries(
@@ -2179,8 +1090,7 @@ export function deferCharacterRaid(
 						raidPerformance,
 						collection: {
 							raiderio: spec.collection?.raiderio ?? skipped,
-							mythicPlus: spec.collection?.mythicPlus ?? skipped,
-							raidDates: spec.collection?.raidDates ?? skipped,
+
 							raid,
 						},
 					},
@@ -2201,7 +1111,7 @@ export async function fetchCharacterRaid(
 ): Promise<CharacterData> {
 	const result = { ...char, specs: { ...char.specs } };
 	for (const slug of char.specOrder) {
-		const old = char.specs[slug];
+		const old = dashboardCharacter(char).specs[slug];
 		if (!old) continue;
 		const healer = ALL_SPECS.find((s) => s.specSlug === slug)?.role === "healer";
 		let raidPerformance: NonNullable<CharacterSpecData["raidPerformance"]>;
@@ -2234,13 +1144,6 @@ export async function fetchCharacterRaid(
 					ilvlAdjustedPercent: r.bestPercent ?? 0,
 					bestAmount: r.bestAmount ?? 0,
 					rankLabel: rankLabel(r.bestPercent ?? 0),
-					date:
-						old.logs?.raidParses.find(
-							(p) =>
-								p.bossName === r.bossName &&
-								p.difficulty === d.difficulty &&
-								p.bestAmount === r.bestAmount,
-						)?.date ?? "",
 				})),
 		);
 		const raidParses = retain(
@@ -2251,7 +1154,6 @@ export async function fetchCharacterRaid(
 			previousAt,
 			(d) => d.length > 0,
 		);
-		const dungeonLogs = old.logs?.recentDungeonLogs ?? [];
 		const skipped = {
 			state: "skipped" as const,
 			attemptedRequests: 0,
@@ -2263,18 +1165,10 @@ export async function fetchCharacterRaid(
 			raidPerformance,
 			collection: {
 				raiderio: old.collection?.raiderio ?? skipped,
-				mythicPlus: old.collection?.mythicPlus ?? skipped,
-				raidDates: old.collection?.raidDates ?? skipped,
+
 				raid,
 			},
-			logs:
-				raidParses.length || dungeonLogs.length
-					? {
-							raidParses,
-							recentDungeonLogs: dungeonLogs,
-							latestLogDamageBreakdown: old.logs?.latestLogDamageBreakdown ?? [],
-						}
-					: null,
+			logs: raidParses.length ? { raidParses } : null,
 		};
 	}
 	return result;
@@ -2283,16 +1177,10 @@ export async function fetchCharacterRaid(
 export async function main(): Promise<void> {
 	const rioOnly = process.argv.includes("--raiderio-only");
 	const cacheOnly = process.argv.includes("--cache-only");
-	const metaOnly = process.argv.includes("--meta-only");
 	const patchesOnly = process.argv.includes("--patch-metadata-only");
-	if (patchesOnly && (rioOnly || cacheOnly || metaOnly))
+	if (patchesOnly && (rioOnly || cacheOnly))
 		throw new Error("Patch metadata scope cannot be combined with other collection modes");
 	const force = process.argv.includes("--force-refresh");
-	const refreshMeta =
-		!rioOnly &&
-		!cacheOnly &&
-		!patchesOnly &&
-		(metaOnly || !process.argv.includes("--characters-only"));
 	const config = loadConfig();
 	validateConfig(config);
 	let previous: Snapshot | undefined;
@@ -2365,7 +1253,7 @@ export async function main(): Promise<void> {
 				previous.raid.id,
 				requirePatchBudget,
 			);
-			const next = mergeRaidPatchMetadata(previous, metadata, getBuildHash());
+			const next = dashboardSnapshot(mergeRaidPatchMetadata(previous, metadata, getBuildHash()));
 			mkdirSync("cache", { recursive: true });
 			mkdirSync("public", { recursive: true });
 			mkdirSync("src/data", { recursive: true });
@@ -2393,25 +1281,11 @@ export async function main(): Promise<void> {
 		return;
 	}
 	const region = config.characters[0]?.region ?? "kr";
-	const tracked = new Set(
-		config.characters
-			.flatMap((c) =>
-				c.specs
-					.filter((s) => s.role !== "inactive")
-					.map(
-						(s) =>
-							ALL_SPECS.find((d) => d.className === c.class && d.specName === s.spec)?.specSlug ??
-							"",
-					),
-			)
-			.filter(Boolean),
-	);
-	const compatible = previous?.region === region ? previous : undefined;
+	const compatible = previous?.region === region ? dashboardSnapshot(previous) : undefined;
 	let raid = compatible?.raid;
 	let mythicPlusZone = compatible?.mythicPlusZone;
 	let raidMetricSchema = compatible?.raidMetricSchema;
 	let raidPatchMetadata = compatible?.raidPatchMetadata;
-	let metadataAt = compatible?.wclMetadataAt;
 	let raidZoneId = compatible?.wclZones?.raid ?? raid?.id ?? 0;
 	let mplusZoneId = compatible?.wclZones?.mythicPlus ?? mythicPlusZone?.id ?? 0;
 	let initial = config.characters.map((c) =>
@@ -2425,12 +1299,9 @@ export async function main(): Promise<void> {
 			),
 		),
 	);
-	const needsCore = !metaOnly && (force || initial.some((c) => !coreFresh(c)));
-	const needsDetails = !metaOnly && (force || initial.some((c) => !detailsFresh(c)));
-	const needsMeta =
-		refreshMeta && [...tracked].some((slug) => force || !metaFresh(compatible?.specs[slug]));
+	const needsCore = force || initial.some((c) => !coreFresh(c));
 	let token = "";
-	if (!rioOnly && !cacheOnly && (needsCore || needsDetails || needsMeta)) {
+	if (!rioOnly && !cacheOnly && needsCore) {
 		try {
 			wclRuntime.assertCooldown();
 			token = await getWclToken();
@@ -2445,9 +1316,9 @@ export async function main(): Promise<void> {
 			if (
 				!raid ||
 				!mythicPlusZone ||
-				!metadataAt ||
+				!raidPatchMetadata ||
 				force ||
-				Date.now() - Date.parse(metadataAt) >= WCL_POLICY.metadataTtlMs
+				Date.now() - Date.parse(raidPatchMetadata?.checkedAt ?? "") >= WCL_POLICY.metadataTtlMs
 			) {
 				const nextRaid = await getCurrentRaidZoneId(token);
 				const nextMplus = await getCurrentMplusZoneId(token);
@@ -2465,9 +1336,8 @@ export async function main(): Promise<void> {
 					name: zoneNames.get(mplusZoneId) ?? `Mythic+ ${mplusZoneId}`,
 					encounters: dungeonEncounters,
 				};
-				metadataAt = new Date().toISOString();
 			}
-			// Meta-only/cache-hit character runs obtain the budget alongside a normal zone identity read, never by re-fetching character tables.
+			// Cache-hit character runs obtain the budget alongside a normal zone identity read, never by re-fetching character tables.
 			if (!wclRuntime.currentBudget() && raidZoneId)
 				await wclQuery(
 					token,
@@ -2539,7 +1409,6 @@ export async function main(): Promise<void> {
 		region,
 		raid,
 		mythicPlusZone,
-		wclMetadataAt: metadataAt,
 		raidMetricSchema,
 		raidPatchMetadata,
 		wclZones:
@@ -2547,18 +1416,6 @@ export async function main(): Promise<void> {
 				? { raid: raidZoneId, mythicPlus: mplusZoneId }
 				: compatible?.wclZones,
 		characters: initial,
-		specs: Object.fromEntries(
-			[...tracked].map((slug) => {
-				const definition = ALL_SPECS.find((s) => s.specSlug === slug);
-				if (!definition) throw new Error("Unknown tracked spec");
-				return [
-					slug,
-					zonesMatch || cacheOnly
-						? (compatible?.specs[slug] ?? emptySpecMeta(definition))
-						: emptySpecMeta(definition),
-				];
-			}),
-		),
 	};
 	const useful = () =>
 		!!previous ||
@@ -2574,6 +1431,7 @@ export async function main(): Promise<void> {
 		);
 	const checkpoint = (characters?: CharacterData[]) => {
 		if (characters) snapshot.characters = characters;
+		snapshot.characters = snapshot.characters.map(dashboardCharacter);
 		const charactersCount = countCollections(
 			snapshot.characters.map((c) =>
 				Object.values(c.specs).flatMap((s) => [
@@ -2587,29 +1445,17 @@ export async function main(): Promise<void> {
 		const raidTables = countCollections(
 			snapshot.characters.flatMap((c) => allRaidStatuses(c).map((s) => [s])),
 		);
-		const meta = countCollections(
-			Object.values(snapshot.specs).map((s) => [s.mythicPlus.collection, s.raid.collection]),
-		);
-		snapshot.collectionSummary = {
-			characters: charactersCount,
-			raidTables,
-			metaSpecs: {
-				...meta,
-				withData: Object.values(snapshot.specs).filter(
-					(s) => s.mythicPlus.leaderboard.length || s.raid.metaGear.trinkets.length,
-				).length,
-			},
-		};
+		snapshot.collectionSummary = { characters: charactersCount, raidTables };
 		snapshot.refreshRuntime = wclRuntime.summary;
 		snapshot.refreshSchedule = readRefreshSchedule();
 		snapshot.warnings = rioOnly ? [collectionMessages.publicOnly] : [];
-		if (charactersCount.partial || charactersCount.failed || meta.partial || meta.failed)
+		if (charactersCount.partial || charactersCount.failed)
 			snapshot.warnings.push(
 				collectionMessages.partialWarning(
 					charactersCount.partial + charactersCount.failed,
 					charactersCount.tracked,
-					meta.partial + meta.failed,
-					meta.tracked,
+					0,
+					0,
 				),
 			);
 		if (wclRuntime.summary.deferredReason)
@@ -2630,7 +1476,7 @@ export async function main(): Promise<void> {
 		writeFileSync("public/build-hash.json", JSON.stringify({ hash: snapshot.buildHash }));
 	};
 	checkpoint();
-	if (!cacheOnly && !rioOnly && !metaOnly) {
+	if (!cacheOnly && !rioOnly) {
 		wclRuntime.setStage("raid");
 		if (token && raidZoneId && encounters.length)
 			snapshot.characters = await runCharacterBatches({
@@ -2664,7 +1510,7 @@ export async function main(): Promise<void> {
 			);
 		checkpoint();
 	}
-	if (!cacheOnly && !metaOnly) {
+	if (!cacheOnly) {
 		wclRuntime.setStage("detail");
 		const first = config.characters.find((c) => c.default) ?? config.characters[0];
 		const season = first
@@ -2678,18 +1524,10 @@ export async function main(): Promise<void> {
 			fetchRioScoreTiers(),
 			fetchRioTitleCutoff(season, region),
 		]);
-		const dates = loadDatesCache();
 		for (let i = 0; i < snapshot.characters.length; i++) {
 			const old = snapshot.characters[i];
 			const c = config.characters[i];
 			if (!old || !c) continue;
-			let reuseDetails = !force && detailsFresh(old);
-			try {
-				if (!token) reuseDetails = true;
-				else if (!reuseDetails) wclRuntime.beforeQuery();
-			} catch {
-				reuseDetails = true;
-			}
 			snapshot.characters[i] = await fetchCharacter(
 				c,
 				token,
@@ -2698,71 +1536,11 @@ export async function main(): Promise<void> {
 				tiers,
 				cutoff,
 				encounters,
-				dates,
 				old,
 				compatible?.generatedAt,
 				raidMetricSchema?.supported ?? ["dps", "hps"],
 				true,
-				reuseDetails,
 			);
-			checkpoint();
-		}
-		saveDatesCache(dates);
-	}
-	if (!cacheOnly && refreshMeta) {
-		wclRuntime.setStage("meta");
-		const definitions = ALL_SPECS.filter((s) => tracked.has(s.specSlug)).sort(
-			(a, b) =>
-				Number(metaFresh(snapshot.specs[a.specSlug])) -
-				Number(metaFresh(snapshot.specs[b.specSlug])),
-		);
-		for (const spec of definitions) {
-			const old = snapshot.specs[spec.specSlug] ?? emptySpecMeta(spec);
-			let reason: string | undefined =
-				!force && metaFresh(old) ? collectionMessages.metaCached : undefined;
-			try {
-				if (!reason) {
-					if (!token || !mythicPlusZone || !raid)
-						throw new WclDeferredError(collectionMessages.metaWaiting);
-					wclRuntime.beforeQuery();
-				}
-			} catch (error) {
-				console.warn("WCL meta deferred", error);
-				reason =
-					error instanceof WclDeferredError ? error.message : collectionMessages.metaDeferred;
-			}
-			if (reason) {
-				const skipped = (
-					previousStatus: import("../src/types/snapshot.js").CollectionStatus | undefined,
-				) => ({
-					state: "skipped" as const,
-					deferred: !metaFresh(old),
-					attemptedRequests: 0,
-					failedRequests: 0,
-					retainedAt:
-						previousStatus?.retainedAt ?? previousStatus?.lastSuccessAt ?? compatible?.generatedAt,
-					issues: [
-						reason ?? collectionMessages.metaRetained,
-						...(previousStatus?.issues ?? [])
-							.filter((s) => s.includes("HTTP") || s.includes("GraphQL"))
-							.map(() => collectionMessages.wclFailed),
-					],
-				});
-				snapshot.specs[spec.specSlug] = {
-					...old,
-					mythicPlus: { ...old.mythicPlus, collection: skipped(old.mythicPlus.collection) },
-					raid: { ...old.raid, collection: skipped(old.raid.collection) },
-				};
-			} else
-				snapshot.specs[spec.specSlug] = await fetchSpecMeta(
-					spec,
-					token,
-					mythicPlusZone?.encounters ?? [],
-					encounters,
-					region,
-					old,
-					compatible?.generatedAt,
-				);
 			checkpoint();
 		}
 	}

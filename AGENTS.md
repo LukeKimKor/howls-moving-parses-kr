@@ -46,8 +46,8 @@
 
 ## 데이터 소스
 
-- **Raider.IO** (공개 API, 키 불필요): 쐐기 점수, 서버/지역/세계 순위, 최근·던전별 최고 기록, 장비(템렙), 현재 전문화 특성. 캐릭터 단위 값. 동시 요청 6개 제한.
-- **Warcraft Logs** (GraphQL `/api/v2/client`, OAuth `client_credentials`): 전문화별 레이드 백분위(최고·중앙), 처치 수, DPS/우두머리 DPS/HPS, All Stars 점수·순위, 쐐기 로그, 지역 전문화 메타 표본. `WCL_CLIENT_ID`/`WCL_CLIENT_SECRET` 필요.
+- **Raider.IO** (공개 API, 키 불필요): 쐐기 점수, 서버/지역/세계 순위, 던전별 최고 기록, 장비(템렙). 캐릭터 단위 값. 동시 요청 6개 제한. 최근 기록·특성은 수집하지 않는다.
+- **Warcraft Logs** (GraphQL `/api/v2/client`, OAuth `client_credentials`): 전문화별 레이드 백분위(최고·중앙), 처치 수, DPS/우두머리 DPS/HPS, All Stars 점수·순위와 공식 패치 정보. `WCL_CLIENT_ID`/`WCL_CLIENT_SECRET` 필요. 상세 화면 전용 지역 메타·쐐기 로그·피해 구성·레이드 날짜는 수집하지 않는다. 옛 스냅샷은 읽되 새 결과에는 상세 전용 필드를 다시 쓰지 않는다.
   - 요청 간격 1.5초 이상, `rateLimitData`로 예산 관리(20% 예비). 429를 받으면 Retry-After를 저장하고 그 실행은 중단 — **한도 초과 뒤 재시도 실행을 반복하지 않는다**(docs/refresh-policy.md).
   - 선택 환경변수: `WCL_CURRENT_RAID_ZONE_ID`, `WCL_CURRENT_RAID_HINT`, `WCL_CURRENT_MPLUS_HINT`(새 패치 때 현재 레이드/시즌 고정).
 - 실패한 구간은 이전 데이터를 원래 시각과 함께 유지하고, 성공한 빈 결과는 이전 데이터를 지운다.
@@ -68,11 +68,11 @@
     | main push — 코드·화면 변경 | `cache`: 마지막 스냅샷으로 화면만 다시 빌드, 데이터 시각 유지 | 호출 없음 |
     | main push — `characters.config.json` 변경 포함, 또는 설정의 캐릭터가 마지막 스냅샷에 없음(이전 push에서 이름을 바꾼 뒤 아직 수집 전 등) | `characters`: 새·바뀐 캐릭터 데이터를 받아야 하므로 | 호출 |
     | main push — `docs/**`, `*.md`만 변경 | 실행 안 함 | — |
-    | 예약 UTC 04·10·16·22시 (KST 13·19·01·07시) | 04시 `all`(메타 포함), 나머지 `characters` | 호출 |
-    | 수동 `workflow_dispatch` | 선택한 모드(characters / meta / all / cache / patches) | cache 외 호출 |
+    | 예약 UTC 04·10·16·22시 (KST 13·19·01·07시) | 모두 `characters` | 호출 |
+    | 수동 `workflow_dispatch` | 선택한 모드(characters / cache / patches), 이전 meta/all 요청은 characters로 호환 | cache 외 호출 |
 
   - 순서: 테스트 → 캐시·이전 공개 스냅샷 복원 → 모드 선택 → `pnpm fetch:refresh` → 스냅샷 검증 → typecheck → lint → build → (예약 실행 외) Lighthouse → Pages artifact 업로드 → `deploy` 잡이 main에서만 GitHub Pages 배포. 어느 단계든 실패하면 배포하지 않는다.
   - 저장소 변수 `ENABLE_SCHEDULED_REFRESH=true`, `ENABLE_PUBLIC_DEPLOY=true`가 켜져 있어, **main에 push한 코드·화면 변경은 곧바로 공개 사이트에 배포된다.**
-  - 수집기(`scripts/`)나 스냅샷 형식을 바꾼 경우 `cache` 빌드로는 새 데이터가 생기지 않는다. push 후 수동으로 `characters`(필요하면 `all`) 모드를 실행한다. WCL 한도 때문에 수동 실행을 짧은 간격으로 반복하지 않는다.
+  - 수집기(`scripts/`)나 스냅샷 형식을 바꾼 경우 `cache` 빌드로는 새 데이터가 생기지 않는다. push 후 주인 승인하에 수동으로 `characters` 모드를 실행한다. `refresh_meta` 입력과 `REFRESH_META`는 더 이상 사용하지 않는다. WCL 한도 때문에 수동 실행을 짧은 간격으로 반복하지 않는다.
   - 실행은 하나씩만 돈다(`concurrency`). 기다리는 실행이 있을 때 새 실행이 들어오면 기다리던 것은 취소되고 최신 것만 남는다.
   - 빌드 잡은 `contents: read`, 배포 잡만 `pages: write`·`id-token: write`.

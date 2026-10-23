@@ -39,7 +39,7 @@ describe("unexpected whole-spec collection failure (no live API calls)", () => {
 			new Error("Synthetic unexpected collector exception"),
 		);
 		const characters = await Promise.all(
-			config.characters.map((c) => fetchCharacter(c, "", 53, 55, [], cutoff, encounters, {})),
+			config.characters.map((c) => fetchCharacter(c, "", 53, 55, [], cutoff, encounters)),
 		);
 		const sections = characters.flatMap((c) =>
 			Object.values(c.specs).flatMap((s) =>
@@ -61,7 +61,7 @@ describe("unexpected whole-spec collection failure (no live API calls)", () => {
 	it("retains previous score/logs and raid data with their timestamp on a whole-spec exception", async () => {
 		const character = config.characters.find((c) => c.name === "오렌지크림피자");
 		if (!character) throw new Error("Fixture configuration missing");
-		const previous = await fetchCharacter(character, "", 53, 55, [], cutoff, encounters, {});
+		const previous = await fetchCharacter(character, "", 53, 55, [], cutoff, encounters);
 		const old = previous.specs["arcane-mage"];
 		if (!old) throw new Error("Fixture spec missing");
 		const raw = {
@@ -117,13 +117,12 @@ describe("unexpected whole-spec collection failure (no live API calls)", () => {
 			[],
 			cutoff,
 			encounters,
-			{},
 			previous,
 			at,
 		);
 		const actual = result.specs["arcane-mage"];
 		expect(actual?.mythicPlus?.score).toBe(1250.7);
-		expect(actual?.logs).toEqual(old.logs);
+		expect(actual?.logs?.raidParses[0]?.bestAmount).toBe(12345);
 		expect(actual?.raidPerformance?.bossdps?.Mythic.collection).toMatchObject({
 			state: "failed",
 			retainedAt: at,

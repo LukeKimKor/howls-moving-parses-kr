@@ -5,12 +5,28 @@ interface CacheEntry {
 	at: number;
 	data: Record<string, unknown>;
 }
+
+function metadataResponse(data: Record<string, unknown> | undefined) {
+	const world = data?.worldData as
+		| { zones?: unknown[]; zone?: { encounters?: unknown[] } }
+		| undefined;
+	const schema = data?.__type as { enumValues?: unknown[] } | undefined;
+	return (
+		Array.isArray(world?.zones) ||
+		Array.isArray(world?.zone?.encounters) ||
+		Array.isArray(schema?.enumValues)
+	);
+}
+
 export class WclQueryCache {
 	bypass = false;
 	entries: Record<string, CacheEntry> = {};
 	private changed: () => void = () => undefined;
 	activate(entries: Record<string, CacheEntry>, changed: () => void) {
-		this.entries = entries;
+		// Hashed keys from retired detail/meta queries are not carried into new caches.
+		this.entries = Object.fromEntries(
+			Object.entries(entries).filter(([, entry]) => metadataResponse(entry?.data)),
+		);
 		this.changed = changed;
 	}
 	key(query: string, variables?: Record<string, unknown>) {
@@ -27,7 +43,7 @@ export class WclQueryCache {
 	) {
 		if (this.bypass || stage === "raid" || query.includes("RefreshZoneBudget")) return;
 		const entry = this.entries[this.key(query, variables)];
-		const ttl = stage === "detail" ? WCL_POLICY.detailTtlMs : WCL_POLICY.metaTtlMs;
+		const ttl = stage === "detail" ? WCL_POLICY.detailTtlMs : WCL_POLICY.metadataTtlMs;
 		if (
 			!entry ||
 			!Number.isFinite(entry.at) ||
@@ -51,35 +67,10 @@ export class WclQueryCache {
 			Object.fromEntries(Object.entries(input).filter(([key]) => key !== "collectorBudget")),
 		);
 		// Cache only known valid response shapes, never null character/encounter failures or OAuth responses.
-		const world = data.worldData as
-			| {
-					encounter?: { characterRankings?: { rankings?: unknown[] } };
-					zones?: unknown[];
-					zone?: { encounters?: unknown[] };
-			  }
-			| undefined;
-		const character = (data.characterData as { character?: Record<string, unknown> } | undefined)
-			?.character;
-		const mplus = character?.mythicPlusRankings as { rankings?: unknown[] } | undefined;
-		const enumData = data.__type as { enumValues?: unknown[] } | undefined;
-		const datesValid =
-			query.includes("GetRaidParseDates") &&
-			!!character &&
-			Object.values(character).every(
-				(v) => !!v && typeof v === "object" && Array.isArray((v as { ranks?: unknown[] }).ranks),
-			);
-		if (
-			!Array.isArray(world?.encounter?.characterRankings?.rankings) &&
-			!Array.isArray(world?.zones) &&
-			!Array.isArray(world?.zone?.encounters) &&
-			!Array.isArray(mplus?.rankings) &&
-			!Array.isArray(enumData?.enumValues) &&
-			!datesValid
-		)
-			return;
+		if (!metadataResponse(data)) return;
 		this.entries[this.key(query, variables)] = { at: now, data };
 		for (const [key, entry] of Object.entries(this.entries))
-			if (now - entry.at >= WCL_POLICY.metaTtlMs) delete this.entries[key];
+			if (now - entry.at >= WCL_POLICY.metadataTtlMs) delete this.entries[key];
 		this.changed();
 	}
 }

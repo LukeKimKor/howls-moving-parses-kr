@@ -33,9 +33,9 @@ UI는 공식 API에서 저장한 `raidPatchMetadata.partitions`의 공격대 ID�
 3. 유효한 포인트 응답과 기존 20% 안전 여유를 확인하고 `worldData { zone(id: $zoneId) { id name partitions { id name } } }`를 1회 조회한다. 예산은 기존 쿼리에 `collectorBudget: rateLimitData`로 함께 요청하므로 별도 예산 쿼리를 만들지 않는다.
 4. 영역 ID, 이름과 중복 ID를 검증한 뒤 메타데이터만 기존 스냅샷에 더한다. 캐릭터·전문화 표본·기록·경고·로그 수집 시각은 재수집하거나 갱신하지 않는다. 빌드 해시만 새로 만든다.
 
-GitHub Actions의 **Refresh Data & Deploy → Run workflow**에서 `mode=patches`, `force_refresh=false`, `refresh_meta=false`로 1회 실행한다. 기본적으로 GraphQL 2회(스키마 1 + 공격대 메타 1)와 기존 OAuth 토큰 교환만 필요하다. 스키마·예산·응답 검증 실패 시 스냅샷을 쓰기 전에 중단한다. 기존 Secrets가 없으면 Raider.IO 수집으로 대체하지 않는다. 수집 결과와 인자 설명 원문·기본값·실제 예산은 비밀 값 없이 실행 로그와 Step Summary에 기록한다.
+GitHub Actions의 **Refresh Data & Deploy → Run workflow**에서 `mode=patches`, `force_refresh=false`로 1회 실행한다. 기본적으로 GraphQL 2회(스키마 1 + 공격대 메타 1)와 기존 OAuth 토큰 교환만 필요하다. 스키마·예산·응답 검증 실패 시 스냅샷을 쓰기 전에 중단한다. 기존 Secrets가 없으면 Raider.IO 수집으로 대체하지 않는다. 수집 결과와 인자 설명 원문·기본값·실제 예산은 비밀 값 없이 실행 로그와 Step Summary에 기록한다.
 
-일반 `characters/meta/all` 실행에서도 인증·영역 초기화가 필요할 때 패치 정보가 없거나 24시간이 지나면 같은 검증으로 갱신한다. `cache` 모드는 새 API 없이 이미 저장된 매핑을 보존한다. 정상 실행에서 받은 `Character.zoneRankings.partition` 설명은 기본적으로 최신 구간을 선택하고 특별한 인자 값 -1은 모든 구간을 조회한다는 내용이며, `defaultValue`는 `0`이었다. 인자 설명과 스냅샷 JSON의 상위 `partition` 속성을 무조건 같은 뜻으로 간주하지 않는다. UI의 점수·순위는 개별 All Stars 항목의 정확한 ID에만 공식 이름을 붙인다.
+일반 `characters` 실행에서도 인증·영역 초기화가 필요할 때 패치 정보가 없거나 24시간이 지나면 같은 검증으로 갱신한다. `cache` 모드는 새 API 없이 이미 저장된 매핑을 보존한다. 정상 실행에서 받은 `Character.zoneRankings.partition` 설명은 기본적으로 최신 구간을 선택하고 특별한 인자 값 -1은 모든 구간을 조회한다는 내용이며, `defaultValue`는 `0`이었다. 인자 설명과 스냅샷 JSON의 상위 `partition` 속성을 무조건 같은 뜻으로 간주하지 않는다. UI의 점수·순위는 개별 All Stars 항목의 정확한 ID에만 공식 이름을 붙인다.
 
 ## 공식 의미 근거
 

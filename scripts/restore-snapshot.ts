@@ -18,8 +18,12 @@ export function extractPublishedSnapshot(source: string): Snapshot {
 		if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer)
 			declarations.set(node.name.text, node.initializer);
 		if (ts.isObjectLiteralExpression(node)) {
-			const names = node.properties.map((p) => p.name?.getText(file));
-			if (["characters", "specs", "generatedAt"].every((k) => names.includes(k))) candidate = node;
+			const names = node.properties.map((p) =>
+				p.name && (ts.isIdentifier(p.name) || ts.isStringLiteralLike(p.name))
+					? p.name.text
+					: p.name?.getText(file),
+			);
+			if (["characters", "generatedAt"].every((k) => names.includes(k))) candidate = node;
 		}
 		ts.forEachChild(node, visit);
 	}
@@ -105,7 +109,6 @@ export async function restoreSnapshot(): Promise<void> {
 		};
 		if (
 			!Array.isArray(snapshot.characters) ||
-			!snapshot.specs ||
 			!Number.isFinite(Date.parse(snapshot.generatedAt)) ||
 			!config.characters.every((c) =>
 				snapshot.characters.some((p) => p.name === c.name && p.region === c.region),

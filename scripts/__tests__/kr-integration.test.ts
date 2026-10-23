@@ -9,11 +9,8 @@ import {
 } from "../config-validation.js";
 import {
 	fetchCharacter,
-	fetchEncounterRankings,
 	fetchRioProfile,
 	fetchRioTitleCutoff,
-	fetchWclMplusLeaderboard,
-	fetchWclRaidRankings,
 	getBuildHash,
 	getWclToken,
 } from "../fetch-data.js";
@@ -129,7 +126,7 @@ describe("KR collector integration", () => {
 			}),
 		).toThrow(/duplicate character/);
 	});
-	it("loads actual collector fields for KR score, ranks, recent runs, gear and modern talentLoadout", async () => {
+	it("loads actual collector fields for KR score, ranks and gear without retired details", async () => {
 		const fakeFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(profile)));
 		vi.stubGlobal("fetch", fakeFetch);
 		const result = await fetchRioProfile("앙귀태", "azshara", "kr", "Havoc", [], cutoff);
@@ -142,15 +139,15 @@ describe("KR collector integration", () => {
 			realmRank: 10,
 			regionRank: 20,
 			worldRank: 30,
-			recentRuns: [{ inTime: true }],
 		});
 		expect(result.gear?.items[0]?.name).toBe("Fixture Trinket");
-		expect(result.talents?.talents).toEqual(["Selected talent"]);
+		expect(result).not.toHaveProperty("talents");
+		expect(result.mplus).not.toHaveProperty("recentRuns");
 	});
-	it("never labels Havoc talents as Devourer talents", async () => {
+	it("omits talents for both pending specs", async () => {
 		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(profile))));
 		const result = await fetchRioProfile("앙귀태", "azshara", "kr", "Devourer", [], cutoff);
-		expect(result.talents).toBeNull();
+		expect(result).not.toHaveProperty("talents");
 		expect(result.gear?.activeSpecName).toBe("Havoc");
 	});
 	it("rejects a cross-region API response", async () => {
@@ -182,85 +179,6 @@ describe("KR collector integration", () => {
 		expect(required(fakeFetch.mock.calls[0])[0]).toContain("region=kr");
 		expect(await fetchRioTitleCutoff(null, "kr")).toMatchObject({ region: "kr", score: 0 });
 	});
-	it("filters the WCL API query by KR before pagination", async () => {
-		const fakeFetch = vi.fn().mockResolvedValue(
-			new Response(
-				JSON.stringify({
-					data: { worldData: { encounter: { characterRankings: { rankings: [] } } } },
-				}),
-			),
-		);
-		vi.stubGlobal("fetch", fakeFetch);
-		await fetchEncounterRankings(
-			123,
-			required(ALL_SPECS.find((s) => s.specSlug === "holy-paladin")),
-			5,
-			"fixture-token",
-			"kr",
-		);
-		const body = JSON.parse(required(fakeFetch.mock.calls[0])[1].body);
-		expect(body.variables.region).toBe("KR");
-		expect(body.query).toContain("serverRegion: $region");
-		expect(body.query).toContain("metric: hps");
-	});
-	it("passes Korean character identity and the selected spec to WCL raid queries", async () => {
-		const fakeFetch = vi
-			.fn()
-			.mockResolvedValue(
-				new Response(JSON.stringify({ data: { characterData: { character: null } } })),
-			);
-		vi.stubGlobal("fetch", fakeFetch);
-		await fetchWclRaidRankings("앙귀태", "azshara", "kr", 1, 5, "dps", "fixture-token", "Devourer");
-		const body = JSON.parse(required(fakeFetch.mock.calls[0])[1].body);
-		expect(body.variables).toMatchObject({
-			name: "앙귀태",
-			serverSlug: "azshara",
-			serverRegion: "KR",
-			specName: "Devourer",
-		});
-		expect(body.query).toContain("specName: $specName");
-	});
-	it("excludes EU players from the KR log sample and emits encoded KR links", async () => {
-		const fakeFetch = vi.fn().mockImplementation(async (url: string) => {
-			if (url.includes("raider.io")) return new Response(JSON.stringify(profile));
-			return new Response(
-				JSON.stringify({
-					data: {
-						worldData: {
-							encounter: {
-								characterRankings: {
-									rankings: [
-										{
-											name: "앙귀태",
-											server: { name: "아즈샤라", region: "KR" },
-											amount: 100,
-											report: {},
-										},
-										{
-											name: "EUPlayer",
-											server: { name: "Draenor", region: "EU" },
-											amount: 999,
-											report: {},
-										},
-									],
-								},
-							},
-						},
-					},
-				}),
-			);
-		});
-		vi.stubGlobal("fetch", fakeFetch);
-		const result = await fetchWclMplusLeaderboard(
-			required(ALL_SPECS.find((s) => s.specSlug === "havoc-demon-hunter")),
-			[{ id: 1, name: "Fixture dungeon" }],
-			"fixture-token",
-			"kr",
-		);
-		expect(result.leaderboard).toHaveLength(1);
-		expect(result.leaderboard[0]).toMatchObject({ name: "앙귀태", region: "kr" });
-		expect(result.leaderboard[0]?.profileUrl).toContain("/kr/azshara/%");
-	});
 	it("public-only character collection skips all WCL requests and preserves pending roles", async () => {
 		const fakeFetch = vi.fn().mockImplementation(async () => new Response(JSON.stringify(profile)));
 		vi.stubGlobal("fetch", fakeFetch);
@@ -277,7 +195,7 @@ describe("KR collector integration", () => {
 				{ spec: "Devourer", role: "tracked" },
 			],
 		};
-		const result = await fetchCharacter(char, "", 0, 0, [], cutoff, [], {});
+		const result = await fetchCharacter(char, "", 0, 0, [], cutoff, []);
 		expect(result.mainSpecPending).toBe(true);
 		expect(result.specOrder).toEqual(["havoc-demon-hunter", "devourer-demon-hunter"]);
 		expect(

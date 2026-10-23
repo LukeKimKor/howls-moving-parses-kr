@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
@@ -22,7 +22,7 @@ describe("patch-only CLI (isolated synthetic cache; no network)", () => {
 			buildHash: "synthetic-before",
 			region: "kr",
 			raid: { id: 53, name: "Synthetic Raid", encounters: [] },
-			characters: [{ name: "Synthetic Character", untouchedLog: { value: 0 } }],
+			characters: [{ name: "Synthetic Character", specs: {}, untouchedLog: { value: 0 } }],
 			specs: { untouchedMeta: { value: 123 } },
 			warnings: ["Existing collection warning"],
 		};
@@ -95,7 +95,7 @@ await main();fs.writeFileSync('calls.json',JSON.stringify(calls));`;
 			]);
 			const next = JSON.parse(readFileSync(join(folder, "cache/last-snapshot.json"), "utf8"));
 			expect(next.characters).toEqual(previous.characters);
-			expect(next.specs).toEqual(previous.specs);
+			expect(next).not.toHaveProperty("specs");
 			expect(next.generatedAt).toBe(previous.generatedAt);
 			expect(next.warnings).toEqual(previous.warnings);
 			expect(next.raidPatchMetadata.partitions).toEqual([{ id: 1, name: "Synthetic patch A" }]);

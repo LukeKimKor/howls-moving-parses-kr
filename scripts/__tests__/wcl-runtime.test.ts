@@ -181,16 +181,16 @@ describe("character checkpoints and query cache", () => {
 			),
 		).toBe(true);
 	});
-	it("reuses successful meta queries but never stale quota or null failures", () => {
+	it("reuses successful zone queries but never stale quota or null failures", () => {
 		const cache = new WclQueryCache();
 		cache.activate({}, () => undefined);
-		const query = "query Meta { worldData { encounter { characterRankings { rankings } } } }";
+		const query = "query Zones { worldData { zones { id } } }";
 		cache.put(
 			query,
 			undefined,
 			"meta",
 			{
-				worldData: { encounter: { characterRankings: { rankings: [] } } },
+				worldData: { zones: [] },
 				collectorBudget: { limitPerHour: 100 },
 			},
 			0,
