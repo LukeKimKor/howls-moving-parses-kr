@@ -1405,7 +1405,9 @@ export async function main(): Promise<void> {
 			? (previous?.generatedAt ?? new Date().toISOString())
 			: new Date().toISOString(),
 		buildHash: getBuildHash(),
-		dataMode: rioOnly ? "raiderio-only" : (compatible?.dataMode ?? "full"),
+		// Keep the previous mode for cache/failed bootstrap; a verified WCL bootstrap
+		// upgrades public-only data even when its inherited mode was raiderio-only.
+		dataMode: rioOnly ? "raiderio-only" : token ? "full" : (compatible?.dataMode ?? "full"),
 		region,
 		raid,
 		mythicPlusZone,
@@ -1448,7 +1450,8 @@ export async function main(): Promise<void> {
 		snapshot.collectionSummary = { characters: charactersCount, raidTables };
 		snapshot.refreshRuntime = wclRuntime.summary;
 		snapshot.refreshSchedule = readRefreshSchedule();
-		snapshot.warnings = rioOnly ? [collectionMessages.publicOnly] : [];
+		snapshot.warnings =
+			snapshot.dataMode === "raiderio-only" ? [collectionMessages.publicOnly] : [];
 		if (charactersCount.partial || charactersCount.failed)
 			snapshot.warnings.push(
 				collectionMessages.partialWarning(
