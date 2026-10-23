@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { displayWarning } from "../../lib/collection-messages.js";
 import { gameName, raidGroups } from "../../lib/ko.js";
 import { raidEncounters } from "../../lib/raid-overview.js";
@@ -17,9 +17,9 @@ export const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string; hint: stri
 	{ id: "mplus", label: "쐐기", hint: "Raider.IO 던전별" },
 ];
 
-/** Tab from the URL hash. Raid anchors (#raid-summary, #raid-character-N) belong to the raid tab. */
+/** Tab from the URL hash (any case). Raid anchors (#raid-summary, #raid-character-N) belong to the raid tab. */
 export function tabFromHash(hash: string): DashboardTab | null {
-	const id = hash.replace(/^#/, "");
+	const id = hash.replace(/^#/, "").toLowerCase();
 	if (id === "overview" || id === "raid" || id === "mplus") return id;
 	if (id.startsWith("raid-")) return "raid";
 	return null;
@@ -46,11 +46,28 @@ export function DashboardPage({
 		window.addEventListener("hashchange", onHash);
 		return () => window.removeEventListener("hashchange", onHash);
 	}, []);
+	const tabButtons = useRef<Partial<Record<DashboardTab, HTMLButtonElement | null>>>({});
 	const selectTab = (next: DashboardTab) => {
 		setTab(next);
 		try {
 			window.history.replaceState(null, "", `#${next}`);
 		} catch {}
+	};
+	/** WAI-ARIA tabs: arrows move and select (wrapping), Home/End jump to the ends. */
+	const onTabKey = (event: KeyboardEvent<HTMLDivElement>) => {
+		const index = DASHBOARD_TABS.findIndex((entry) => entry.id === tab);
+		const last = DASHBOARD_TABS.length - 1;
+		const target = {
+			ArrowRight: index === last ? 0 : index + 1,
+			ArrowLeft: index === 0 ? last : index - 1,
+			Home: 0,
+			End: last,
+		}[event.key];
+		const next = target === undefined ? undefined : DASHBOARD_TABS[target]?.id;
+		if (!next) return;
+		event.preventDefault();
+		selectTab(next);
+		tabButtons.current[next]?.focus();
 	};
 
 	const [mobile, setMobile] = useState(() => window.matchMedia("(max-width: 767px)").matches);
@@ -147,16 +164,21 @@ export function DashboardPage({
 				</details>
 			)}
 
-			<nav className="dash-tabs" aria-label="대시보드 보기">
-				<div role="tablist" aria-label="대시보드 보기">
+			<nav className="dash-tabs">
+				<div role="tablist" aria-label="대시보드 보기" onKeyDown={onTabKey}>
 					{DASHBOARD_TABS.map((entry) => (
 						<button
 							key={entry.id}
+							ref={(element) => {
+								tabButtons.current[entry.id] = element;
+							}}
 							type="button"
 							role="tab"
 							id={`dash-tab-${entry.id}`}
 							aria-selected={tab === entry.id}
-							aria-controls={`dash-panel-${entry.id}`}
+							// Only the selected tab's panel is rendered.
+							aria-controls={tab === entry.id ? `dash-panel-${entry.id}` : undefined}
+							tabIndex={tab === entry.id ? 0 : -1}
 							onClick={() => selectTab(entry.id)}
 						>
 							<span className="dash-tab-label">{entry.label}</span>

@@ -416,6 +416,41 @@ describe("raid and Mythic+ tabs", () => {
 	});
 });
 
+describe("tab navigation and scrolling", () => {
+	it("uses roving tabindex and arrow/Home/End keys; aria-controls only names the rendered panel", () => {
+		render(<DashboardPage snapshot={withData()} />);
+		const tabs = screen.getAllByRole("tab");
+		expect(tabs.map((t) => t.tabIndex)).toEqual([0, -1, -1]);
+		expect(tabs[0]).toHaveAttribute("aria-controls", "dash-panel-overview");
+		expect(tabs[1]).not.toHaveAttribute("aria-controls");
+		const list = screen.getByRole("tablist");
+		fireEvent.keyDown(list, { key: "ArrowRight" });
+		expect(screen.getByRole("tab", { name: /레이드 로그/ })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		expect(document.activeElement).toBe(screen.getByRole("tab", { name: /레이드 로그/ }));
+		expect(document.getElementById("dash-panel-raid")).toBeInTheDocument();
+		fireEvent.keyDown(list, { key: "End" });
+		expect(screen.getByRole("tab", { name: /^쐐기/ })).toHaveAttribute("aria-selected", "true");
+		fireEvent.keyDown(list, { key: "ArrowRight" });
+		expect(screen.getByRole("tab", { name: /종합 현황/ })).toHaveAttribute("aria-selected", "true");
+		fireEvent.keyDown(list, { key: "ArrowLeft" });
+		expect(screen.getByRole("tab", { name: /^쐐기/ })).toHaveAttribute("aria-selected", "true");
+		fireEvent.keyDown(list, { key: "Home" });
+		expect(screen.getByRole("tab", { name: /종합 현황/ })).toHaveAttribute("aria-selected", "true");
+		expect(screen.getAllByRole("tab").map((t) => t.tabIndex)).toEqual([0, -1, -1]);
+		// The tab list is the only element carrying the "대시보드 보기" name.
+		expect(screen.getAllByLabelText("대시보드 보기")).toHaveLength(1);
+	});
+
+	it("opens the right tab for an upper-case hash", () => {
+		window.history.replaceState(null, "", "/#MPLUS");
+		render(<DashboardPage snapshot={withData()} />);
+		expect(screen.getByRole("tab", { name: /^쐐기/ })).toHaveAttribute("aria-selected", "true");
+	});
+});
+
 describe("status marks", () => {
 	it("marks kill counts kept after a failed refresh on the overview", () => {
 		const data = withData();
@@ -503,6 +538,8 @@ describe("roster helpers", () => {
 
 	it("maps URL hashes to tabs, keeping raid anchors on the raid tab", () => {
 		expect(tabFromHash("#mplus")).toBe("mplus");
+		expect(tabFromHash("#MPLUS")).toBe("mplus");
+		expect(tabFromHash("#Raid-Character-2")).toBe("raid");
 		expect(tabFromHash("#raid-character-3")).toBe("raid");
 		expect(tabFromHash("")).toBeNull();
 	});

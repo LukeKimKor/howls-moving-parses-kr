@@ -1254,6 +1254,58 @@
 
 /* ── Stage 4 usability: targets, focus, scroll offsets, notices ── */
 
+/* Interactive text keeps a 24×24px target without changing the table row rhythm. */
+.dash .dash-sort {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 24px;
+	min-height: 24px;
+}
+.dash .dash-status-details summary,
+.dash .dash-warnings summary,
+.dash .dash-details > summary,
+.dash .dash-details-row > details > summary {
+	display: flex;
+	align-items: center;
+	min-height: 24px;
+}
+.dash .dash-status-details summary {
+	justify-content: flex-end;
+}
+.dash .dash-details > summary::after,
+.dash .dash-details-row > details > summary::after {
+	margin-inline-start: 8px;
+}
+.dash a.dash-pct-link {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 24px;
+	min-height: 24px;
+}
+.dash .all-stars-help a {
+	display: inline-flex;
+	align-items: center;
+	min-height: 24px;
+}
+.dash .dash-boss-card-links {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.dash .dash-boss-card-links a {
+	display: inline-flex;
+	align-items: center;
+	min-height: 24px;
+}
+
+/* Selects get the same visible focus ring as buttons. */
+.dash select:focus-visible {
+	outline: 2px solid var(--dash-accent);
+	outline-offset: 2px;
+}
+
 /* A successful lookup (no public records, cached data) is routine; failures and deferrals stand out. */
 .dash-collection .collection-notice.is-neutral {
 	border-left-color: var(--dash-border-strong);
