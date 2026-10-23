@@ -24,7 +24,12 @@
 - **앙귀태(악마사냥꾼)는 파멸(Havoc)·포식(Devourer) 두 전문화를 동등하게 표시**한다. `mainSpecPending: true`, 두 전문화 모두 `tracked`. 어느 화면에서도 하나를 주 전문화로 취급하거나, 숨기거나, 두 값을 평균 내지 않는다.
 - 없는 값을 지어내지 않는다. "기록 없음"(성공·빈 결과) / "조회 실패" / "미조회"를 구분한다.
 - WCL 레이드 값은 전문화별 집계, 쐐기 점수·템렙은 캐릭터 전체 값(Raider.IO). 둘을 섞어 계산하지 않는다.
-- 새 한글 UI 문구를 넣으면 코어 폰트(`public/fonts/HmpDashboardSansCore.woff2`)를 `scripts/fonts/build-core.py`로 다시 만든다(docs/performance.md).
+- 새 한글 UI 문구를 넣거나 **캐릭터 이름을 바꾸거나 추가하면** 코어 폰트(`public/fonts/HmpDashboardSansCore.woff2`)를 `scripts/fonts/build-core.py`로 다시 만든다. 코어 폰트에 없는 글자가 화면에 나오면 추가 폰트를 받느라 Lighthouse 성능 기준(90)에 걸려 배포가 멈춘다(docs/performance.md).
+  - 이 PC에는 Python 3.12가 설치되어 있다. fontTools는 임시 폴더에 설치한다: `python -m pip install --target <임시폴더> -r scripts/fonts/requirements.txt`
+  - 원본: `https://github.com/orioncactus/pretendard/raw/v1.3.9/packages/pretendard/dist/web/variable/woff2/PretendardVariable.woff2` (스크립트가 git blob SHA `49c54b5…`를 검증한다)
+  - 실행: `python -I scripts/fonts/build-core.py --source <원본.woff2> --tools <임시폴더>`
+  - 확인: `core-manifest.json`의 `unicodes`에 모든 캐릭터 이름 글자가 들어 있는지 본다.
+  - Git Bash에서는 `DEPLOY_BASE_PATH=/howls-moving-parses-kr/`가 Windows 경로로 바뀌므로 로컬 빌드·Lighthouse 측정은 PowerShell에서 한다.
 
 ## 저장소 구조
 
