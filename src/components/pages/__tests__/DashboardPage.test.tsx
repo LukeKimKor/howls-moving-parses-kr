@@ -8,6 +8,7 @@ import type {
 	CharacterData,
 	MythicPlusData,
 	MythicPlusRun,
+	RaidDifficulty,
 	RaidDifficultyData,
 	Snapshot,
 } from "../../../types/snapshot.js";
@@ -42,10 +43,14 @@ function mplus(score: number, bestRuns: MythicPlusRun[] = []): MythicPlusData {
 	};
 }
 
-function section(best: number | null, median: number | null): RaidDifficultyData {
+function section(
+	best: number | null,
+	median: number | null,
+	difficulty: RaidDifficulty = "Heroic",
+): RaidDifficultyData {
 	return {
 		metric: "dps",
-		difficulty: "Heroic",
+		difficulty,
 		collection: { ...ok, issues: [] },
 		partition: 1,
 		summary: {
@@ -145,8 +150,8 @@ function withData(): Snapshot {
 		{ spec: firstSpec.specName, partition: 2, points: 904.716, rank: 5 },
 	];
 	firstSpec.raidPerformance = {
-		dps: { Heroic: heroic, Mythic: section(null, null) },
-		bossdps: { Heroic: bossHeroic, Mythic: section(null, null) },
+		dps: { Heroic: heroic, Mythic: section(null, null, "Mythic") },
+		bossdps: { Heroic: bossHeroic, Mythic: section(null, null, "Mythic") },
 	};
 	secondSpec.mythicPlus = mplus(3100, [run("City of Threads", 15, true)]);
 	secondSpec.gear = { equippedIlvl: 695, items: [] };
@@ -155,7 +160,7 @@ function withData(): Snapshot {
 		const spec = dh.specs[slug];
 		if (spec)
 			spec.raidPerformance = {
-				dps: { Heroic: section(60 + index * 10, 50), Mythic: section(null, null) },
+				dps: { Heroic: section(60 + index * 10, 50), Mythic: section(null, null, "Mythic") },
 			};
 	});
 	return data;
@@ -211,7 +216,6 @@ describe("overview tab", () => {
 		if (!heroic || !mythic) throw new Error("fixture");
 		heroic.rows = [bossRow(1, "Boss A", "recorded"), bossRow(2, "Boss B", "no-kills")];
 		// Retained cache: state "skipped" but real rows, so 0 kills is a real 0 and "no records".
-		mythic.difficulty = "Mythic";
 		mythic.collection = { ...ok, issues: [], state: "skipped", retainedAt: "2026-10-18T00:00:00Z" };
 		mythic.rows = [bossRow(1, "Boss A", "no-kills"), bossRow(2, "Boss B", "no-kills")];
 		render(<DashboardPage snapshot={data} />);
@@ -246,12 +250,10 @@ describe("overview tab", () => {
 		const specA = a.specs[a.mainSpecSlug];
 		const specB = b.specs[b.mainSpecSlug];
 		if (!specA?.raidPerformance?.dps || !specB) throw new Error("fixture");
-		const mythicA = section(null, null);
-		mythicA.difficulty = "Mythic";
+		const mythicA = section(null, null, "Mythic");
 		mythicA.rows = [bossRow(1, "Boss A", "no-kills")];
 		specA.raidPerformance.dps.Mythic = mythicA;
-		const mythicB = section(70, 60);
-		mythicB.difficulty = "Mythic";
+		const mythicB = section(70, 60, "Mythic");
 		mythicB.rows = [bossRow(1, "Boss A", "recorded")];
 		specB.raidPerformance = { dps: { Heroic: section(80, 70), Mythic: mythicB } };
 		render(<DashboardPage snapshot={data} />);
