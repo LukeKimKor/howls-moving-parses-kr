@@ -274,8 +274,15 @@ export async function fetchRaidPerformance(
 				lastSuccessAt: !skipped && !outcome?.issue ? new Date().toISOString() : undefined,
 			};
 			const fresh = mapRaidDifficulty(raw, metric, difficulty, encounters, collection);
-			let result = retain(fresh, collection, old, old?.collection, previousAt, (d) =>
-				d.rows.some((r) => r.state === "recorded"),
+			let result = retain(
+				fresh,
+				collection,
+				old,
+				old?.collection,
+				previousAt,
+				(d) =>
+					d.rows.some((r) => r.state !== "unavailable") ||
+					!!(d.collection.lastSuccessAt || d.collection.retainedAt),
 			);
 			if (skipped && old && (old.collection.lastSuccessAt || old.collection.retainedAt)) {
 				result = old;
@@ -309,8 +316,15 @@ export function failedRaidPerformance(
 			};
 			const fresh = mapRaidDifficulty(null, metric, difficulty, encounters, collection);
 			const old = previous?.[metric]?.[difficulty];
-			const data = retain(fresh, collection, old, old?.collection, previousAt, (d) =>
-				d.rows.some((r) => r.state === "recorded"),
+			const data = retain(
+				fresh,
+				collection,
+				old,
+				old?.collection,
+				previousAt,
+				(d) =>
+					d.rows.some((r) => r.state !== "unavailable") ||
+					!!(d.collection.lastSuccessAt || d.collection.retainedAt),
 			);
 			difficulties[difficulty] = { ...data, collection };
 		}

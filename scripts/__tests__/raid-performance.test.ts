@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+import { specKillProgress } from "../../src/lib/raid-overview.js";
+import { rowRaid, specRows } from "../../src/lib/roster.js";
+import { characterShell } from "../fetch-data.js";
 import {
 	type RaidQuery,
+	failedRaidPerformance,
 	fetchRaidPerformance,
 	mapRaidDifficulty,
 	verifyRaidMetricSchema,
@@ -366,4 +370,78 @@ describe("raid metrics and difficulty collection", () => {
 		expect(result.dps?.Heroic.collection.retainedAt).toBeUndefined();
 		expect(result.dps?.Heroic.rows[0]?.bestAmount).toBeNull();
 	});
+});
+
+describe("retained successful zero-kill and empty sections", () => {
+	it.each(["no-kills", "empty"])(
+		"retains confirmed %s and its original timestamp across repeated failures",
+		async (kind) => {
+			const empty = {
+				rankings:
+					kind === "empty"
+						? []
+						: encounters.map((encounter) => ({ encounter, totalKills: 0, rankPercent: null })),
+			};
+			const success: RaidQuery = async () =>
+				({
+					characterData: {
+						character: { dps4: empty, dps5: empty, bossdps4: empty, bossdps5: empty },
+					},
+				}) as never;
+			const previous = await fetchRaidPerformance(
+				success,
+				identity,
+				53,
+				"Arcane",
+				false,
+				encounters,
+				["dps", "bossdps"],
+			);
+			for (const metric of Object.values(previous))
+				for (const section of Object.values(metric))
+					section.collection.lastSuccessAt = previousSuccessAt;
+			const failure: RaidQuery = async () => {
+				throw Error("Synthetic query failure");
+			};
+			const failed = await fetchRaidPerformance(
+				failure,
+				identity,
+				53,
+				"Arcane",
+				false,
+				encounters,
+				["dps", "bossdps"],
+				previous,
+			);
+			const character = characterShell({
+				name: "Fixture",
+				realm: "Azshara",
+				region: "kr",
+				class: "Mage",
+				default: true,
+				specs: [{ spec: "Arcane", role: "main" }],
+			});
+			const spec = character.specs["arcane-mage"];
+			if (!spec) throw Error("Synthetic spec missing");
+			spec.raidPerformance = failed;
+			const row = specRows([character])[0];
+			if (!row) throw Error("Synthetic row missing");
+			expect(rowRaid(row, "Heroic", "dps").state).toBe("failed");
+			const progress = specKillProgress(spec, "dps", encounters, previousSuccessAt).Heroic;
+			expect(progress.state).toBe("failed");
+			expect(progress.killed).toBe(0);
+			const repeated = failedRaidPerformance(false, encounters, failed, "2026-10-23T00:00:00.000Z");
+			for (const result of [failed, repeated])
+				for (const [metric, sections] of Object.entries(result))
+					for (const [difficulty, section] of Object.entries(sections)) {
+						expect(section.collection.state).toBe("failed");
+						expect(section.collection.retainedAt).toBe(previousSuccessAt);
+						expect(section.collection.lastSuccessAt).toBeUndefined();
+						expect(section.rows).toEqual(previous[metric as "dps"]?.[difficulty as "Heroic"]?.rows);
+						expect(section.summary).toEqual(
+							previous[metric as "dps"]?.[difficulty as "Heroic"]?.summary,
+						);
+					}
+		},
+	);
 });
