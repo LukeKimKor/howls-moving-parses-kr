@@ -10,7 +10,7 @@
 ## 작업 규칙
 
 1. **작업 시작 전 `git pull`**, 작업이 끝나면 커밋 후 push한다.
-2. **push 전에 변경 내용을 주인에게 요약하고 확인받는다.** main의 내용이 그대로 공개 사이트에 배포되기 때문이다(아래 "배포" 참고). 주인이 그 작업에서 push를 명시적으로 지시한 경우에만 확인 없이 push한다.
+2. **push 전에 변경 내용을 주인에게 요약하고 확인받는다.** 코드·화면 변경을 main에 push하면 곧바로(10~20분 안에) 공개 사이트에 배포되기 때문이다(아래 "빌드·배포" 참고). 주인이 그 작업에서 push를 명시적으로 지시한 경우에만 확인 없이 push한다.
 3. **비밀값은 절대 커밋하지 않는다.** WCL Client ID/Secret은 GitHub Secrets에만 있다. `.env`는 git 제외 대상이며, 채팅·코드·문서·로그에 값을 적지 않는다. 커밋 전 `git diff --cached`로 확인한다.
 4. 커밋 메시지는 Conventional Commits 형식(`feat(scope): ...`, `docs: ...` 등). lefthook `commit-msg` 훅이 검사한다. 무엇을, 왜 바꿨는지 적는다.
 5. 변경 후 `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm build`를 모두 통과시킨다. 화면을 바꾸면 데스크톱(1440px)·모바일(390px)을 확인하고 Lighthouse(성능 90, 접근성 95, 권장사항 100)를 로컬에서 측정한다.
@@ -55,7 +55,18 @@
   - `pnpm test` / `pnpm test:snapshot` / `pnpm typecheck` / `pnpm lint` / `pnpm build` / `pnpm preview`
   - 프로젝트 Pages 경로에 맞추려면 빌드·미리보기 모두 `DEPLOY_BASE_PATH=/howls-moving-parses-kr/`.
 - GitHub Actions `Refresh Data & Deploy` (`.github/workflows/refresh.yml`):
-  - 트리거: 예약 실행 UTC 04·10·16·22시(KST 13·19·01·07시, 04시 회차는 메타 포함 `all`) + 수동 `workflow_dispatch`(모드: characters / meta / all / cache / patches). **push 트리거는 없다.**
-  - 순서: 테스트 → 캐시·이전 공개 스냅샷 복원 → `pnpm fetch:refresh` → 스냅샷 검증 → typecheck → lint → build → (수동 실행 시) Lighthouse → Pages artifact 업로드 → `deploy` 잡이 main에서만 GitHub Pages 배포.
-  - 저장소 변수 `ENABLE_SCHEDULED_REFRESH=true`, `ENABLE_PUBLIC_DEPLOY=true`가 켜져 있어, **main에 push한 내용은 다음 예약 실행(최대 약 6시간 이내) 또는 수동 실행 때 그대로 공개 사이트에 배포된다.**
+  - 트리거와 수집 모드(`Select refresh scope` 단계에서 결정):
+
+    | 트리거 | 모드 | 외부 API |
+    |---|---|---|
+    | main push — 코드·화면 변경 | `cache`: 마지막 스냅샷으로 화면만 다시 빌드, 데이터 시각 유지 | 호출 없음 |
+    | main push — `characters.config.json` 변경 포함, 또는 설정의 캐릭터가 마지막 스냅샷에 없음(이전 push에서 이름을 바꾼 뒤 아직 수집 전 등) | `characters`: 새·바뀐 캐릭터 데이터를 받아야 하므로 | 호출 |
+    | main push — `docs/**`, `*.md`만 변경 | 실행 안 함 | — |
+    | 예약 UTC 04·10·16·22시 (KST 13·19·01·07시) | 04시 `all`(메타 포함), 나머지 `characters` | 호출 |
+    | 수동 `workflow_dispatch` | 선택한 모드(characters / meta / all / cache / patches) | cache 외 호출 |
+
+  - 순서: 테스트 → 캐시·이전 공개 스냅샷 복원 → 모드 선택 → `pnpm fetch:refresh` → 스냅샷 검증 → typecheck → lint → build → (예약 실행 외) Lighthouse → Pages artifact 업로드 → `deploy` 잡이 main에서만 GitHub Pages 배포. 어느 단계든 실패하면 배포하지 않는다.
+  - 저장소 변수 `ENABLE_SCHEDULED_REFRESH=true`, `ENABLE_PUBLIC_DEPLOY=true`가 켜져 있어, **main에 push한 코드·화면 변경은 곧바로 공개 사이트에 배포된다.**
+  - 수집기(`scripts/`)나 스냅샷 형식을 바꾼 경우 `cache` 빌드로는 새 데이터가 생기지 않는다. push 후 수동으로 `characters`(필요하면 `all`) 모드를 실행한다. WCL 한도 때문에 수동 실행을 짧은 간격으로 반복하지 않는다.
+  - 실행은 하나씩만 돈다(`concurrency`). 기다리는 실행이 있을 때 새 실행이 들어오면 기다리던 것은 취소되고 최신 것만 남는다.
   - 빌드 잡은 `contents: read`, 배포 잡만 `pages: write`·`id-token: write`.

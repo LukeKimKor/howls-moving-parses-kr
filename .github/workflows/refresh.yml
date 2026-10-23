@@ -1,6 +1,13 @@
 name: Refresh Data & Deploy
 
 on:
+  # Code/UI pushes deploy right away from the last snapshot (no provider API calls).
+  # Docs-only pushes do not change the site and are skipped.
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
   schedule:
     - cron: '0 4 * * *'
     - cron: '0 10,16,22 * * *'
@@ -35,13 +42,15 @@ env:
 jobs:
   build-and-deploy:
     # Both flags default to disabled. Enable only after the owner approves setup.
-    if: github.event_name == 'workflow_dispatch' || vars.ENABLE_SCHEDULED_REFRESH == 'true'
+    if: github.event_name != 'schedule' || vars.ENABLE_SCHEDULED_REFRESH == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          # Full history so a push can be diffed against its previous head.
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
 
@@ -71,10 +80,51 @@ jobs:
         env:
           PREVIOUS_SITE_URL: https://${{ github.repository_owner }}.github.io${{ env.DEPLOY_BASE_PATH }}
 
+      # Runs after the restore steps so a push can check the restored snapshot.
+      - name: Select refresh scope
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_MODE: ${{ inputs.mode }}
+          SCHEDULE: ${{ github.event.schedule }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          # Exit 0 when every configured character is in the restored snapshot.
+          snapshot_has_all_characters() {
+            node -e '
+              const fs = require("node:fs");
+              const config = JSON.parse(fs.readFileSync("characters.config.json", "utf8"));
+              const snapshot = JSON.parse(fs.readFileSync("cache/last-snapshot.json", "utf8"));
+              const names = new Set(snapshot.characters.map((c) => c.name));
+              const missing = config.characters.filter((c) => !names.has(c.name)).map((c) => c.name);
+              if (missing.length) console.log(`Not in last snapshot: ${missing.join(", ")}`);
+              process.exit(missing.length ? 1 : 0);
+            ' 2>/dev/null
+          }
+          case "$EVENT" in
+            workflow_dispatch) scope="$INPUT_MODE" ;;
+            schedule)
+              if [ "$SCHEDULE" = '0 4 * * *' ]; then scope=all; else scope=characters; fi ;;
+            push)
+              # A cache build cannot fill in new or renamed characters, so fetch
+              # data when the character config changed in this push, the previous
+              # head is unknown, or a configured character has never been collected.
+              if ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null ||
+                [ -n "$(git diff --name-only "$BEFORE" "$GITHUB_SHA" -- characters.config.json)" ] ||
+                ! snapshot_has_all_characters; then
+                scope=characters
+              else
+                scope=cache
+              fi ;;
+            *) echo "Unsupported event: $EVENT" >&2; exit 1 ;;
+          esac
+          echo "Refresh scope: $scope"
+          echo "scope=$scope" >> "$GITHUB_OUTPUT"
+
       - name: Fetch data
         run: pnpm fetch:refresh
         env:
-          REFRESH_SCOPE: ${{ inputs.mode || (github.event.schedule == '0 4 * * *' && 'all') || 'characters' }}
+          REFRESH_SCOPE: ${{ steps.scope.outputs.scope }}
           FORCE_REFRESH: ${{ inputs.force_refresh }}
           SCHEDULED_REFRESH_ENABLED: ${{ vars.ENABLE_SCHEDULED_REFRESH }}
           REFRESH_META: ${{ (github.event_name == 'workflow_dispatch' && inputs.refresh_meta) || github.event.schedule == '0 4 * * *' }}

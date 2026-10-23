@@ -47,7 +47,7 @@ Use `DEPLOY_BASE_PATH=/howls-moving-parses-kr/` for both build and preview to ma
 
 The prepared target is `LukeKimKor/howls-moving-parses-kr`; the expected project URL after successful publishing is `https://LukeKimKor.github.io/howls-moving-parses-kr/`.
 
-The upstream schedule is UTC 04:00, 10:00, 16:00 and 22:00: KST 01:00, 07:00, 13:00 and 19:00 each day. `workflow_dispatch` also permits manual runs; there is no push trigger. GitHub can delay scheduled jobs, and public repositories with 60 days of inactivity can have schedules disabled. [Schedule documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+The upstream schedule is UTC 04:00, 10:00, 16:00 and 22:00: KST 01:00, 07:00, 13:00 and 19:00 each day. `workflow_dispatch` also permits manual runs. A push to main deploys immediately: code/UI changes use `cache` mode (zero provider API calls), a change to `characters.config.json` (or a configured character missing from the last snapshot) uses `characters` mode, and docs-only pushes (`docs/**`, `*.md`) do not run. GitHub can delay scheduled jobs, and public repositories with 60 days of inactivity can have schedules disabled. [Schedule documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
 
 Repository variables:
 
