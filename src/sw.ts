@@ -1,87 +1,47 @@
 /**
  * Service worker for Howl's Moving Parses.
  *
- * Polls build-hash.json under the registration scope (the Pages base path, e.g.
- * /howls-moving-parses-kr/) every 5 minutes. If the hash changes since the last
- * known value, posts a NEW_BUILD_AVAILABLE message with the deployed hash to all
- * open clients. DashboardPage shows the dismissible banner only when that hash
- * differs from the build the page actually loaded (snapshot.buildHash), so a page
- * opened after the deploy is not told to refresh.
- *
- * The known hash is persisted to Cache Storage so it survives SW suspension
- * (the browser kills idle SWs after ~30s). On re-activation, checkForNewBuild()
- * reads the persisted hash and compares it against the live hash, catching any
- * build that landed while the SW was dormant.
+ * Reads build-hash.json under the registration scope (the Pages base path, e.g.
+ * /howls-moving-parses-kr/) and reports the deployed hash as a NEW_BUILD_AVAILABLE
+ * message: to every open page on activation and every 5 minutes, and to the asking
+ * page on each CHECK_FOR_UPDATE (sent by main.tsx on load, focus, visibility and
+ * every 5 minutes). DashboardPage shows the dismissible banner only when that hash
+ * differs from the build the page actually loaded (snapshot.buildHash), so the
+ * worker keeps no "last known" hash and a missed broadcast is recovered by the
+ * page's next check (src/lib/build-check.ts).
  */
 
 /// <reference lib="webworker" />
-export {};
+import { type MessageTarget, createBuildCheck } from "./lib/build-check.js";
+
 declare const self: ServiceWorkerGlobalScope;
 
 const BUILD_HASH_URL = new URL("build-hash.json", self.registration.scope).href;
 const POLL_INTERVAL_MS = 300_000; // 5 minutes
-const HASH_CACHE_NAME = `build-hash-v2-${self.registration.scope}`;
-const HASH_CACHE_KEY = new Request("/__hash__");
-
-async function getStoredHash(): Promise<string | null> {
-	try {
-		const cache = await caches.open(HASH_CACHE_NAME);
-		const res = await cache.match(HASH_CACHE_KEY);
-		if (!res) return null;
-		const data = (await res.json()) as { hash: string };
-		return data.hash ?? null;
-	} catch {
-		return null;
-	}
-}
-
-async function storeHash(hash: string): Promise<void> {
-	try {
-		const cache = await caches.open(HASH_CACHE_NAME);
-		await cache.put(HASH_CACHE_KEY, new Response(JSON.stringify({ hash })));
-	} catch {
-		// ignore storage errors
-	}
-}
+// Earlier workers persisted the last broadcast hash here; it is no longer used.
+const LEGACY_HASH_CACHE = `build-hash-v2-${self.registration.scope}`;
 
 async function fetchCurrentHash(): Promise<string | null> {
 	try {
 		const res = await fetch(BUILD_HASH_URL, { cache: "no-store" });
 		if (!res.ok) return null;
-		const data = (await res.json()) as { hash: string };
-		return data.hash ?? null;
+		const data = (await res.json()) as { hash?: unknown };
+		return typeof data.hash === "string" && data.hash ? data.hash : null;
 	} catch {
 		return null;
 	}
 }
 
-async function checkForNewBuild() {
-	const currentHash = await fetchCurrentHash();
-	if (!currentHash) return;
-
-	const storedHash = await getStoredHash();
-
-	if (storedHash === null) {
-		await storeHash(currentHash);
-		return;
-	}
-
-	if (currentHash !== storedHash) {
-		await storeHash(currentHash);
-		const clients = await self.clients.matchAll({ type: "window" });
-		for (const client of clients) {
-			client.postMessage({ type: "NEW_BUILD_AVAILABLE", hash: currentHash });
-		}
-	}
-}
+const buildCheck = createBuildCheck(fetchCurrentHash, () =>
+	self.clients.matchAll({ type: "window", includeUncontrolled: true }),
+);
 
 self.addEventListener("activate", (event) => {
 	event.waitUntil(
-		self.clients
-			.claim()
-			.then(checkForNewBuild)
+		Promise.all([self.clients.claim(), caches.delete(LEGACY_HASH_CACHE).catch(() => false)])
+			.then(() => buildCheck.broadcast())
 			.then(() => {
-				setInterval(checkForNewBuild, POLL_INTERVAL_MS);
+				setInterval(() => void buildCheck.broadcast(), POLL_INTERVAL_MS);
 			}),
 	);
 });
@@ -91,5 +51,6 @@ self.addEventListener("install", () => {
 });
 
 self.addEventListener("message", (event) => {
-	if (event.data?.type === "CHECK_FOR_UPDATE") event.waitUntil(checkForNewBuild());
+	if (event.data?.type === "CHECK_FOR_UPDATE")
+		event.waitUntil(buildCheck.reply(event.source as MessageTarget | null));
 });

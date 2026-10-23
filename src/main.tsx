@@ -23,6 +23,7 @@ if ("serviceWorker" in navigator) {
 			.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL })
 			.then((registration) => {
 				const check = () => registration.active?.postMessage({ type: "CHECK_FOR_UPDATE" });
+				check();
 				setInterval(check, 300_000);
 				window.addEventListener("focus", check);
 				document.addEventListener("visibilitychange", () => {
