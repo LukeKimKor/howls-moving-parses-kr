@@ -24,6 +24,7 @@
 - **앙귀태(악마사냥꾼)는 파멸(Havoc)·포식(Devourer) 두 전문화를 동등하게 표시**한다. `mainSpecPending: true`, 두 전문화 모두 `tracked`. 어느 화면에서도 하나를 주 전문화로 취급하거나, 숨기거나, 두 값을 평균 내지 않는다.
 - 없는 값을 지어내지 않는다. "기록 없음"(성공·빈 결과) / "조회 실패" / "미조회"를 구분한다.
 - WCL 레이드 값은 전문화별 집계, 쐐기 점수·템렙은 캐릭터 전체 값(Raider.IO). 둘을 섞어 계산하지 않는다.
+- **수집기 화면 문구는 `src/lib/collection-messages.ts`(메시지 모듈)에만 둔다.** 스냅샷의 `warnings`·`issues`처럼 수집기(`scripts/`)가 만들어 화면에 나오는 한글 문구는 이 모듈에서 가져다 쓰고, `scripts/`에 한글 문자열을 직접 쓰지 않는다(테스트가 검사한다). 외부 API 오류 메시지를 화면 문구로 넘기지 않으며, 시각은 `… KST` 형식으로 표시한다. 문구를 바꾸면 코어 폰트를 다시 만든다.
 - 새 한글 UI 문구를 넣거나 **캐릭터 이름을 바꾸거나 추가하면** 코어 폰트(`public/fonts/HmpDashboardSansCore.woff2`)를 `scripts/fonts/build-core.py`로 다시 만든다. 코어 폰트에 없는 글자가 화면에 나오면 추가 폰트를 받느라 Lighthouse 성능 기준(90)에 걸려 배포가 멈춘다(docs/performance.md).
   - 이 PC에는 Python 3.12가 설치되어 있다. fontTools는 임시 폴더에 설치한다: `python -m pip install --target <임시폴더> -r scripts/fonts/requirements.txt`
   - 원본: `https://github.com/orioncactus/pretendard/raw/v1.3.9/packages/pretendard/dist/web/variable/woff2/PretendardVariable.woff2` (스크립트가 git blob SHA `49c54b5…`를 검증한다)
