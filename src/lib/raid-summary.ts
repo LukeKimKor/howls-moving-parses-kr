@@ -68,8 +68,11 @@ export function selectedSummaryStar(
 }
 
 /**
- * Why the selected patch shows no All Stars value: the spec has entries only in other patches,
- * none at all, or the section was not (successfully) collected. Undefined when a value is shown.
+ * Why the selected patch shows no All Stars value (or a "—" in one of its cells). A failed,
+ * partial, deferred or unfetched lookup is named first, because then the selected patch may
+ * still have a record; entries kept for other patches are only added after it. "No record in
+ * this patch" is stated only when the section was collected successfully. Undefined when the
+ * selected entry has both points and rank.
  */
 export function summaryStarMissingNote(
 	snapshot: Snapshot,
@@ -84,19 +87,27 @@ export function summaryStarMissingNote(
 	const section = spec.raidPerformance?.[metric]?.[difficulty];
 	const entries = scopedAllStars(section, spec.specName);
 	const selected = entries.filter((star) => star.partition === patchId);
-	if (selected.length) return undefined;
+	const known = (value: number | null | undefined) => value != null && Number.isFinite(value);
+	if (selected.length > 1) return "이 패치 기록이 여러 개라 표시하지 않음";
+	const [only] = selected;
+	if (only) return known(only.points) && known(only.rank) ? undefined : "WCL 응답에 값 없음";
 	const others = [
 		...new Set(
 			entries.map((star) =>
 				raidPatchLabel(snapshot.raid?.id, star.partition, snapshot.raidPatchMetadata),
 			),
 		),
-	];
-	if (others.length) return `이 패치 기록 없음 · ${others.join(", ")}에 있음`;
+	].join(", ");
 	const state = section?.collection.state;
-	if (state === "failed" || state === "partial") return "All Stars 조회 실패";
-	// A TTL skip that kept real rows is retained data, not "not fetched" (same rule as rowRaid).
-	if (!section || (state === "skipped" && section.rows.every((r) => r.state === "unavailable")))
-		return "All Stars 미조회";
-	return "이 패치 기록 없음";
+	const lookup =
+		state === "failed" || state === "partial"
+			? "All Stars 조회 실패"
+			: section?.collection.deferred
+				? "All Stars 갱신 보류"
+				: // A TTL skip that kept real rows is retained data, not "not fetched" (same rule as rowRaid).
+					!section || (state === "skipped" && section.rows.every((r) => r.state === "unavailable"))
+					? "All Stars 미조회"
+					: undefined;
+	if (lookup) return others ? `${lookup} · ${others}에 이전 기록 있음` : lookup;
+	return others ? `이 패치 기록 없음 · ${others}에 있음` : "이 패치 기록 없음";
 }

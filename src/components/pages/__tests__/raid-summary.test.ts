@@ -3,6 +3,7 @@ import {
 	selectedSummaryStar,
 	summaryMetric,
 	summaryPatchOptions,
+	summaryStarMissingNote,
 } from "../../../lib/raid-summary.js";
 import type { Snapshot } from "../../../types/snapshot.js";
 
@@ -80,5 +81,58 @@ describe("compact raid summary scope", () => {
 		const other = fixture();
 		if (other.raidPatchMetadata) other.raidPatchMetadata.zoneId = 99;
 		expect(summaryPatchOptions(other)[0]?.name).toContain("미확인");
+	});
+
+	it("names a failed, partial or deferred lookup before the records kept for other patches", () => {
+		// Only 12.1 (id 99) is kept; the selected patch is 12.1.5 (id 1).
+		const withState = (
+			collection: Record<string, unknown>,
+			rows: Array<{ state: string }> = [],
+		) => {
+			const data = fixture();
+			const heroic = data.characters[0]?.specs["arcane-mage"]?.raidPerformance?.dps?.Heroic;
+			if (!heroic) throw new Error("fixture");
+			heroic.summary.allStars = heroic.summary.allStars.filter((s) => s.partition === 99);
+			Object.assign(heroic, {
+				collection: { attemptedRequests: 1, failedRequests: 0, issues: [], ...collection },
+				rows,
+			});
+			return summaryStarMissingNote(data, 0, "arcane-mage", "dps", "Heroic", 1);
+		};
+		expect(withState({ state: "failed", failedRequests: 1 })).toBe(
+			"All Stars 조회 실패 · 12.1에 이전 기록 있음",
+		);
+		expect(withState({ state: "partial", failedRequests: 1 })).toBe(
+			"All Stars 조회 실패 · 12.1에 이전 기록 있음",
+		);
+		expect(withState({ state: "skipped", deferred: true })).toBe(
+			"All Stars 갱신 보류 · 12.1에 이전 기록 있음",
+		);
+		expect(withState({ state: "skipped" }, [{ state: "unavailable" }])).toBe(
+			"All Stars 미조회 · 12.1에 이전 기록 있음",
+		);
+		// Only a successful lookup (or a TTL reuse of one) settles "no record in this patch".
+		expect(withState({ state: "ok" })).toBe("이 패치 기록 없음 · 12.1에 있음");
+		expect(withState({ state: "skipped", cacheHits: 1 }, [{ state: "no-kills" }])).toBe(
+			"이 패치 기록 없음 · 12.1에 있음",
+		);
+	});
+	it("explains a selected patch with duplicate entries or a missing points/rank value", () => {
+		const data = fixture();
+		const heroic = data.characters[0]?.specs["arcane-mage"]?.raidPerformance?.dps?.Heroic;
+		if (!heroic) throw new Error("fixture");
+		const note = () => summaryStarMissingNote(data, 0, "arcane-mage", "dps", "Heroic", 1);
+		// Zero is a real value, not a missing one.
+		expect(note()).toBeUndefined();
+		heroic.summary.allStars = [{ spec: "Arcane", partition: 1, points: null, rank: 4 }];
+		expect(note()).toBe("WCL 응답에 값 없음");
+		heroic.summary.allStars = [{ spec: "Arcane", partition: 1, points: 12, rank: null }];
+		expect(note()).toBe("WCL 응답에 값 없음");
+		heroic.summary.allStars = [
+			{ spec: "Arcane", partition: 1, points: 12, rank: 4 },
+			{ spec: "Arcane", partition: 1, points: 13, rank: 3 },
+		];
+		expect(selectedSummaryStar(data, 0, "arcane-mage", "dps", "Heroic", 1)).toBeUndefined();
+		expect(note()).toBe("이 패치 기록이 여러 개라 표시하지 않음");
 	});
 });
