@@ -38,7 +38,7 @@
 |---|---|
 | `characters.config.json` | 추적 캐릭터 13명(KR 아즈샤라, `realmSlug: azshara`)과 전문화. 캐릭터 추가·삭제·전문화 변경은 이 파일만 고친다 |
 | `scripts/` | 빌드 시 데이터 수집기(Node + tsx). `fetch-data.ts`(수집 본체), `refresh-data.ts`(WCL Secret 유무로 모드 선택), `wcl-transport.ts`·`wcl-runtime.ts`·`wcl-query-cache.ts`(WCL 요청 큐·한도·캐시), `raid-performance.ts`, `raid-patch-metadata.ts`, `restore-snapshot.ts`(이전 공개 스냅샷 복원), `fonts/`(코어 폰트 생성) |
-| `src/` | React 18 + TypeScript 앱. `App.tsx`, `components/pages/`(`DashboardPage` 탭 틀과 탭 화면 `RosterOverview`, `RaidLogTab`, `MythicPlusOverview`, 공통 표 부품 `DashParts`), `components/chrome/`(`NewBuildBanner`), `components/primitives/`, `lib/`(`roster.ts`, `raid-overview.ts`, `all-stars.ts`, `ko.ts` 한글 라벨 등), `types/snapshot.ts`(스냅샷 스키마), `sw.ts`(새 빌드 알림 서비스 워커) |
+| `src/` | React 18 + TypeScript 앱. `App.tsx`, `components/pages/`(`DashboardPage` 탭 틀과 탭 화면 `RosterOverview`, `RaidLogTab`, `MythicPlusOverview`, 공통 표 부품 `DashParts`), `components/chrome/`(`NewBuildBanner`), `components/primitives/`, `lib/`(`roster.ts`, `raid-overview.ts`, `all-stars.ts`, `ko.ts` 한글 라벨 등), `types/snapshot.ts`(스냅샷 스키마), `sw.ts`(새 빌드 알림 서비스 워커, 판정 로직은 `lib/build-check.ts`) |
 | `src/data/snapshot.json` | 수집 결과(빌드에 포함). **git 제외**, 커밋하지 않는다 |
 | `docs/` | 관리 지침과 세부 정책(refresh-policy, all-stars, performance, typography 등) |
 | `.github/workflows/refresh.yml` | 수집·검증·빌드·배포 워크플로 |
