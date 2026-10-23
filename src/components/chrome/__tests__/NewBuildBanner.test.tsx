@@ -6,7 +6,7 @@ describe("NewBuildBanner", () => {
 	it("renders when visible is true", () => {
 		render(<NewBuildBanner visible onRefresh={() => {}} onDismiss={() => {}} />);
 		expect(screen.getByRole("status")).toBeTruthy();
-		expect(screen.getByText(/새 데이터가 있습니다/)).toBeTruthy();
+		expect(screen.getByText(/새 버전이 있습니다/)).toBeTruthy();
 	});
 
 	it("does not render when visible is false", () => {

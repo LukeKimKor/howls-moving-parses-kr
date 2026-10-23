@@ -1,9 +1,12 @@
 /**
  * Service worker for Howl's Moving Parses.
  *
- * Polls /howls-moving-parses/build-hash.json every 5 minutes. If the hash changes
- * since the last known value, posts a NEW_BUILD_AVAILABLE message to all open
- * clients. App.tsx listens for this and shows the dismissible banner.
+ * Polls build-hash.json under the registration scope (the Pages base path, e.g.
+ * /howls-moving-parses-kr/) every 5 minutes. If the hash changes since the last
+ * known value, posts a NEW_BUILD_AVAILABLE message with the deployed hash to all
+ * open clients. DashboardPage shows the dismissible banner only when that hash
+ * differs from the build the page actually loaded (snapshot.buildHash), so a page
+ * opened after the deploy is not told to refresh.
  *
  * The known hash is persisted to Cache Storage so it survives SW suspension
  * (the browser kills idle SWs after ~30s). On re-activation, checkForNewBuild()
@@ -67,7 +70,7 @@ async function checkForNewBuild() {
 		await storeHash(currentHash);
 		const clients = await self.clients.matchAll({ type: "window" });
 		for (const client of clients) {
-			client.postMessage({ type: "NEW_BUILD_AVAILABLE" });
+			client.postMessage({ type: "NEW_BUILD_AVAILABLE", hash: currentHash });
 		}
 	}
 }

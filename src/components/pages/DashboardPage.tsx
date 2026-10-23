@@ -25,6 +25,11 @@ export function tabFromHash(hash: string): DashboardTab | null {
 	return null;
 }
 
+/** True only when the worker names a deployed build other than the one this page loaded. */
+export function isNewerBuild(deployed: unknown, loaded: string | undefined): boolean {
+	return typeof deployed === "string" && deployed.length > 0 && deployed !== loaded;
+}
+
 export function DashboardPage({
 	snapshot,
 }: {
@@ -64,12 +69,17 @@ export function DashboardPage({
 	const [newBuild, setNewBuild] = useState(false);
 	useEffect(() => {
 		if (!("serviceWorker" in navigator)) return;
+		// The worker reports the deployed hash; a page that already runs that build needs no banner.
 		const handler = (event: MessageEvent) => {
-			if (event.data?.type === "NEW_BUILD_AVAILABLE") setNewBuild(true);
+			if (
+				event.data?.type === "NEW_BUILD_AVAILABLE" &&
+				isNewerBuild(event.data.hash, snapshot.buildHash)
+			)
+				setNewBuild(true);
 		};
 		navigator.serviceWorker.addEventListener("message", handler);
 		return () => navigator.serviceWorker.removeEventListener("message", handler);
-	}, []);
+	}, [snapshot.buildHash]);
 
 	const encounters = raidEncounters(snapshot);
 	const groups = raidGroups(encounters.map((e) => e.name));

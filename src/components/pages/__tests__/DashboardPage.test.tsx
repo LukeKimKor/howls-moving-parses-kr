@@ -12,7 +12,7 @@ import type {
 	RaidDifficultyData,
 	Snapshot,
 } from "../../../types/snapshot.js";
-import { DashboardPage, tabFromHash } from "../DashboardPage.js";
+import { DashboardPage, isNewerBuild, tabFromHash } from "../DashboardPage.js";
 
 const ok = { state: "ok", attemptedRequests: 1, failedRequests: 0, issues: [] } as const;
 
@@ -413,6 +413,15 @@ describe("raid and Mythic+ tabs", () => {
 		const rowB = within(table).getByRole("row", { name: /Boss B/ });
 		expect(within(rowB).getAllByText("미처치").length).toBeGreaterThan(0);
 		expect(screen.getAllByRole("table", { name: /앙귀태 .* 우두머리별/ })).toHaveLength(2);
+	});
+});
+
+describe("new build banner", () => {
+	it("only reports a build other than the one this page loaded", () => {
+		expect(isNewerBuild("b", "a")).toBe(true);
+		expect(isNewerBuild("a", "a")).toBe(false);
+		expect(isNewerBuild(undefined, "a")).toBe(false);
+		expect(isNewerBuild("", "a")).toBe(false);
 	});
 });
 

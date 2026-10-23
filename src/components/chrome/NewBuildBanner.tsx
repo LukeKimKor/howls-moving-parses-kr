@@ -1,5 +1,5 @@
 /**
- * Dismissible banner that notifies the user when a newer build is available.
+ * Dismissible banner that notifies the user when a newer build (data or screen changes) is available.
  * Only renders when `visible` is true. Uses aria-live for screen reader announcement.
  */
 export function NewBuildBanner({
@@ -15,7 +15,7 @@ export function NewBuildBanner({
 
 	return (
 		<output id="new-build-banner" aria-live="polite" className="new-build-banner">
-			<span>새 데이터가 있습니다. 새로고침하면 반영됩니다.</span>
+			<span>새 버전이 있습니다. 새로고침하면 반영됩니다.</span>
 			<button type="button" onClick={onRefresh}>
 				새로고침
 			</button>
