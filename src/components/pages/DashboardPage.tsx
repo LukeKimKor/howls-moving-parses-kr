@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { displayWarning } from "../../lib/collection-messages.js";
 import { gameName, raidGroups } from "../../lib/ko.js";
 import { raidEncounters } from "../../lib/raid-overview.js";
 import { kstTime, nextScheduledAt, raidLastSuccess } from "../../lib/refresh-time.js";
@@ -76,7 +77,7 @@ export function DashboardPage({
 	const nextRun = snapshot.refreshSchedule?.enabled
 		? nextScheduledAt(snapshot.refreshSchedule.utcHours, now)
 		: undefined;
-	const warnings = snapshot.warnings ?? [];
+	const warnings = (snapshot.warnings ?? []).map(displayWarning);
 
 	return (
 		<main className="raid-overview dash" data-theme="dark" data-tab={tab}>
@@ -92,10 +93,10 @@ export function DashboardPage({
 				<div className="dash-status">
 					<span className="dash-status-row">
 						<span className="dash-dot" aria-hidden="true" />
-						최근 갱신 <strong>{kstTime(snapshot.generatedAt)}</strong>
+						데이터 기준 <strong>{kstTime(snapshot.generatedAt)} KST</strong>
 					</span>
 					<span className="dash-status-row dash-muted">
-						다음 예정 {nextRun ? kstTime(nextRun) : "미확인"}
+						다음 갱신 예정 {nextRun ? `${kstTime(nextRun)} KST` : "미확인"}
 					</span>
 					<details className="dash-status-details">
 						<summary>수집 상세</summary>

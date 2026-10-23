@@ -1,3 +1,4 @@
+import { collectionTime } from "../../lib/collection-messages.js";
 import type { CollectionStatus } from "../../types/snapshot.js";
 
 export function CollectionNotice({ label, status }: { label: string; status?: CollectionStatus }) {
@@ -16,7 +17,7 @@ export function CollectionNotice({ label, status }: { label: string; status?: Co
 				{status.deferred
 					? "갱신 보류 · 이전 데이터 또는 미확인 상태 유지"
 					: status.cacheHits
-						? "캐시 재사용"
+						? "이전에 받은 데이터 사용"
 						: text}
 			</strong>
 			{status.failedRequests > 0 && (
@@ -25,13 +26,7 @@ export function CollectionNotice({ label, status }: { label: string; status?: Co
 					· 요청 {status.attemptedRequests}건 중 {status.failedRequests}건 실패 (재시도 후)
 				</span>
 			)}
-			{status.retainedAt && (
-				<span>
-					{" "}
-					· 이전 데이터 표시 (
-					{new Date(status.retainedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} KST)
-				</span>
-			)}
+			{status.retainedAt && <span> · 이전 데이터 표시 ({collectionTime(status.retainedAt)})</span>}
 			{status.issues.length > 0 && <small>{status.issues.join(" · ")}</small>}
 		</output>
 	);

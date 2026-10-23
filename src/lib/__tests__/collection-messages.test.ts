@@ -4,8 +4,9 @@ import {
 	collectionMessages,
 	collectionTime,
 	deferredCollectionWarning,
+	displayWarning,
 	retainedCooldownReason,
-} from "./collection-messages.js";
+} from "../collection-messages.js";
 
 describe("collector display messages", () => {
 	it("normalizes retained budget and server reasons without leaking old errors or UTC text", () => {
@@ -35,6 +36,39 @@ describe("collector display messages", () => {
 		expect(warning).toContain("완료된 성적과 이전 데이터는 유지했습니다");
 		expect(warning).not.toContain("2026-10-23T");
 		expect(deferredCollectionWarning(reason)).not.toContain("재시도 가능 시각");
+		const transport = collectionMessages.transportDeferred(
+			429,
+			Date.parse("2026-10-23T04:10:05.751Z"),
+		);
+		expect(
+			deferredCollectionWarning(transport, Date.parse("2026-10-23T04:10:05.751Z")).split(
+				"재시도 가능 시각",
+			),
+		).toHaveLength(2);
+		expect(retainedCooldownReason(collectionMessages.transportDeferred(503, 0), 1)).toBe(
+			collectionMessages.transportDeferred(503, 1),
+		);
+	});
+	it("shows warnings saved by older collectors in the current wording", () => {
+		const until = Date.parse("2026-10-23T04:10:05.751Z");
+		expect(
+			displayWarning(
+				"갱신 보류: WCL 포인트 예산 보류 (776.79 남음; 20% 안전 여유는 앱 정책) · 재시도 가능 시각 2026-10-23T04:10:05.751Z. 완료된 성적과 캐시는 보존했습니다.",
+			),
+		).toBe(deferredCollectionWarning(collectionMessages.pointBudgetDeferred(776.79), until));
+		expect(
+			displayWarning("갱신 보류: WCL 미조회 · 캐시 보존. 완료된 성적과 캐시는 보존했습니다."),
+		).toBe(deferredCollectionWarning(collectionMessages.wclRetained));
+		expect(
+			displayWarning(
+				"일부 항목 수집 실패: 캐릭터 1/13, 메타 2/14. 이전 데이터 시각과 각 조회 상태를 확인하세요.",
+			),
+		).toBe(collectionMessages.partialWarning(1, 13, 2, 14));
+		expect(displayWarning("실제 Raider.IO 공개 데이터입니다. WCL은 미조회 상태입니다.")).toBe(
+			collectionMessages.publicOnly,
+		);
+		const current = deferredCollectionWarning(collectionMessages.wclDeferred, until);
+		expect(displayWarning(current)).toBe(current);
 	});
 	it("covers every Korean glyph in representative messages with the committed core font", () => {
 		const manifest = JSON.parse(readFileSync("public/fonts/core-manifest.json", "utf8")) as {
@@ -47,6 +81,7 @@ describe("collector display messages", () => {
 			collectionMessages.encounterFailed(1),
 			collectionMessages.pointBudgetDeferred(776.79),
 			collectionMessages.transportDeferred(429, 0),
+			collectionMessages.transportDeferred(503, 0),
 			collectionMessages.transportDeferred(undefined, 0),
 			collectionMessages.queuedDeferred(0),
 			collectionMessages.partialWarning(1, 13, 2, 14),
