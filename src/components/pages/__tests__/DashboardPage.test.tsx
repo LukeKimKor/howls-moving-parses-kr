@@ -236,9 +236,8 @@ describe("overview tab", () => {
 		expect(secondRow.querySelector('[data-label="영웅 처치 보스"]')?.textContent).toBe("미조회");
 		// Same count as the raid log card for this spec.
 		fireEvent.click(screen.getByRole("tab", { name: /레이드 로그/ }));
-		const card = screen.getByRole("article", {
-			name: `${first.name} ${spec?.specName} 보스별 기록`,
-		});
+		// Card names use the Korean spec label, not the English API name.
+		const card = screen.getByRole("article", { name: `${first.name} 비전 보스별 기록` });
 		expect(within(card).getByText("1/2")).toBeInTheDocument();
 		expect(within(card).getByText("0/2")).toBeInTheDocument();
 	});
@@ -405,7 +404,7 @@ describe("raid and Mythic+ tabs", () => {
 		render(<DashboardPage snapshot={data} />);
 		fireEvent.click(screen.getByRole("tab", { name: /레이드 로그/ }));
 		const table = screen.getByRole("table", {
-			name: new RegExp(`^${first.name} ${spec.specName} 전체 피해 우두머리별`),
+			name: new RegExp(`^${first.name} 비전 전체 피해 우두머리별`),
 		});
 		const rowA = within(table).getByRole("row", { name: /Boss A/ });
 		expect(within(rowA).getByText("88.4%")).toBeInTheDocument();
@@ -415,6 +414,17 @@ describe("raid and Mythic+ tabs", () => {
 		expect(screen.getAllByRole("table", { name: /앙귀태 .* 우두머리별/ })).toHaveLength(2);
 	});
 });
+
+function mockViewport(mobile: boolean) {
+	vi.stubGlobal(
+		"matchMedia",
+		vi.fn(() => ({
+			matches: mobile,
+			addEventListener: vi.fn(),
+			removeEventListener: vi.fn(),
+		})),
+	);
+}
 
 describe("tab navigation and scrolling", () => {
 	it("uses roving tabindex and arrow/Home/End keys; aria-controls only names the rendered panel", () => {
@@ -448,6 +458,75 @@ describe("tab navigation and scrolling", () => {
 		window.history.replaceState(null, "", "/#MPLUS");
 		render(<DashboardPage snapshot={withData()} />);
 		expect(screen.getByRole("tab", { name: /^쐐기/ })).toHaveAttribute("aria-selected", "true");
+	});
+
+	it("scrolls a direct #raid-character-N entry to that character", () => {
+		const scroll = vi.fn();
+		Element.prototype.scrollIntoView = scroll;
+		const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+			cb(0);
+			return 0;
+		});
+		window.history.replaceState(null, "", "/#raid-character-2");
+		render(<DashboardPage snapshot={withData()} />);
+		expect(screen.getByRole("tab", { name: /레이드 로그/ })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		expect(scroll).toHaveBeenCalled();
+		expect(scroll.mock.contexts.at(-1)).toBe(document.getElementById("raid-character-2"));
+		raf.mockRestore();
+	});
+});
+
+describe("mobile raid boss cards", () => {
+	it("keeps every desktop card unfolded without toggles", () => {
+		window.history.replaceState(null, "", "/#raid");
+		render(<DashboardPage snapshot={withData()} />);
+		expect(document.querySelectorAll(".dash-boss-toggle")).toHaveLength(0);
+		expect(screen.getAllByRole("table", { name: /우두머리별/ }).length).toBeGreaterThan(0);
+	});
+
+	it("folds boss tables on mobile, unfolds on press, and keeps the summary header", () => {
+		mockViewport(true);
+		window.history.replaceState(null, "", "/#raid");
+		const data = withData();
+		render(<DashboardPage snapshot={data} />);
+		const dh = data.characters.findIndex((c) => c.name === "앙귀태");
+		const toggles = screen.getAllByRole("button", { name: /^보스 표 펼치기 · 앙귀태/ });
+		// Havoc and Devourer each get their own folded card.
+		expect(toggles.map((t) => t.getAttribute("aria-label"))).toEqual([
+			"보스 표 펼치기 · 앙귀태 파멸",
+			"보스 표 펼치기 · 앙귀태 포식",
+		]);
+		const [havoc] = toggles as [HTMLElement];
+		expect(havoc).toHaveAttribute("aria-expanded", "false");
+		const body = document.getElementById(havoc.getAttribute("aria-controls") ?? "");
+		expect(body).toHaveAttribute("hidden");
+		const card = screen.getByRole("article", { name: "앙귀태 파멸 보스별 기록" });
+		expect(card.querySelector(".dash-stat-pill.dash-heroic")).toHaveTextContent(/^영웅/);
+		fireEvent.click(havoc);
+		expect(havoc).toHaveAttribute("aria-expanded", "true");
+		expect(havoc).toHaveAccessibleName("보스 표 접기 · 앙귀태 파멸");
+		expect(body).not.toHaveAttribute("hidden");
+		// Character shortcut unfolds every card of that character.
+		fireEvent.click(screen.getByRole("link", { name: "앙귀태" }));
+		const section = document.getElementById(`raid-character-${dh}`) as HTMLElement;
+		for (const button of within(section).getAllByRole("button", { name: /보스 표 접기/ }))
+			expect(button).toHaveAttribute("aria-expanded", "true");
+	});
+
+	it("unfolds the anchored character's cards on a direct hash entry", () => {
+		mockViewport(true);
+		const data = withData();
+		const dh = data.characters.findIndex((c) => c.name === "앙귀태");
+		window.history.replaceState(null, "", `/#raid-character-${dh}`);
+		render(<DashboardPage snapshot={data} />);
+		const section = document.getElementById(`raid-character-${dh}`) as HTMLElement;
+		const buttons = within(section).getAllByRole("button", { name: /^보스 표/ });
+		expect(buttons).toHaveLength(2);
+		for (const button of buttons) expect(button).toHaveAttribute("aria-expanded", "true");
+		expect(document.querySelectorAll('.dash-boss-toggle[aria-expanded="true"]')).toHaveLength(2);
 	});
 });
 
@@ -513,6 +592,28 @@ describe("status marks", () => {
 		render(<DashboardPage snapshot={data} />);
 		expect(screen.getByText("최고 —")).toBeInTheDocument();
 		expect(screen.queryByText("최고 0.0")).not.toBeInTheDocument();
+	});
+
+	it("uses a neutral tone for an empty result and the warning tone for failures", () => {
+		const data = withData();
+		const first = data.characters[0] as CharacterData;
+		const perf = first.specs[first.mainSpecSlug]?.raidPerformance?.dps;
+		if (!perf?.Mythic || !perf.Heroic) throw new Error("fixture");
+		perf.Mythic.collection = { ...ok, issues: [], state: "empty" };
+		perf.Heroic.collection = { ...ok, issues: [], state: "failed", failedRequests: 1 };
+		window.history.replaceState(null, "", "/#raid");
+		render(<DashboardPage snapshot={data} />);
+		const card = screen.getByRole("article", { name: `${first.name} 비전 보스별 기록` });
+		expect(
+			within(card)
+				.getByText(/공개 기록 없음/)
+				.closest(".collection-notice"),
+		).toHaveClass("is-neutral");
+		expect(
+			within(card)
+				.getByText(/조회 실패 ·/)
+				.closest(".collection-notice"),
+		).toHaveClass("is-attention");
 	});
 });
 

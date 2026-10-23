@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { raidPatchLabel, scopedAllStars } from "../../lib/all-stars.js";
 import { formatNumber } from "../../lib/format.js";
-import { bossGroup, difficultyLabel, gameName, rateLabel } from "../../lib/ko.js";
+import { bossGroup, difficultyLabel, gameName, rateLabel, specLabel } from "../../lib/ko.js";
 import {
 	RAID_METRIC_LABELS,
 	killedBossCount,
@@ -9,7 +9,11 @@ import {
 	raidEncounters,
 	raidSection,
 } from "../../lib/raid-overview.js";
-import { selectedSummaryStar, summaryPatchOptions } from "../../lib/raid-summary.js";
+import {
+	selectedSummaryStar,
+	summaryPatchOptions,
+	summaryStarMissingNote,
+} from "../../lib/raid-summary.js";
 import { characterProfileUrl } from "../../lib/regions.js";
 import {
 	type DamageMetric,
@@ -27,7 +31,7 @@ import type {
 	Snapshot,
 } from "../../types/snapshot.js";
 import { AllStarsHelp } from "../primitives/AllStarsSummary.js";
-import { CollectionNotice } from "../primitives/CollectionNotice.js";
+import { CollectionNotice, collectionNeedsAttention } from "../primitives/CollectionNotice.js";
 import { RaidPercent } from "../primitives/RaidPercent.js";
 import { CLASS_COLORS } from "../primitives/SpecIcon.js";
 import {
@@ -146,6 +150,14 @@ function SummaryTable({
 										d,
 										patchId,
 									);
+									const starNote = summaryStarMissingNote(
+										snapshot,
+										row.characterIndex,
+										row.slug,
+										row.metric(damageMetric),
+										d,
+										patchId,
+									);
 									const label = difficultyLabel(d);
 									return [
 										<td
@@ -167,7 +179,7 @@ function SummaryTable({
 											className={`dash-num ${diffClass(d)}`}
 											data-label={`${label} 종합 점수`}
 										>
-											<StarPointsValue value={star?.points} />
+											<StarPointsValue value={star?.points} missingNote={starNote} />
 										</td>,
 										<td
 											key={`${d}-rank`}
@@ -178,6 +190,7 @@ function SummaryTable({
 												rank={star?.rank}
 												rankPercent={star?.rankPercent}
 												total={star?.total}
+												missingNote={starNote}
 											/>
 										</td>,
 									];
@@ -288,7 +301,7 @@ function BossCells({
 				<td className={cls} data-label={`${label} 중앙`}>
 					<span className="dash-empty">—</span>
 				</td>
-				<td className={cls} data-label={`${label} 처치`}>
+				<td className={cls} data-label={`${label} 처치 횟수`}>
 					<span className="dash-empty">{row?.kills === 0 ? "0" : "—"}</span>
 				</td>
 				<td className={cls} data-label={`${label} ${rateLabel(data.metric)}`}>
@@ -325,7 +338,7 @@ function BossCells({
 					</span>
 				)}
 			</td>
-			<td className={cls} data-label={`${label} 처치`}>
+			<td className={cls} data-label={`${label} 처치 횟수`}>
 				{row.kills === null ? <span className="dash-empty">—</span> : formatNumber(row.kills)}
 			</td>
 			<td className={`${cls} dash-amount`} data-label={`${label} ${rateLabel(data.metric)}`}>
@@ -340,11 +353,18 @@ function SpecBossCard({
 	row,
 	damageMetric,
 	encounters,
+	collapsible,
+	open,
+	onToggle,
 }: {
 	snapshot: Snapshot;
 	row: SpecRow;
 	damageMetric: DamageMetric;
 	encounters: Array<{ id: number; name: string }>;
+	/** Mobile: the boss table starts folded behind the summary header. */
+	collapsible: boolean;
+	open: boolean;
+	onToggle: () => void;
 }) {
 	const spec = row.character.specs[row.slug];
 	if (!spec) return null;
@@ -364,11 +384,22 @@ function SpecBossCard({
 	url.searchParams.set("metric", metric);
 	url.searchParams.set("spec", spec.specName);
 	if (snapshot.raid?.id) url.searchParams.set("zone", String(snapshot.raid.id));
+	const specName = specLabel(spec.specName, row.character.class);
+	const bodyId = `raid-boss-${row.characterIndex}-${row.slug}`;
+	const expanded = !collapsible || open;
+	const notices = sections
+		.map((s, i) => ({ d: DIFFICULTIES[i] as RaidDifficulty, s }))
+		.filter(({ s }) => s.collection.state !== "ok" || s.collection.retainedAt);
+	// Folded cards keep failures and deferrals in view; routine notices fold with the table.
+	const shownNotices = expanded
+		? notices
+		: notices.filter(({ s }) => collectionNeedsAttention(s.collection));
+	const toggleText = open ? "보스 표 접기" : "보스 표 펼치기";
 
 	return (
 		<article
-			className="dash-boss-card"
-			aria-label={`${row.character.name} ${spec.specName} 보스별 기록`}
+			className={`dash-boss-card${collapsible ? " is-collapsible" : ""}${expanded ? "" : " is-collapsed"}`}
+			aria-label={`${row.character.name} ${specName} 보스별 기록`}
 		>
 			<header className="dash-boss-card-header">
 				<CharacterCell
@@ -376,40 +407,56 @@ function SpecBossCard({
 					sub={<SpecChip character={row.character} specName={row.specName} />}
 				/>
 				<div className="dash-boss-card-stats">
-					{sections.map((s) => (
-						<span key={s.difficulty} className={`dash-stat-pill ${diffClass(s.difficulty)}`}>
-							{difficultyLabel(s.difficulty)}
-							<strong>
-								{killedBossCount(s)}/{bossNames.length}
-							</strong>
-							{s.summary.bestPerformanceAverage !== null && (
-								<RaidPercent value={s.summary.bestPerformanceAverage} />
-							)}
-						</span>
-					))}
+					{sections.map((s, i) => {
+						const d = DIFFICULTIES[i] as RaidDifficulty;
+						return (
+							<span key={d} className={`dash-stat-pill ${diffClass(d)}`}>
+								{difficultyLabel(d)}
+								<strong>
+									{killedBossCount(s)}/{bossNames.length}
+								</strong>
+								{s.summary.bestPerformanceAverage !== null && (
+									<RaidPercent value={s.summary.bestPerformanceAverage} />
+								)}
+							</span>
+						);
+					})}
 					<span className="dash-stat-pill dash-metric-pill">{RAID_METRIC_LABELS[metric]}</span>
 				</div>
 				<div className="dash-boss-card-links">
 					<a href={url.href} target="_blank" rel="noopener noreferrer">
 						WCL ↗
 					</a>
+					{collapsible && (
+						<button
+							type="button"
+							className="dash-boss-toggle"
+							aria-expanded={open}
+							aria-controls={bodyId}
+							aria-label={`${toggleText} · ${row.character.name} ${specName}`}
+							onClick={onToggle}
+						>
+							{toggleText}
+							<span className="dash-boss-toggle-mark" aria-hidden="true" />
+						</button>
+					)}
 				</div>
 			</header>
-			{sections.some((s) => s.collection.state !== "ok" || s.collection.retainedAt) && (
+			{shownNotices.length > 0 && (
 				<div className="dash-collection">
-					{sections.map((s) => (
+					{shownNotices.map(({ d, s }) => (
 						<CollectionNotice
-							key={s.difficulty}
-							label={`${difficultyLabel(s.difficulty)} ${RAID_METRIC_LABELS[metric]}`}
+							key={d}
+							label={`${difficultyLabel(d)} ${RAID_METRIC_LABELS[metric]}`}
 							status={s.collection}
 						/>
 					))}
 				</div>
 			)}
-			<div className="dash-table-scroll">
+			<div className="dash-table-scroll" id={bodyId} hidden={!expanded}>
 				<table
 					className="dash-table dash-boss-table"
-					aria-label={`${row.character.name} ${spec.specName} ${RAID_METRIC_LABELS[metric]} 우두머리별 영웅·신화 기록`}
+					aria-label={`${row.character.name} ${specName} ${RAID_METRIC_LABELS[metric]} 우두머리별 영웅·신화 기록`}
 				>
 					<colgroup>
 						<col className="dash-w-boss" />
@@ -440,7 +487,7 @@ function SpecBossCard({
 						</tr>
 						<tr className="dash-subhead">
 							{DIFFICULTIES.flatMap((d) =>
-								["최고", "중앙", "처치", rateLabel(metric)].map((label, i) => (
+								["최고", "중앙", "처치 횟수", rateLabel(metric)].map((label, i) => (
 									<th
 										key={`${d}-${label}`}
 										scope="col"
@@ -463,9 +510,9 @@ function SpecBossCard({
 											<small className="dash-boss-group">{group}</small>
 										)}
 									</th>
-									{sections.map((s) => (
+									{sections.map((s, i) => (
 										<BossCells
-											key={s.difficulty}
+											key={DIFFICULTIES[i]}
 											data={s}
 											row={s.rows.find((r) => r.bossName === name)}
 											url={url}
@@ -483,6 +530,12 @@ function SpecBossCard({
 
 // ── Tab ──────────────────────────────────────────────────────
 
+/** Raid anchors are lower-case ids; links and shared URLs may differ in case. */
+function raidAnchor(hash: string): string | null {
+	const id = hash.replace(/^#/, "").toLowerCase();
+	return id === "raid-summary" || /^raid-character-\d+$/.test(id) ? id : null;
+}
+
 export function RaidLogTab({
 	snapshot,
 	mobile,
@@ -495,6 +548,45 @@ export function RaidLogTab({
 	const [patchId, setPatchId] = useState<number | null>(() => patches[0]?.id ?? null);
 	const rows = useMemo(() => specRows(snapshot.characters), [snapshot.characters]);
 	const encounters = raidEncounters(snapshot);
+	// Mobile only: boss cards start folded; these row keys are unfolded.
+	const [openCards, setOpenCards] = useState<ReadonlySet<string>>(() => new Set());
+	const [scrollTarget, setScrollTarget] = useState<{ id: string } | null>(null);
+
+	/** Unfold the anchored character's cards, then scroll there once they have rendered. */
+	const reveal = useCallback(
+		(anchor: string | null) => {
+			if (!anchor) return;
+			const index = Number(anchor.match(/^raid-character-(\d+)$/)?.[1] ?? Number.NaN);
+			if (Number.isInteger(index)) {
+				const keys = rows.filter((row) => row.characterIndex === index).map((row) => row.key);
+				setOpenCards((current) =>
+					keys.every((key) => current.has(key)) ? current : new Set([...current, ...keys]),
+				);
+			}
+			setScrollTarget({ id: anchor });
+		},
+		[rows],
+	);
+	// The browser's own anchor jump runs before this tab renders, so direct entries are handled here.
+	useEffect(() => {
+		reveal(raidAnchor(window.location.hash));
+		const onHash = () => reveal(raidAnchor(window.location.hash));
+		window.addEventListener("hashchange", onHash);
+		return () => window.removeEventListener("hashchange", onHash);
+	}, [reveal]);
+	useEffect(() => {
+		if (!scrollTarget) return;
+		const frame = window.requestAnimationFrame(() =>
+			document.getElementById(scrollTarget.id)?.scrollIntoView({ block: "start" }),
+		);
+		return () => window.cancelAnimationFrame(frame);
+	}, [scrollTarget]);
+	const toggleCard = (key: string) =>
+		setOpenCards((current) => {
+			const next = new Set(current);
+			if (!next.delete(key)) next.add(key);
+			return next;
+		});
 
 	return (
 		<section className="dash-raid" aria-label="레이드 로그">
@@ -561,7 +653,9 @@ export function RaidLogTab({
 			<div className="dash-toolbar dash-section-gap">
 				<h2>보스별 기록</h2>
 				<span className="dash-toolbar-hint">
-					최고 백분위를 누르면 해당 보스의 WCL 기록이 열립니다
+					{mobile
+						? "보스 표 펼치기를 누르면 보스별 기록이 보입니다. 최고 백분위를 누르면 WCL 기록이 열립니다"
+						: "최고 백분위를 누르면 해당 보스의 WCL 기록이 열립니다"}
 				</span>
 			</div>
 			<nav className="dash-char-nav" aria-label="캐릭터 보스별 기록 바로가기">
@@ -570,6 +664,8 @@ export function RaidLogTab({
 						key={character.name}
 						href={`#raid-character-${index}`}
 						style={{ color: CLASS_COLORS[character.class] }}
+						// The same hash twice fires no hashchange, so unfold here as well.
+						onClick={() => reveal(`raid-character-${index}`)}
 					>
 						{character.name}
 					</a>
@@ -591,6 +687,9 @@ export function RaidLogTab({
 								row={row}
 								damageMetric={damageMetric}
 								encounters={encounters}
+								collapsible={mobile}
+								open={openCards.has(row.key)}
+								onToggle={() => toggleCard(row.key)}
 							/>
 						))}
 				</section>

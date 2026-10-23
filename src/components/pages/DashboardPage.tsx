@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { displayWarning } from "../../lib/collection-messages.js";
 import { gameName, raidGroups } from "../../lib/ko.js";
 import { raidEncounters } from "../../lib/raid-overview.js";
@@ -46,8 +46,17 @@ export function DashboardPage({
 		window.addEventListener("hashchange", onHash);
 		return () => window.removeEventListener("hashchange", onHash);
 	}, []);
+	// A tab switch starts the new tab at the tab bar instead of mid-page; a page already above it stays.
+	const tabsAnchor = useRef<HTMLDivElement>(null);
 	const tabButtons = useRef<Partial<Record<DashboardTab, HTMLButtonElement | null>>>({});
+	const [tabSwitches, setTabSwitches] = useState(0);
+	useLayoutEffect(() => {
+		if (!tabSwitches || !tabsAnchor.current) return;
+		const top = tabsAnchor.current.getBoundingClientRect().top + window.scrollY;
+		if (window.scrollY > top) window.scrollTo({ top });
+	}, [tabSwitches]);
 	const selectTab = (next: DashboardTab) => {
+		if (next !== tab) setTabSwitches((n) => n + 1);
 		setTab(next);
 		try {
 			window.history.replaceState(null, "", `#${next}`);
@@ -164,6 +173,7 @@ export function DashboardPage({
 				</details>
 			)}
 
+			<div className="dash-tabs-anchor" ref={tabsAnchor} />
 			<nav className="dash-tabs">
 				<div role="tablist" aria-label="대시보드 보기" onKeyDown={onTabKey}>
 					{DASHBOARD_TABS.map((entry) => (

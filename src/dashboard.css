@@ -1254,6 +1254,15 @@
 
 /* ── Stage 4 usability: targets, focus, scroll offsets, notices ── */
 
+/* Anchors land below the sticky tab bar. */
+.dash-tabs-anchor {
+	height: 0;
+}
+.dash #raid-summary,
+.dash .dash-raid-character {
+	scroll-margin-top: 88px;
+}
+
 /* Interactive text keeps a 24×24px target without changing the table row rhythm. */
 .dash .dash-sort {
 	display: inline-flex;
@@ -1333,4 +1342,75 @@
 	clip: rect(0 0 0 0);
 	clip-path: inset(50%);
 	white-space: nowrap;
+}
+
+/* Mobile boss cards: the summary header stays, the boss table folds. */
+.dash .dash-boss-toggle {
+	all: unset;
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 44px;
+	padding: 0 14px;
+	border: 1px solid var(--dash-border-strong);
+	border-radius: 8px;
+	background: var(--dash-panel-2);
+	color: var(--dash-accent);
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+}
+.dash .dash-boss-toggle:hover {
+	border-color: var(--dash-accent);
+}
+.dash .dash-boss-toggle:focus-visible {
+	outline: 2px solid var(--dash-accent);
+	outline-offset: 2px;
+}
+.dash-boss-toggle-mark {
+	width: 8px;
+	height: 8px;
+	border-right: 2px solid currentColor;
+	border-bottom: 2px solid currentColor;
+	transform: translateY(-2px) rotate(45deg);
+}
+.dash-boss-toggle[aria-expanded="true"] .dash-boss-toggle-mark {
+	transform: translateY(2px) rotate(-135deg);
+}
+.dash-boss-card .dash-table-scroll[hidden] {
+	display: none;
+}
+@media (max-width: 767px) {
+	.dash #raid-summary,
+	.dash .dash-raid-character {
+		scroll-margin-top: 64px;
+	}
+	.dash .dash-boss-card.is-collapsible {
+		margin-bottom: 10px;
+		border: 1px solid var(--dash-border);
+		border-radius: 10px;
+		background: var(--dash-panel);
+	}
+	.dash .dash-boss-card.is-collapsible .dash-boss-card-header {
+		gap: 8px 12px;
+		padding: 10px 12px;
+	}
+	.dash .dash-boss-card.is-collapsible .dash-collection {
+		padding: 0 12px 8px;
+	}
+	.dash .dash-boss-card.is-collapsible:not(.is-collapsed) .dash-table-scroll {
+		padding: 0 8px 10px;
+	}
+	.dash .dash-boss-card.is-collapsible .dash-boss-card-links {
+		width: 100%;
+	}
+	.dash .dash-boss-card.is-collapsible .dash-boss-toggle {
+		flex: 1;
+		justify-content: center;
+	}
+	.dash .dash-boss-card.is-collapsible .dash-boss-card-links a {
+		min-height: 44px;
+		padding: 0 14px;
+	}
 }
