@@ -1,5 +1,5 @@
 import type { RaidDifficulty, RaidMetric, Snapshot } from "../types/snapshot.js";
-import { primaryRaidMetric, scopedAllStars } from "./all-stars.js";
+import { primaryRaidMetric, raidPatchLabel, scopedAllStars } from "./all-stars.js";
 
 export function summaryMetric(slug: string, damageMetric: "dps" | "bossdps"): RaidMetric {
 	return primaryRaidMetric(slug) === "hps" ? "hps" : damageMetric;
@@ -65,4 +65,38 @@ export function selectedSummaryStar(
 		spec.specName,
 	).filter((star) => star.partition === patchId);
 	return entries.length === 1 ? entries[0] : undefined;
+}
+
+/**
+ * Why the selected patch shows no All Stars value: the spec has entries only in other patches,
+ * none at all, or the section was not (successfully) collected. Undefined when a value is shown.
+ */
+export function summaryStarMissingNote(
+	snapshot: Snapshot,
+	characterIndex: number,
+	slug: string,
+	metric: RaidMetric,
+	difficulty: RaidDifficulty,
+	patchId: number | null,
+): string | undefined {
+	const spec = snapshot.characters[characterIndex]?.specs[slug];
+	if (!spec || patchId === null) return undefined;
+	const section = spec.raidPerformance?.[metric]?.[difficulty];
+	const entries = scopedAllStars(section, spec.specName);
+	const selected = entries.filter((star) => star.partition === patchId);
+	if (selected.length) return undefined;
+	const others = [
+		...new Set(
+			entries.map((star) =>
+				raidPatchLabel(snapshot.raid?.id, star.partition, snapshot.raidPatchMetadata),
+			),
+		),
+	];
+	if (others.length) return `이 패치 기록 없음 · ${others.join(", ")}에 있음`;
+	const state = section?.collection.state;
+	if (state === "failed" || state === "partial") return "All Stars 조회 실패";
+	// A TTL skip that kept real rows is retained data, not "not fetched" (same rule as rowRaid).
+	if (!section || (state === "skipped" && section.rows.every((r) => r.state === "unavailable")))
+		return "All Stars 미조회";
+	return "이 패치 기록 없음";
 }

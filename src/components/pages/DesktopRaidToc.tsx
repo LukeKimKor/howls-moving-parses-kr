@@ -40,7 +40,7 @@ export function DesktopRaidToc({ characters }: { characters: CharacterData[] }) 
 		<nav className="desktop-raid-toc" aria-label="공격대 성적 목차">
 			<span className="desktop-toc-title">내캐릭 로그관리</span>
 			<a href="#raid-summary" aria-current={active === "raid-summary" ? "location" : undefined}>
-				종합 요약
+				레이드 요약
 			</a>
 			<div className="desktop-toc-characters">
 				{characters.map((character, index) => {

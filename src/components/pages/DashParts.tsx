@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { starPoints, starRank } from "../../lib/all-stars.js";
+import { collectionTime } from "../../lib/collection-messages.js";
 import { classLabel, difficultyLabel, specLabel } from "../../lib/ko.js";
 import type { KillProgress } from "../../lib/raid-overview.js";
 import {
@@ -77,7 +78,13 @@ export function KillValue({ progress }: { progress: KillProgress | undefined }) 
 	const { killed, total, state, difficulty, known } = progress;
 	if (!known) return <span className="dash-empty">{missingRaidLabel(state)}</span>;
 	const partial = state === "partial" || state === "failed";
-	const title = `${difficultyLabel(difficulty)} 우두머리 ${total}개 중 ${killed}개 처치${partial ? " · 일부 조회 실패로 실제보다 적을 수 있음" : ""}`;
+	// Kept after a failed/partial/deferred refresh: say so on screen, not only in the tooltip.
+	const mark = !progress.retained ? null : state === "partial" ? "일부 실패" : "이전 기록";
+	const markTitle =
+		state === "partial"
+			? "최근 조회가 일부 실패해 실제보다 적을 수 있음"
+			: `최근 조회 실패·보류로 이전 기록 표시${progress.retainedAt ? ` (${collectionTime(progress.retainedAt)})` : ""}`;
+	const title = `${difficultyLabel(difficulty)} 우두머리 ${total}개 중 ${killed}개 처치${partial ? " · 일부 조회 실패로 실제보다 적을 수 있음" : ""}${mark ? ` · ${markTitle}` : ""}`;
 	const tone = killed === total ? " dash-kills-full" : killed === 0 ? " dash-kills-none" : "";
 	return (
 		<span className={`dash-kills${tone}`} title={title}>
@@ -91,6 +98,11 @@ export function KillValue({ progress }: { progress: KillProgress | undefined }) 
 					<span key={i} className={i < killed ? "is-killed" : undefined} />
 				))}
 			</span>
+			{mark && (
+				<span className="dash-stale-mark" title={markTitle}>
+					{mark}
+				</span>
+			)}
 		</span>
 	);
 }
@@ -174,11 +186,28 @@ export function Segment<T extends string>({
 	);
 }
 
+/**
+ * "—" for a missing All Stars value, with the reason (e.g. no entry for the selected patch)
+ * as a tooltip and for screen readers, so it is not mistaken for a failed collection.
+ */
+function StarMissing({ note }: { note?: string }) {
+	if (!note) return <span className="dash-empty">—</span>;
+	return (
+		<span className="dash-empty" title={note}>
+			<span aria-hidden="true">—</span>
+			<span className="dash-sr-only">{note}</span>
+		</span>
+	);
+}
+
 /** All Stars points in WCL's fixed points colour. */
-export function StarPointsValue({ value }: { value: number | null | undefined }) {
+export function StarPointsValue({
+	value,
+	missingNote,
+}: { value: number | null | undefined; missingNote?: string }) {
 	const text = starPoints(value);
 	return text === "—" ? (
-		<span className="dash-empty">—</span>
+		<StarMissing note={missingNote} />
 	) : (
 		<span className="wcl-points">{text}</span>
 	);
@@ -189,13 +218,15 @@ export function StarRankValue({
 	rank,
 	rankPercent,
 	total,
+	missingNote,
 }: {
 	rank: number | null | undefined;
 	rankPercent?: number | null;
 	total?: number | null;
+	missingNote?: string;
 }) {
 	const text = starRank(rank);
-	if (text === "—") return <span className="dash-empty">—</span>;
+	if (text === "—") return <StarMissing note={missingNote} />;
 	if (rankPercent == null || !Number.isFinite(rankPercent))
 		return (
 			<span className="dash-rank-plain" title="다음 WCL 수집 후 색상이 표시됩니다">

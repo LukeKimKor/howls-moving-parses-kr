@@ -221,19 +221,19 @@ describe("overview tab", () => {
 		render(<DashboardPage snapshot={data} />);
 		const row = rowFor(`${first.name}/${first.mainSpecSlug}`);
 		const cell = (label: string) => row.querySelector(`[data-label="${label}"]`) as HTMLElement;
-		expect(cell("영웅 처치").textContent).toBe("1/2");
-		expect(cell("신화 처치").textContent).toBe("0/2");
+		expect(cell("영웅 처치 보스").textContent).toBe("1/2");
+		expect(cell("신화 처치 보스").textContent).toBe("0/2");
 		expect(within(cell("신화 최고")).getByText("기록 없음")).toBeInTheDocument();
 		// The kill column sits before 최고 in both difficulty groups.
 		const labels = [...row.querySelectorAll("[data-label]")].map((td) =>
 			td.getAttribute("data-label"),
 		);
-		expect(labels.indexOf("영웅 처치")).toBe(labels.indexOf("영웅 최고") - 1);
-		expect(labels.indexOf("신화 처치")).toBe(labels.indexOf("신화 최고") - 1);
+		expect(labels.indexOf("영웅 처치 보스")).toBe(labels.indexOf("영웅 최고") - 1);
+		expect(labels.indexOf("신화 처치 보스")).toBe(labels.indexOf("신화 최고") - 1);
 		// A spec with nothing collected says why instead of showing 0.
 		const second = data.characters[1] as CharacterData;
 		const secondRow = rowFor(`${second.name}/${second.mainSpecSlug}`);
-		expect(secondRow.querySelector('[data-label="영웅 처치"]')?.textContent).toBe("미조회");
+		expect(secondRow.querySelector('[data-label="영웅 처치 보스"]')?.textContent).toBe("미조회");
 		// Same count as the raid log card for this spec.
 		fireEvent.click(screen.getByRole("tab", { name: /레이드 로그/ }));
 		const card = screen.getByRole("article", {
@@ -413,6 +413,71 @@ describe("raid and Mythic+ tabs", () => {
 		const rowB = within(table).getByRole("row", { name: /Boss B/ });
 		expect(within(rowB).getAllByText("미처치").length).toBeGreaterThan(0);
 		expect(screen.getAllByRole("table", { name: /앙귀태 .* 우두머리별/ })).toHaveLength(2);
+	});
+});
+
+describe("status marks", () => {
+	it("marks kill counts kept after a failed refresh on the overview", () => {
+		const data = withData();
+		data.raid = { id: 53, name: "Synthetic raid", encounters: [{ id: 1, name: "Boss A" }] };
+		const first = data.characters[0] as CharacterData;
+		const mythic = first.specs[first.mainSpecSlug]?.raidPerformance?.dps?.Mythic;
+		if (!mythic) throw new Error("fixture");
+		mythic.collection = {
+			...ok,
+			issues: [],
+			state: "failed",
+			retainedAt: "2026-10-18T00:00:00Z",
+		};
+		mythic.rows = [bossRow(1, "Boss A", "no-kills")];
+		render(<DashboardPage snapshot={data} />);
+		const cell = rowFor(`${first.name}/${first.mainSpecSlug}`).querySelector(
+			'[data-label="신화 처치 보스"]',
+		) as HTMLElement;
+		expect(within(cell).getByText("0")).toBeInTheDocument();
+		expect(within(cell).getByText("이전 기록")).toBeInTheDocument();
+		// A fresh success has no mark.
+		const heroic = rowFor(`${first.name}/${first.mainSpecSlug}`).querySelector(
+			'[data-label="영웅 처치 보스"]',
+		) as HTMLElement;
+		expect(within(heroic).queryByText("이전 기록")).not.toBeInTheDocument();
+	});
+
+	it("explains a blank All Stars value when the spec only has another patch", () => {
+		const data = withData();
+		data.raid = { id: 53, name: "Synthetic raid", encounters: [] };
+		data.raidPatchMetadata = {
+			zoneId: 53,
+			source: "WCL API worldData.zone.partitions",
+			checkedAt: "2026-10-18T00:00:00Z",
+			partitions: [
+				{ id: 1, name: "12.1", compactName: "12.1", default: false },
+				{ id: 2, name: "12.1.5", compactName: "12.1.5", default: true },
+				{ id: 3, name: "12.2", compactName: "12.2", default: false },
+			],
+		} as unknown as Snapshot["raidPatchMetadata"];
+		render(<DashboardPage snapshot={data} />);
+		const first = data.characters[0] as CharacterData;
+		const cell = rowFor(`${first.name}/${first.mainSpecSlug}`).querySelector(
+			'[data-label="영웅 점수"]',
+		) as HTMLElement;
+		// 12.2 is the newest patch; this spec has entries for 12.1 and 12.1.5 only.
+		expect(cell.querySelector("[title]")).toHaveAttribute(
+			"title",
+			"이 패치 기록 없음 · 12.1.5, 12.1에 있음",
+		);
+		expect(within(cell).getByText("이 패치 기록 없음 · 12.1.5, 12.1에 있음")).toHaveClass(
+			"dash-sr-only",
+		);
+	});
+
+	it("shows a dash instead of 0.0 when no item level is known", () => {
+		const data = withData();
+		for (const character of data.characters)
+			for (const spec of Object.values(character.specs)) spec.gear = undefined;
+		render(<DashboardPage snapshot={data} />);
+		expect(screen.getByText("최고 —")).toBeInTheDocument();
+		expect(screen.queryByText("최고 0.0")).not.toBeInTheDocument();
 	});
 });
 

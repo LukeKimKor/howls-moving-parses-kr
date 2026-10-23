@@ -6,7 +6,11 @@ import {
 	raidEncounters,
 	specKillProgress,
 } from "../../lib/raid-overview.js";
-import { selectedSummaryStar, summaryPatchOptions } from "../../lib/raid-summary.js";
+import {
+	selectedSummaryStar,
+	summaryPatchOptions,
+	summaryStarMissingNote,
+} from "../../lib/raid-summary.js";
 import { characterProfileUrl } from "../../lib/regions.js";
 import {
 	type DamageMetric,
@@ -49,11 +53,11 @@ const SORT_LABELS: Record<RowSortKey, string> = {
 	heroic: "영웅 최고",
 	heroicMedian: "영웅 중앙",
 	heroicPoints: "영웅 All Stars 점수",
-	heroicKills: "영웅 처치 수",
+	heroicKills: "영웅 처치 보스 수",
 	mythic: "신화 최고",
 	mythicMedian: "신화 중앙",
 	mythicPoints: "신화 All Stars 점수",
-	mythicKills: "신화 처치 수",
+	mythicKills: "신화 처치 보스 수",
 };
 
 type StarLookup = (
@@ -67,6 +71,9 @@ type StarLookup = (
 			total?: number | null;
 	  }
 	| undefined;
+
+/** Why All Stars is blank for the selected patch (shown as a tooltip on "—"). */
+type StarNoteLookup = (row: SpecRow, difficulty: RaidDifficulty) => string | undefined;
 
 type KillLookup = (row: SpecRow, difficulty: RaidDifficulty) => KillProgress | undefined;
 
@@ -122,11 +129,13 @@ function RoleTable({
 	onSort,
 	maxScore,
 	star,
+	starNote,
 	kills,
 	zoneId,
 }: {
 	zoneId?: number;
 	star: StarLookup;
+	starNote: StarNoteLookup;
 	kills: KillLookup;
 	role: SpecRole;
 	rows: SpecRow[];
@@ -187,7 +196,7 @@ function RoleTable({
 								className="dash-num dash-heroic dash-group-start dash-col-kills"
 								{...sortProps}
 							>
-								처치
+								처치 보스
 							</SortHeader>
 							<SortHeader sortKey="heroic" className="dash-num dash-heroic" {...sortProps}>
 								최고
@@ -206,7 +215,7 @@ function RoleTable({
 								className="dash-num dash-mythic dash-group-start dash-col-kills"
 								{...sortProps}
 							>
-								처치
+								처치 보스
 							</SortHeader>
 							<SortHeader sortKey="mythic" className="dash-num dash-mythic" {...sortProps}>
 								최고
@@ -279,7 +288,7 @@ function RoleTable({
 									</td>
 									<td
 										className="dash-num dash-heroic dash-group-start dash-col-kills"
-										data-label="영웅 처치"
+										data-label="영웅 처치 보스"
 									>
 										<KillValue progress={heroicKills} />
 									</td>
@@ -290,18 +299,22 @@ function RoleTable({
 										<PctValue value={heroic.median} state={heroic.state} />
 									</td>
 									<td className="dash-num dash-heroic" data-label="영웅 점수">
-										<StarPointsValue value={heroicStar?.points} />
+										<StarPointsValue
+											value={heroicStar?.points}
+											missingNote={starNote(row, "Heroic")}
+										/>
 									</td>
 									<td className="dash-num dash-heroic" data-label="영웅 순위">
 										<StarRankValue
 											rank={heroicStar?.rank}
 											rankPercent={heroicStar?.rankPercent}
 											total={heroicStar?.total}
+											missingNote={starNote(row, "Heroic")}
 										/>
 									</td>
 									<td
 										className="dash-num dash-mythic dash-group-start dash-col-kills"
-										data-label="신화 처치"
+										data-label="신화 처치 보스"
 									>
 										<KillValue progress={mythicKills} />
 									</td>
@@ -312,13 +325,17 @@ function RoleTable({
 										<PctValue value={mythic.median} state={mythic.state} />
 									</td>
 									<td className="dash-num dash-mythic" data-label="신화 점수">
-										<StarPointsValue value={mythicStar?.points} />
+										<StarPointsValue
+											value={mythicStar?.points}
+											missingNote={starNote(row, "Mythic")}
+										/>
 									</td>
 									<td className="dash-num dash-mythic" data-label="신화 순위">
 										<StarRankValue
 											rank={mythicStar?.rank}
 											rankPercent={mythicStar?.rankPercent}
 											total={mythicStar?.total}
+											missingNote={starNote(row, "Mythic")}
 										/>
 									</td>
 								</tr>
@@ -343,6 +360,15 @@ export function RosterOverview({
 	const allRows = useMemo(() => specRows(snapshot.characters), [snapshot.characters]);
 	const star: StarLookup = (row, difficulty) =>
 		selectedSummaryStar(
+			snapshot,
+			row.characterIndex,
+			row.slug,
+			row.metric(damageMetric),
+			difficulty,
+			patchId,
+		);
+	const starNote: StarNoteLookup = (row, difficulty) =>
+		summaryStarMissingNote(
 			snapshot,
 			row.characterIndex,
 			row.slug,
@@ -386,6 +412,7 @@ export function RosterOverview({
 	const topScoreChar = topScoreIndex >= 0 ? snapshot.characters[topScoreIndex] : undefined;
 	const maxScore = Math.max(0, ...scores.filter((s): s is number => s !== null));
 	const avgIlvl = average(ilvls);
+	const knownIlvls = ilvls.filter((v): v is number => v !== null);
 	const heroicAvg = average(allRows.map((row) => rowRaid(row, "Heroic", damageMetric).best));
 	const mythicLogged = allRows.filter(
 		(row) => rowRaid(row, "Mythic", damageMetric).best !== null,
@@ -402,7 +429,7 @@ export function RosterOverview({
 				<Kpi
 					label="평균 아이템 레벨"
 					value={avgIlvl === null ? "—" : avgIlvl.toFixed(1)}
-					sub={`최고 ${Math.max(0, ...ilvls.filter((v): v is number => v !== null)).toFixed(1)}`}
+					sub={`최고 ${knownIlvls.length ? Math.max(...knownIlvls).toFixed(1) : "—"}`}
 				/>
 				<Kpi
 					label="최고 쐐기 점수"
@@ -509,6 +536,7 @@ export function RosterOverview({
 						onSort={toggleSort}
 						maxScore={maxScore}
 						star={star}
+						starNote={starNote}
 						kills={kills}
 						zoneId={snapshot.raid?.id}
 					/>
@@ -517,13 +545,14 @@ export function RosterOverview({
 
 			<IlvlLegend />
 			<p className="dash-note">
-				처치는 그 전문화로 처치 기록이 있는 우두머리 수 / 전체 우두머리 수로, 레이드 로그 화면과
-				같은 값입니다. 레이드 값은 WCL 요약 백분위이며, 각 행의 전문화로 기록한 처치만
-				집계합니다(WCL의 전체 전문화 화면과 다를 수 있어요. WCL 링크는 해당 전문화로 걸러서
-				열립니다). 최고는 보스별 최고 기록의 평균, 중앙은 보스별 중앙값의 평균이에요. 딜러는 선택한
-				피해 지표, 힐러는 치유량 기준입니다. 쐐기 점수와 템렙은 캐릭터 전체 값이라 같은 캐릭터의
-				전문화 행에는 같은 값이 표시됩니다. 열 제목을 누르면 정렬됩니다. All Stars 점수·순위는
-				선택한 패치의 WCL 값입니다.
+				처치 보스는 그 전문화로 처치 기록이 있는 우두머리 수 / 전체 우두머리 수로, 레이드 로그
+				카드의 값과 같습니다(보스 표의 처치 횟수와는 다릅니다). 조회 실패로 이전 값을 표시하는
+				칸에는 ‘이전 기록’(일부만 실패하면 ‘일부 실패’)이 붙습니다. 레이드 값은 WCL 요약 백분위이며,
+				각 행의 전문화로 기록한 처치만 집계합니다(WCL의 전체 전문화 화면과 다를 수 있어요. WCL
+				링크는 해당 전문화로 걸러서 열립니다). 최고는 보스별 최고 기록의 평균, 중앙은 보스별
+				중앙값의 평균이에요. 딜러는 선택한 피해 지표, 힐러는 치유량 기준입니다. 쐐기 점수와 템렙은
+				캐릭터 전체 값이라 같은 캐릭터의 전문화 행에는 같은 값이 표시됩니다. 열 제목을 누르면
+				정렬됩니다. All Stars 점수·순위는 선택한 패치의 WCL 값입니다.
 			</p>
 		</section>
 	);

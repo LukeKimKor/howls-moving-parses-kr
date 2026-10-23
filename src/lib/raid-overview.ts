@@ -139,6 +139,13 @@ export interface KillProgress {
 	 * Retained cache keeps state "skipped" but is still real, so a 0 is shown as 0/10, not "미조회".
 	 */
 	known: boolean;
+	/**
+	 * True when a known count comes from data kept after a failed, partial or deferred refresh,
+	 * so the overview can mark it instead of letting it read as a fresh success.
+	 */
+	retained: boolean;
+	/** When the retained data was originally collected, if recorded. */
+	retainedAt?: string;
 }
 
 /**
@@ -154,15 +161,18 @@ export function specKillProgress(
 	const heroic = raidSection(spec, metric, "Heroic", encounters, previousAt);
 	const mythic = raidSection(spec, metric, "Mythic", encounters, previousAt);
 	const total = raidBossNames(encounters, [heroic, mythic]).length;
-	const progress = (section: RaidDifficultyData): KillProgress => ({
-		difficulty: section.difficulty,
-		killed: killedBossCount(section),
-		total,
-		state: section.collection.state,
-		known:
-			section.collection.state === "ok" ||
-			section.collection.state === "empty" ||
-			section.rows.some((r) => r.state !== "unavailable"),
-	});
+	const progress = (section: RaidDifficultyData): KillProgress => {
+		const { state, deferred, retainedAt } = section.collection;
+		return {
+			difficulty: section.difficulty,
+			killed: killedBossCount(section),
+			total,
+			state,
+			known:
+				state === "ok" || state === "empty" || section.rows.some((r) => r.state !== "unavailable"),
+			retained: state === "failed" || state === "partial" || Boolean(deferred),
+			retainedAt,
+		};
+	};
 	return { Heroic: progress(heroic), Mythic: progress(mythic) };
 }

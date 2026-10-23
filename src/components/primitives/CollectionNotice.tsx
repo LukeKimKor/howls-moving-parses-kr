@@ -1,6 +1,20 @@
 import { collectionTime } from "../../lib/collection-messages.js";
 import type { CollectionStatus } from "../../types/snapshot.js";
 
+/**
+ * Failed, partial, deferred and not-yet-fetched results need attention; a successful lookup
+ * (including "no public records" and reusing earlier data within the refresh interval) does not.
+ */
+export function collectionNeedsAttention(status: CollectionStatus): boolean {
+	return (
+		status.state === "failed" ||
+		status.state === "partial" ||
+		status.state === "skipped" ||
+		Boolean(status.deferred) ||
+		status.failedRequests > 0
+	);
+}
+
 export function CollectionNotice({ label, status }: { label: string; status?: CollectionStatus }) {
 	if (!status || (status.state === "ok" && !status.retainedAt)) return null;
 	const text = {
@@ -11,7 +25,9 @@ export function CollectionNotice({ label, status }: { label: string; status?: Co
 		skipped: "미조회",
 	}[status.state];
 	return (
-		<output className="collection-notice">
+		<output
+			className={`collection-notice ${collectionNeedsAttention(status) ? "is-attention" : "is-neutral"}`}
+		>
 			<strong>
 				{label}:{" "}
 				{status.deferred

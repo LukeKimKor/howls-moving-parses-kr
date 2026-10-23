@@ -1251,3 +1251,34 @@
 		max-width: 120px;
 	}
 }
+
+/* ── Stage 4 usability: targets, focus, scroll offsets, notices ── */
+
+/* A successful lookup (no public records, cached data) is routine; failures and deferrals stand out. */
+.dash-collection .collection-notice.is-neutral {
+	border-left-color: var(--dash-border-strong);
+	background: transparent;
+	color: var(--dash-muted);
+}
+
+/* Overview value kept from an earlier collection after a failed or deferred refresh. */
+.dash-stale-mark {
+	display: inline-block;
+	padding: 0 5px;
+	border: 1px solid #b69b5c;
+	border-radius: 4px;
+	color: #e3c27a;
+	font-size: 11px;
+	line-height: 16px;
+	white-space: nowrap;
+}
+
+.dash-sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
