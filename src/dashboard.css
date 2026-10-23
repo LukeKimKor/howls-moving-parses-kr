@@ -1010,7 +1010,7 @@
 	font-size: 13px;
 }
 
-/* Character detail view shares the dashboard background. */
+/* The page background matches the dashboard background. */
 :root[data-theme="dark"] {
 	--pico-background-color: #0b0f16;
 }

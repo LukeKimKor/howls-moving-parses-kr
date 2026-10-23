@@ -141,7 +141,7 @@
 	overflow-wrap: anywhere;
 }
 
-/* The raid overview follows the supplied WCL reference; detail panels keep their existing theme. */
+/* The raid overview follows the supplied WCL reference. */
 .raid-overview {
 	color-scheme: dark;
 	background: #101113;
@@ -1054,10 +1054,6 @@
 		color: #c1cad8;
 		padding: 8px 12px;
 		margin: 0;
-	}
-	.mobile-open-detail {
-		width: 100%;
-		margin-top: 4px;
 	}
 	.mobile-roster > p {
 		font-size: 15px;
