@@ -1,13 +1,23 @@
-# Mobile raid overview
+# 모바일 화면 (767px 이하)
 
-At viewport widths up to 767px, the overview mounts a focused mobile interface. Wider viewports retain the existing full roster table and all 52 raid panels.
+2026-10-23 기준 실제 동작이다. 예전 모바일 전용 레이드 화면(캐릭터·난이도 선택, 이전/다음 버튼, 보스별 접기)은 2026-10-19 레이드 로그 탭 재구성 때 없어졌고, 아래 구성으로 대신한다. 데스크톱(768px 이상)은 이 문서의 접기 동작과 관계없이 모든 보스 카드를 펼친 채로 보여 주고, 1440px 이상에서는 오른쪽 고정 목차를 둔다.
 
-- Sticky controls select a character, Heroic/Mythic, and Damage/Damage to Bosses. Healers automatically show Healing. Previous/next character buttons and the full thirteen-character selector avoid scrolling through the entire roster.
-- A separate compact roster tab shows all thirteen characters, fourteen tracked specs, and actual Best/Median summary percentiles for the chosen difficulty and damage metric. Healers are explicitly labelled Healing. Selecting a character returns to that character's performance.
-- Each boss initially shows its name and Best/Median percentiles. A 44px-or-larger control expands Highest DPS/HPS, Kills, Fastest, All Stars points/rank, spec and the original WCL link. Expand/collapse all is also available. No data columns are removed.
-- Failed, deferred, retained, empty and explicit zero-kill rows remain distinct. All Stars, partitions and collection details remain available in an expandable section. No missing values become zero or fabricated records.
-- Filters scroll the selected result back below the sticky controls. Returning from the original detailed dashboard retains the selected character. Collection schedules and notices remain accessible in compact disclosure controls. _(2026-10-23 상세 페이지 제거 전 기록 — 현재 구성은 [docs/admin-guidelines.md](admin-guidelines.md) 참고)_
+## 공통
 
-The browser QA uses the retained actual run #5 snapshot without provider requests. At 360, 390 and 430px: one active panel, thirteen summary cards/fourteen specs, no body or roster horizontal overflow, no touch targets under 44px, working all-boss disclosure, healer/DH switching and detail return. At 1440 and 1920px: all original panels, all 520 boss rows, identical paired boundaries and Damage to Bosses starting positions. Screenshots and measured results are retained locally under `verification/`. _(2026-10-23 상세 페이지 제거 전 기록 — 현재 구성은 [docs/admin-guidelines.md](admin-guidelines.md) 참고)_
+- 탭 세 개(종합 현황 / 레이드 로그 / 쐐기)는 화면 위에 고정된다. 탭을 바꾸면 새 탭이 탭 목록 바로 아래에서 시작한다(이미 그 위에 있으면 스크롤하지 않는다).
+- 표는 행마다 카드로 바뀌고 각 값 위에 열 이름이 붙는다. 가로 스크롤은 없다.
+- 클릭·터치 요소는 최소 24×24px이다. 보스 표 펼치기 버튼과 보스 카드의 WCL 링크는 높이 44px이다.
 
-The UI uses the already verified WCL image source; it does not replace it with another CDN. See [icon verification](spec-icons.md). Collection code, schedule, credentials and deployment workflow are unaffected by this mobile change.
+## 레이드 로그 탭
+
+- 레이드 요약 표(역할별)는 데스크톱과 같은 값을 카드로 보여 준다.
+- **보스 카드는 처음에 접혀 있다.** 카드마다 머리줄(캐릭터, 전문화, 영웅·신화 처치 보스 수와 최고 % 평균, 피해 지표)과 WCL 링크, `보스 표 펼치기` 버튼만 보인다. 버튼을 누르면 그 카드의 보스 표(보스별 최고·중앙·처치 횟수·초당 수치)가 펼쳐지고, 다시 누르면 접힌다. 버튼은 `aria-expanded`/`aria-controls`로 상태를 알린다.
+- 값은 숨기기만 하고 빼지 않는다. 앙귀태 파멸·포식은 각각 별도 카드로 같은 방식으로 접힌다.
+- 조회 실패·일부 실패·갱신 보류·미조회 안내는 접힌 상태에서도 카드에 보인다. "조회 완료 · 공개 기록 없음" 같은 정상 안내는 보스 표와 함께 접힌다(경고색이 아닌 보조색).
+- 위쪽 캐릭터 바로가기 링크를 누르거나 `#raid-character-N` 주소로 들어오면 그 캐릭터의 카드가 모두 펼쳐지고 그 위치(고정 탭 아래)로 스크롤된다. `#raid-summary`로 들어오면 레이드 요약으로 스크롤된다. 주소의 대소문자는 구분하지 않는다.
+- 페이지 높이(공개 스냅샷, 390px): 모두 펼친 예전 화면 31,955px → 접힌 기본 화면 7,312px. 모든 카드를 펼치면 32,528px(펼치기 버튼만큼 늘어남).
+
+## 종합 현황·쐐기 탭
+
+- 종합 현황 카드는 난이도마다 `처치 보스` 줄(처치 보스 수 / 전체 보스 수)이 맨 앞에 온다. 조회 실패·보류로 이전 값을 보여 주는 칸에는 `이전 기록`(일부만 실패하면 `일부 실패`) 표시가 붙는다.
+- 쐐기 탭은 캐릭터별 카드에 점수·순위와 던전별 최고 단수를 보여 준다.
